@@ -21,7 +21,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "d4b65fe016d1d5ef72c8290a67b42ffe5b6adad96460291e154117e97ad16789"
+    "sha256": "1aabbd0322e7efa275ae45ca78c7a2cfe63d83bdb18499fa01f0449e2fcd41a5"
   },
   {
     "path": "RIGHTS.md",
@@ -37,7 +37,7 @@
   },
   {
     "path": "VALIDATION.md",
-    "sha256": "b700f51b5844bba2928c7d0dd381c0617d10170d66303fb04ffaafdc5bbe21b9"
+    "sha256": "526031da76dcbd63fe155dc5672c9dc8c8c6fc756cd94ae56358d18a58e680db"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -186,6 +186,10 @@
   {
     "path": "requirements.txt",
     "sha256": "97e5b9692df4855793cb66a51f88ab594a538e2d16c2cbb18f58b86e7d36df41"
+  },
+  {
+    "path": "reset.cmd",
+    "sha256": "adf979c85459f66343770b0ac5b0f07b3f2e135aed101c178baadc4847c35ea9"
   },
   {
     "path": "run-roe-2022.cmd",
@@ -580,6 +584,10 @@
     "sha256": "9d24c6857aaaeb02839ad116a54d78d56c2b0a10d152ceae91d588e5cce1cf1d"
   },
   {
+    "path": "tests/test_reset_local_2022.py",
+    "sha256": "607689b8aa64cfd19ca464244d0d1197ad212dc0ebfd89b60ad7ba4acdf44f74"
+  },
+  {
     "path": "tests/test_roe_clock_2022.py",
     "sha256": "b8e1a9e8136b305a999052e0df2992d2a8af2274285faa4438e39bca48c6f803"
   },
@@ -685,7 +693,7 @@
   },
   {
     "path": "tools/bootstrap.ps1",
-    "sha256": "ce8711ab55a88569cbd39802c407ede8e3513ced9f291d04fb81b7c5eaaf8a8c"
+    "sha256": "69163da2d8d45c70fad473080b8b2fb6cd8ea877b0b37e854af636bd13f8685a"
   },
   {
     "path": "tools/climb_practice_2022.py",
@@ -693,11 +701,11 @@
   },
   {
     "path": "tools/debug_console_2022.py",
-    "sha256": "2584410e3a46cf437af984db778626fbeb17a12169eff32df9fb8d04e08cfb60"
+    "sha256": "ed6f80a295b5bea30ef0cc32ce5dc28be4f5f9a300f63f460b3d98b0592a2833"
   },
   {
     "path": "tools/ensure_firewall.ps1",
-    "sha256": "eb26a43b3308ede6709356350a0b51dce3956c48caf5a6471ca468df6657d7d9"
+    "sha256": "1898cd958b7a74522e025f0ea6c74c98ddd157fb8eba9ebc1590057a74d96152"
   },
   {
     "path": "tools/entity_status_action_2022.py",
@@ -744,6 +752,10 @@
     "sha256": "35c22c470a88e3154fb0d369e1be64c3f28951a4008c6c85a5e51aacc37324ce"
   },
   {
+    "path": "tools/local_session.ps1",
+    "sha256": "3533556fab095438d2be6722ad72607a0866498df58a72b14b1104bd6b5e4842"
+  },
+  {
     "path": "tools/match_pacing_2022.py",
     "sha256": "fbcb3a6881896244a780cc06e5ac059003f992431a9c5090373ba45464230cc2"
   },
@@ -758,6 +770,10 @@
   {
     "path": "tools/replay_ballistics_2022.py",
     "sha256": "4960f5a0b1d04d2a2adafc11d4b45f468d5e6bff50509d4a290530216cc66cb1"
+  },
+  {
+    "path": "tools/reset_local.ps1",
+    "sha256": "6b6c650d03e2d0dcd9a5f5a2b72633c466d230f96ed9fc27647c983232ca917d"
   },
   {
     "path": "tools/roe_clock_2022.py",

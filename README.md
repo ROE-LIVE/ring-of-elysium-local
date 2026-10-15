@@ -36,6 +36,29 @@ Start with the [smoke test](SMOKE-TEST.md), then use the [full W16 checklist](WI
 
 After closing the game, run `export-report.cmd`. It creates a compact report under `reports/`, excluding keys and raw packets. Share that folder with a description of your actions; do not publish the full `runs` folder. Supporting documentation is currently mainly in Russian.
 
+## Reset and reinstall
+
+Close the game and its launcher, then run:
+
+```powershell
+git pull --ff-only
+.\reset.cmd
+.\play.cmd
+```
+
+`reset.cmd` removes only this client's local firewall rule group, receipt-tracked launcher debug files, generated lobby build files, and the extracted region cache. The next `play.cmd` rebuilds the emulator. Game EXE/DLL/resource archives, game settings, saved client path, local profiles, installed dependencies, and `runs`/`reports` are preserved. A running launcher blocks reset; UAC may be requested to remove firewall rules.
+
+For a fresh local profile and dependency installation:
+
+```powershell
+.\reset.cmd -FreshProfile -ReinstallDependencies
+.\play.cmd
+```
+
+`-FreshProfile` deletes all emulator profiles and saved cosmetic choices; it does not delete the game's UserData. `-ReinstallDependencies` removes the repository's downloaded Python, .NET, and installer cache so the next launch installs them again. Both options are off by default. Use `-Client "G:\REsearch\Ring of Elysium-2022"` to reset another client path.
+
+Cleanup receipts are written by this version of the launcher. Unknown or modified files, and older leftovers without ownership records, are preserved. Reset does not restore earlier game settings or caches written by the game itself; no client backup is made. It does not discard source-code changes or change Git versions.
+
 ## Community and development
 
 Join the [Discord community](https://discord.gg/pD2Bj5kAxk) to discuss tests and research.
@@ -78,6 +101,29 @@ Bootstrap устанавливает Python и .NET8 SDK локально в `.t
 После закрытия игры выполните `export-report.cmd`: он создаёт компактный отчёт в `reports/`, исключая ключи и сырые пакеты. Передавайте эту папку и описание действий; полную папку `runs` не публикуйте.
 
 Исследовательский комплект находится рядом: [ring-of-elysium-research](https://github.com/ROE-LIVE/ring-of-elysium-research). Для изменения кода читайте [CONTRIBUTING.md](CONTRIBUTING.md), происхождение и лицензирование — [RIGHTS.md](RIGHTS.md). Все сервисы штатного одиночного сценария слушают localhost.
+
+## Сброс и повторная установка
+
+Закройте игру и окно launcher, затем выполните:
+
+```powershell
+git pull --ff-only
+.\reset.cmd
+.\play.cmd
+```
+
+`reset.cmd` удаляет только локальную группу правил firewall для выбранного клиента, собственные debug-файлы по квитанциям, результаты сборки лобби и извлечённый кэш регионов. Следующий `play.cmd` заново собирает эмулятор. EXE/DLL/архивы игры, игровые настройки, сохранённый путь, локальные профили, зависимости и папки `runs`/`reports` сохраняются. При работающем launcher сброс блокируется; для удаления правил firewall может потребоваться UAC.
+
+Для чистого локального профиля и переустановки зависимостей:
+
+```powershell
+.\reset.cmd -FreshProfile -ReinstallDependencies
+.\play.cmd
+```
+
+`-FreshProfile` удаляет все профили эмулятора и сохранённый выбор внешности, сохраняя UserData игры. `-ReinstallDependencies` удаляет установленный в репозитории Python, .NET и кэш установщиков; следующий запуск установит их заново. Оба флага по умолчанию выключены. Для другой папки передайте `-Client "G:\REsearch\Ring of Elysium-2022"`.
+
+Квитанции очистки создаются этой версией launcher. Неизвестные или изменённые файлы и остатки старых запусков без подтверждения владения сохраняются. Сброс не возвращает прежние настройки и кэш, записанные самой игрой: бэкап клиента не создаётся. Исходный код и версии Git команда не переключает.
 
 ## Сообщество
 

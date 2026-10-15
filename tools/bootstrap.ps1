@@ -46,7 +46,10 @@ $dotnetHome = Join-Path $repo '.tools\dotnet'
 $dotnet = Join-Path $dotnetHome 'dotnet.exe'
 $download = Join-Path $repo '.tools\downloads'
 New-Item -ItemType Directory -Force -Path $download | Out-Null
+$sessionLock = $null
 try {
+    . (Join-Path $PSScriptRoot 'local_session.ps1')
+    $sessionLock = Enter-RoeSessionLock -Repository $repo
     if (-not [Environment]::Is64BitOperatingSystem) { throw 'Нужен Windows x64.' }
     . (Join-Path $PSScriptRoot 'select_client.ps1')
     $Client = Select-RoeClient -Client $Client -Repository $repo
@@ -137,4 +140,6 @@ try {
 } catch {
     Write-Host ('Ошибка: ' + $_.Exception.Message) -ForegroundColor Red
     exit 1
+} finally {
+    if ($sessionLock) { $sessionLock.Dispose() }
 }

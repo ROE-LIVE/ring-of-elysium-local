@@ -11,3 +11,7 @@ ring-of-elysium-local:528 unittest, сборка .NET8 без ошибок/пр�
 Новый in-place launcher20261015-inplace-v1: клиент выбирается интерактивно, путь запоминается; prepare_client_in_place не копирует и не изменяет файлы клиента, сохраняет только хеши в run. Регрессии проверяют сохранение содержимого/mtime, отсутствие копирования и отказ неверного билда. PowerShell prompt проверен на искусственном клиенте с пробелами/кириллицей/[скобками], сохранением, Enter и явным параметром. Реальный native Windows/UAC запуск новой версии отдельно не подтверждён.
 
 In-place:529 unittest пройдены с PowerShell helper,3PSфайла распознаны parser без ошибок. CLI verify-only не запускает игру и не удостоверяет nativeWindows/UAC.
+
+Сброс: reset.cmd / reset_local.ps1, общий FileShare.None lock launcher/reset, удаление FW только для хеша выбранного пути; квитанции собственных Lua/TSV/marker с SHA и timestamp, архивирование числового TSV в run. Отдельные флаги FreshProfile/ReinstallDependencies. Регрессии: идемпотентность, сохранение игры/профилей/логов, неизвестные/изменённые файлы, старые квитанции, подмена пути/ссылки, занятый lock; сценарий reset entrypoint проверен с подменой Windows firewall subprocess. Реальный Windows/UAC отдельно не проверен.
+
+Итог reset:537unittestOK с реальным PowerShellhelper и подменой WindowsFW в entrypoint-тесте; parser4PSфайловOK. Настоящий firewall/UAC не изменялся.

@@ -1,5 +1,6 @@
 """Собственные debug marker и Lua-снимок публичного HUD2022; не server host."""
 import hashlib
+import json
 from pathlib import Path
 import re
 import shutil
@@ -54,26 +55,50 @@ class DebugConsoleSession:
         self.marker = self.runtime / 'FileDriven/_GM_CONTROL_'
         self.body = lua_snapshot(self.output.name).encode('utf-8')
         self.owned_marker = False
+        self.marker_write_ticks = None
+        self.owned_marker_directory = False
+        self.owned_script = False
+        self.receipt = self.run / 'client-debug-files.json'
         self.installed = False
         self.command = '/lua assert(loadstring(assert(io.open("' + self.script.name + '")):read("*a")))()'
+
+    def save_receipt(self):
+        """Небольшая квитанция владения для очистки после прерванного запуска."""
+        data = dict(version=1, client=str(self.runtime.resolve()),
+                    script=self.script.name, output=self.output.name,
+                    script_sha256=hashlib.sha256(self.body).hexdigest(),
+                    script_owned=self.owned_script, marker_owned=self.owned_marker,
+                    marker_directory_owned=self.owned_marker_directory,
+                    marker_write_ticks=self.marker_write_ticks)
+        pending = self.receipt.with_suffix('.tmp')
+        pending.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+        pending.replace(self.receipt)
 
     def install(self):
         if self.installed:
             raise ValueError('Debug session уже установлен')
         if not self.runtime.is_dir() or not self.run.is_dir():
             raise ValueError('Сначала создать проверенный runtime и run')
+        if self.marker.parent.is_symlink() or (self.marker.parent.exists() and getattr(self.marker.parent.lstat(), 'st_file_attributes', 0) & 0x400):
+            raise ValueError('Ссылки/junction для debug marker запрещены')
         if self.marker.is_symlink() or (self.marker.exists() and not self.marker.is_file()):
             raise ValueError('Необычный существующий debug marker')
         if self.output.exists() or self.output.is_symlink():
             raise ValueError('Snapshot имя занято')
+        self.save_receipt()
         with self.script.open('xb') as stream:
             stream.write(self.body)
+        self.owned_script = True
         try:
+            self.save_receipt()
+            self.owned_marker_directory = not self.marker.parent.exists()
             self.marker.parent.mkdir(exist_ok=True)
             if not self.marker.exists():
                 with self.marker.open('xb'):
                     pass
                 self.owned_marker = True
+                self.marker_write_ticks = self.marker.stat().st_mtime_ns // 100 + 621355968000000000
+            self.save_receipt()
             self.installed = True
             (self.run / 'client-debug-command.txt').write_text(self.command + '\n', encoding='utf-8')
         except BaseException:
@@ -92,8 +117,16 @@ class DebugConsoleSession:
             if self.script.is_file() and not self.script.is_symlink() and self.script.stat().st_size == len(self.body):
                 if hashlib.sha256(self.script.read_bytes()).digest() == hashlib.sha256(self.body).digest():
                     self.script.unlink()
+                    self.owned_script = False
         finally:
-            if self.owned_marker and self.marker.is_file() and not self.marker.is_symlink() and self.marker.stat().st_size == 0:
+            if (self.owned_marker and self.marker.is_file() and not self.marker.is_symlink()
+                    and self.marker.stat().st_size == 0
+                    and self.marker.stat().st_mtime_ns // 100 + 621355968000000000 == self.marker_write_ticks):
                 self.marker.unlink()
-            self.owned_marker = False
+                self.owned_marker = False
+            if self.owned_marker_directory and self.marker.parent.is_dir() and not any(self.marker.parent.iterdir()):
+                self.marker.parent.rmdir()
+                self.owned_marker_directory = False
+            if self.receipt.exists():
+                self.save_receipt()
             self.installed = False

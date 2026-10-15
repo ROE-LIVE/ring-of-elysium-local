@@ -9,11 +9,11 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "842659797c42a2d199a2ec2add4a928c105f03983d75c3a8d93811a212b1b38a"
+    "sha256": "0f742b803cf782e1763777efc22d14a0d6c4e7a7e2c4da73837c834520fb0cee"
   },
   {
     "path": "CONTRIBUTING.md",
-    "sha256": "63cfdc2ea7d881d0e55046981102e512e74ab1ff23f41f144c7170db7eb86a49"
+    "sha256": "03c531ed1a90904b930f139127da2488883cf7a5744ed41858fec96ec9d91d78"
   },
   {
     "path": "PROVENANCE.json",
@@ -21,7 +21,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "376cee1caa25f135b29d967dfe2f6cbe67faa40a81826f31b3f4cb4999a68041"
+    "sha256": "d4b65fe016d1d5ef72c8290a67b42ffe5b6adad96460291e154117e97ad16789"
   },
   {
     "path": "RIGHTS.md",
@@ -33,11 +33,11 @@
   },
   {
     "path": "SMOKE-TEST.md",
-    "sha256": "02b3306542f4e71779dbda94fabfbae0e5dfadedc83f138f4f879318feef8a80"
+    "sha256": "f18a6d6f15161b1f00872722c3b90166deae84df760c1670c5756ca49a4142c8"
   },
   {
     "path": "VALIDATION.md",
-    "sha256": "0836741ef767b6e623e8069a3939a5d490faa8b8b4e941953c434d0a56e545fc"
+    "sha256": "b700f51b5844bba2928c7d0dd381c0617d10170d66303fb04ffaafdc5bbe21b9"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -604,6 +604,10 @@
     "sha256": "ff67c28faba6e82f29ca8227818fafed63001fa6cecc8cfbcec65c05e15cf660"
   },
   {
+    "path": "tests/test_select_client_2022.py",
+    "sha256": "8c88d2cc96e87e429883523d2f20d8ecbdf508a44d1acd80449137f98af7447e"
+  },
+  {
     "path": "tests/test_shared_combat_2022.py",
     "sha256": "826a1662fddc90959b794ba5220a45f7e4e614e8f2a10ce8307df98cb52c95da"
   },
@@ -653,7 +657,7 @@
   },
   {
     "path": "tests/test_windows_kit.py",
-    "sha256": "e5d8abfa2af234b55474116e6064e38f4c6c8e0bbb3bdd411afd4d486870e03f"
+    "sha256": "1a2f0b5ac3ed2088ee8d3c7b128c6c1a1742b337d9d5076ba466d75108a246f8"
   },
   {
     "path": "tests/test_winter_selection_2022.py",
@@ -681,7 +685,7 @@
   },
   {
     "path": "tools/bootstrap.ps1",
-    "sha256": "71c546efd28630c0dd61bcce8a064f68abe88ad90b3f250a43d9c14982b48b65"
+    "sha256": "ce8711ab55a88569cbd39802c407ede8e3513ced9f291d04fb81b7c5eaaf8a8c"
   },
   {
     "path": "tools/climb_practice_2022.py",
@@ -689,11 +693,11 @@
   },
   {
     "path": "tools/debug_console_2022.py",
-    "sha256": "d55487a0869e8e6445cf7475595f8bf3c072b20dd2ed55505697e3380a674578"
+    "sha256": "2584410e3a46cf437af984db778626fbeb17a12169eff32df9fb8d04e08cfb60"
   },
   {
     "path": "tools/ensure_firewall.ps1",
-    "sha256": "2fe2ac970d65de8a7399355d2ff687296457f939697a507b1c03aa4657e635da"
+    "sha256": "eb26a43b3308ede6709356350a0b51dce3956c48caf5a6471ca468df6657d7d9"
   },
   {
     "path": "tools/entity_status_action_2022.py",
@@ -705,7 +709,7 @@
   },
   {
     "path": "tools/export_test_report_2022.py",
-    "sha256": "47f4ff991e8ddad62842415618565daa08c7dda706fd80ca29a942cfb84f34b1"
+    "sha256": "6e2e438067f64f8f7557db6e5d76518e6304657671f16ce610deeab8803656aa"
   },
   {
     "path": "tools/generate_winter_breakables_2022.py",
@@ -792,6 +796,10 @@
     "sha256": "89157080167b2eda5aa091857bd727323d7e43e7143525e8805ac2240c16082d"
   },
   {
+    "path": "tools/select_client.ps1",
+    "sha256": "c11dc6b6128dade129c5d9dcf4dd91ce67db6e46db5d0aa9fac54a52287b92cd"
+  },
+  {
     "path": "tools/share_audit.py",
     "sha256": "503aadb5f957717f3f6f198c1888b9e7150d924f7bfdadd9f15cc4d102650f04"
   },
@@ -805,6 +813,6 @@
   },
   {
     "path": "tools/windows_launch.py",
-    "sha256": "34cd96238f400ad9338fd85255057ee03bf6cc607718f4842ca16e47c9dcb58a"
+    "sha256": "b9d1d82a36e62e1f7d369aa6f9fc28932eab5a3588535ba089dfe22643715a4e"
   }
 ]

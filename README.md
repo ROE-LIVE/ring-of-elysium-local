@@ -12,15 +12,19 @@ Run the current restoration on Windows 11 x64. The repository includes the lobby
 
 1. Provide a **complete 2022 client with its resources**, not just an EXE. The supported executable is the root `Europa_Client.exe`, SHA-256 `2dca9b1e122e21363e14eeeb2372598c773205a907ed8d2b2d54a7229ad6ba18`. Other builds are incompatible.
 2. The fixed local handshake files are included: `private/candidate-001.key` (16 bytes) and `private/lobby-ck.bin` (32 bytes). These belong to our emulator; they are not Steam passwords or universal ROE server keys. No separate import is required.
-3. From the repository root, run:
+3. From the repository root, run one command:
 
    ```powershell
-   .\play.cmd -Client "G:\REsearch\Ring of Elysium-2022"
+   .\play.cmd
    ```
+
+Enter the folder containing your `Europa_Client.exe` when prompted, for example `G:\REsearch\Ring of Elysium-2022`. The path is remembered in `.tools/client-path.txt`; next time, press Enter to reuse it. You can also provide it directly: `.\play.cmd -Client "G:\REsearch\Ring of Elysium-2022"`.
 
 The bootstrap installs Python and the .NET 8 SDK locally under `.tools`. A system `py` command is not required. The first installation needs Internet access.
 
-On first launch, the launcher **copies the complete client and resources** into `runtime/client`, excluding UserData and part of the cache. Allow space for the selected client files plus 2 GiB, dependencies, and logs. Later launches reuse the copy. No hard links or junctions are used, and the source client is not modified. Windows will request UAC approval to create firewall rules that isolate the runtime from external networks. Services for the standard single-player scenario listen on localhost.
+The launcher **runs directly from the selected client folder**. It does not copy the client or create a backup, and it does not patch EXE, DLL, or resource archives. The local server address is supplied as a launch argument. Space is needed only for dependencies, session files, and logs in this repository. Windows requests UAC approval for firewall rules that isolate the **selected game folder** from external networks; its original online access remains blocked by those rules. Services for the standard single-player scenario listen on localhost.
+
+The game can write its normal settings and cache into the selected folder. With the default debug option, the launcher also creates its own `FileDriven/_GM_CONTROL_` marker and a uniquely named `ROE_Probe_state_*.lua` file. Its numeric TSV output is collected in the session report. On normal exit, launcher-owned debug files are removed; existing user files are preserved. An interrupted launcher may leave its temporary files behind.
 
 Wait for the launcher to report readiness, then enter through **Training**. Keep the **DEFAULT** spawn cell for your first test to start near the fixed test loot. The scenario provides movement, inventory, three weapon slots, firing and reloading, a target, region closures, an airdrop, and evacuation. `play.cmd` sets an accelerated cycle of about 9.5 minutes; the 1,500-second process limit also includes login and preparation.
 
@@ -51,13 +55,17 @@ Research, build identities, protocol notes, and the recovery plan are in [ring-o
 1. Нужна **полная копия клиента2022 с ресурсами**, а не один EXE. Исследован корневой `Europa_Client.exe`, SHA-256 `2dca9b1e122e21363e14eeeb2372598c773205a907ed8d2b2d54a7229ad6ba18`. Другие билды несовместимы.
 2. Фиксированные зависимости локального handshake уже включены: `private/candidate-001.key` (16байт) и `private/lobby-ck.bin` (32байта). Это данные нашего эмулятора, не пароль Steam и не универсальный ключ серверов ROE. Отдельный импорт не нужен.
 
-3. Из корня нового репозитория запустите:
+3. Из корня репозитория запустите одну команду:
 
    ```powershell
-   .\play.cmd -Client "G:\REsearch\Ring of Elysium-2022"
+   .\play.cmd
    ```
 
-Bootstrap устанавливает Python и .NET8 SDK локально в `.tools`; системная команда `py` не требуется. Для первой установки нужен Интернет. При первом запуске launcher **копирует полный клиент с ресурсами** в `runtime/client`, исключая UserData и часть кэша. Нужен объём выбранных файлов плюс2ГиБ, а также место для `.tools` и журналов. Последующие запуски используют готовую копию. Hardlink/junction не используются; исходный клиент не изменяется. При первом запуске потребуется UAC для настройки отдельных правил firewall, изолирующих runtime от внешней сети.
+Когда появится запрос, укажите папку с `Europa_Client.exe`, например `G:\REsearch\Ring of Elysium-2022`. Путь сохраняется в `.tools/client-path.txt`; при следующем запуске нажмите Enter, чтобы использовать его снова. Можно передать путь сразу: `.\play.cmd -Client "G:\REsearch\Ring of Elysium-2022"`.
+
+Bootstrap устанавливает Python и .NET8 SDK локально в `.tools`; системная команда `py` не требуется. Для первой установки нужен Интернет. Launcher **запускает игру прямо из выбранной папки**, без копии клиента и без бэкапа. EXE, DLL и архивы ресурсов не патчатся; адрес локального сервера передаётся параметром запуска. Место требуется для зависимостей, файлов сеанса и журналов в репозитории. Windows запрашивает UAC для правил firewall, изолирующих **выбранную папку игры** от внешней сети; эти правила продолжают блокировать её прежний онлайн-доступ.
+
+Сама игра может записывать обычные настройки и кэш в выбранную папку. При включённой по умолчанию диагностике launcher добавляет собственный marker `FileDriven/_GM_CONTROL_` и файл `ROE_Probe_state_*.lua` с уникальным именем. Числовой TSV переносится в отчёт сеанса. После штатного завершения собственные debug-файлы удаляются, существующие пользовательские файлы сохраняются. При прерывании launcher временные файлы могут остаться.
 
 Дождитесь сообщения launcher о готовности, войдите через **Training**. Для первого теста оставьте клетку **DEFAULT**, чтобы оказаться рядом с фиксированным тестовым лутом. Доступны обычное движение, инвентарь, три оружейных слота, стрельба/перезарядка, мишень, закрытие областей, дроп и эвакуация. `play.cmd` задаёт ускоренный цикл≈9.5мин;1500с — общий лимит процесса с учётом входа.
 

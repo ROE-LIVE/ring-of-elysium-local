@@ -576,31 +576,35 @@ class WindowsKitTests(unittest.TestCase):
             with patch.object(launcher,'ROOT',root),self.assertRaisesRegex(ValueError,'Повреждён'):
                 launcher.materialize(root/'run','snowboard')
 
-    def test_full_resource_copy_is_independent_and_reused(self):
+    def test_in_place_client_uses_same_files_without_copy_or_backup(self):
         with tempfile.TemporaryDirectory() as folder:
-            root=Path(folder);source=root/'source';target=root/'runtime/client';source.mkdir()
+            root=Path(folder);source=root/'game';run=root/'run';source.mkdir();run.mkdir()
             for name in launcher.REQUIRED:
                 p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'test resource')
-            (source/'Cache').mkdir();(source/'Cache/required.sfc').write_bytes(b'packed game asset')
-            (source/'Cache/personal.log').write_bytes(b'private state')
-            (source/'UserData').mkdir();(source/'UserData/player.txt').write_bytes(b'personal data')
+            (source/'UserData').mkdir();(source/'UserData/player.txt').write_bytes(b'user settings')
+            before={str(p.relative_to(source)):(p.read_bytes(),p.stat().st_mtime_ns)
+                    for p in source.rglob('*') if p.is_file()}
             expected=hashlib.sha256(b'test resource').hexdigest()
-            with patch.object(launcher,'EXPECTED_SHA',expected):
-                launcher.prepare_runtime(source,target)
-                for name in launcher.REQUIRED:self.assertFalse(os.path.samefile(source/name,target/name))
-                self.assertTrue((target/'Cache/required.sfc').is_file())
-                self.assertFalse((target/'Cache/personal.log').exists())
-                self.assertFalse((target/'UserData/player.txt').exists())
-                before=(target/'Europa_Client.exe').stat().st_mtime_ns
-                launcher.prepare_runtime(source,target)
-                self.assertEqual((target/'Europa_Client.exe').stat().st_mtime_ns,before)
+            with patch.object(launcher,'EXPECTED_SHA',expected), patch.object(launcher.shutil,'copy2',side_effect=AssertionError('copy forbidden')), patch.object(launcher.shutil,'disk_usage',side_effect=AssertionError('no space for client copy')):
+                selected=launcher.prepare_client_in_place(source,run)
+            self.assertEqual(selected,source.resolve())
+            after={str(p.relative_to(source)):(p.read_bytes(),p.stat().st_mtime_ns)
+                   for p in source.rglob('*') if p.is_file()}
+            self.assertEqual(before,after)
+            manifest=json.loads((run/'client-files-before.json').read_text())
+            self.assertEqual(manifest['mode'],'in_place')
+            self.assertEqual(len(manifest['critical']),3)
+            self.assertFalse((root/'runtime/client').exists())
 
-    def test_original_cannot_be_runtime(self):
+    def test_in_place_rejects_wrong_build_without_touching_client(self):
         with tempfile.TemporaryDirectory() as folder:
-            source=Path(folder)
-            for target in [source,source/'child',source.parent]:
-                with self.assertRaisesRegex(ValueError,'отдельными'):
-                    launcher.prepare_runtime(source,target)
+            root=Path(folder);source=root/'game';run=root/'run';source.mkdir();run.mkdir()
+            for name in launcher.REQUIRED:
+                p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'wrong build')
+            with self.assertRaisesRegex(ValueError,'другого билда'):
+                launcher.prepare_client_in_place(source,run)
+            self.assertFalse(list(run.iterdir()))
+            self.assertEqual((source/'Europa_Client.exe').read_bytes(),b'wrong build')
 
     def test_occupied_port_is_not_consumed(self):
         with socket.socket() as owner:

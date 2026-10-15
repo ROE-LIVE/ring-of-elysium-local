@@ -1,5 +1,5 @@
 ﻿param(
-    [string]$Client = 'G:\REsearch\Ring of Elysium-2022',
+    [string]$Client = '',
     [string]$Profile = 'default',
     [string]$RemotePeer = '',
     [ValidateSet('snowboard','glider','climb')][string]$Kit = 'snowboard',
@@ -48,12 +48,11 @@ $download = Join-Path $repo '.tools\downloads'
 New-Item -ItemType Directory -Force -Path $download | Out-Null
 try {
     if (-not [Environment]::Is64BitOperatingSystem) { throw 'Нужен Windows x64.' }
-    if (-not $VerifyOnly) {
-        if (-not (Test-Path -LiteralPath (Join-Path $Client 'Europa_Client.exe'))) { throw "Нет клиента: $Client" }
-    }
+    . (Join-Path $PSScriptRoot 'select_client.ps1')
+    $Client = Select-RoeClient -Client $Client -Repository $repo
     $key = Join-Path $repo 'private\candidate-001.key'
     if (-not (Test-Path -LiteralPath $key -PathType Leaf) -or (Get-Item -LiteralPath $key).Length -ne 16) {
-        throw 'Добавьте локальный private\candidate-001.key. См. private\README.md; git pull ключ не устанавливает.'
+        throw 'Добавьте локальный private\candidate-001.key. Восстановите файлы комплекта через git pull; см. private\README.md.'
     }
     $ck = Join-Path $repo 'private\lobby-ck.bin'
     if (-not (Test-Path -LiteralPath $ck -PathType Leaf) -or (Get-Item -LiteralPath $ck).Length -ne 32) { throw 'Добавьте локальный private\lobby-ck.bin (32байта). См. private\README.md.' }

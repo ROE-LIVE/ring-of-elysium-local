@@ -1,4 +1,4 @@
-"""Одна локальная сессия зимы2022; оригинальный клиент не запускается."""
+"""Локальная зимняя сессия2022 прямо из выбранной папки, без копии клиента."""
 import argparse
 import datetime
 import hashlib
@@ -66,64 +66,16 @@ def validate_client(source):
         raise ValueError('Нужен проверенный EXE2022 0.2.989.0; этот EXE другого билда')
 
 
-def selected_files(source):
-    for parent, directories, names in os.walk(source):
-        directories[:] = [n for n in directories if n.lower() not in ('userdata','doc')]
-        for name in directories+names:
-            item = Path(parent)/name
-            if item.is_symlink() or getattr(item.lstat(),'st_file_attributes',0) & 0x400:
-                raise ValueError('Ссылки/junction в клиенте запрещены: '+str(item))
-        for name in names:
-            item = Path(parent)/name
-            relative = item.relative_to(source)
-            if relative.parts[0].lower() == 'cache' and item.suffix.lower() != '.sfc':
-                continue
-            yield relative
-
-
-def prepare_runtime(source, destination):
-    source, destination = source.resolve(), destination.resolve()
-    if source == destination or source.is_relative_to(destination) or destination.is_relative_to(source):
-        raise ValueError('Оригинал и копия должны быть отдельными каталогами')
+def prepare_client_in_place(source, run):
+    """Проверяет выбранный клиент; пишет только хеши в журнал, без копии/бэкапа."""
+    source = Path(source).resolve()
     validate_client(source)
-    marker = destination/'.roe-runtime.json'
-    if destination.exists():
-        if not marker.is_file():
-            raise ValueError('Незавершённая/чужая копия runtime/client. Переименуйте её перед повтором')
-        saved = json.loads(marker.read_text(encoding='utf-8'))
-        if saved['source'] != str(source):
-            raise ValueError('Runtime создан из другого пути клиента')
-        validate_client(destination)
-        for item in saved['critical']:
-            name = item['file']
-            if os.path.samefile(source/name, destination/name) or digest(source/name) != item['sha256'] or digest(destination/name) != item['sha256']:
-                raise ValueError('Не совпал хеш или найден hardlink: '+name)
-        return destination
-    files = list(selected_files(source))
-    total = sum((source/name).stat().st_size for name in files)
-    destination.parent.mkdir(parents=True,exist_ok=True)
-    if shutil.disk_usage(destination.parent).free < total + 2*1024**3:
-        raise ValueError(f'Нужно {total/2**30:.1f}ГиБ под копию и ещё2ГиБ свободно')
-    critical = [dict(file=name,sha256=digest(source/name)) for name in REQUIRED[:3]]
-    print(f'Копирую полный клиент ({total/2**30:.1f}ГиБ) в {destination}',flush=True)
-    destination.mkdir()
-    last = time.monotonic()
-    for index, name in enumerate(files):
-        target = destination/name
-        target.parent.mkdir(parents=True,exist_ok=True)
-        shutil.copy2(source/name,target)
-        if time.monotonic()-last > 20:
-            print(f'Копирование {index+1}/{len(files)}',flush=True);last=time.monotonic()
-    # Пустые каталоги нужны некоторым ресурсным подсистемам клиента.
-    for parent, directories, _ in os.walk(source):
-        directories[:] = [n for n in directories if n.lower() not in ('userdata','doc')]
-        for name in directories:
-            (destination/(Path(parent)/name).relative_to(source)).mkdir(parents=True,exist_ok=True)
-    for item in critical:
-        if digest(destination/item['file']) != item['sha256']:
-            raise ValueError('Ошибка копирования: '+item['file'])
-    marker.write_text(json.dumps(dict(source=str(source),critical=critical,copy='shutil.copy2 без hardlink'),ensure_ascii=False,indent=2),encoding='utf-8')
-    return destination
+    critical = [dict(file=name, sha256=digest(source/name)) for name in REQUIRED[:3]]
+    (Path(run)/'client-files-before.json').write_text(
+        json.dumps(dict(client=str(source), mode='in_place', critical=critical),
+                   ensure_ascii=False, indent=2), encoding='utf-8')
+    print('Клиент используется на месте, без копирования: '+str(source), flush=True)
+    return source
 
 
 def extract_region(client, target):
@@ -539,7 +491,7 @@ def write_launch_summary(run, args):
                    spawn_selection_supported=True, kit_selection_in_game_supported=True,
                    spawn_height_basis="team_l_estimates_native_selected_cells",
                    original_starter_inventory=False)
-    summary.update(launcher_revision='20261015-feedback-v2', weapon_slots=3,
+    summary.update(launcher_revision='20261015-inplace-v1', client_mode='in_place', weapon_slots=3,
                    starter_item_source='INITITEM.XML/map16010/stage1',
                    starter_magazine_policy='full_capacity_local',
                    source_hashes={name:digest(ROOT/name) for name in (
@@ -588,7 +540,7 @@ def write_launch_summary(run, args):
 def main():
     sys.path.insert(0,str(ROOT/'server/directory'));sys.path.insert(0,str(ROOT/'tools'))
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--client',type=Path,default=Path(r'G:\REsearch\Ring of Elysium-2022'))
+    parser.add_argument('--client',type=Path,required=True,help='Папка полного клиента2022; используется на месте без копирования')
     parser.add_argument('--profile', default='default', help='Отдельный локальный выбор внешности; не оригинальный login')
     parser.add_argument('--kit',choices=('snowboard','glider','climb'),default='snowboard')
     parser.add_argument('--start-hour', type=int, choices=(7, 8, 15, 16), default=8,
@@ -748,8 +700,8 @@ def main():
     if args.services_only:
         runtime=args.client.resolve()
     else:
-        runtime=prepare_runtime(args.client,ROOT/'runtime/client')
-        subprocess.run(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'tools/ensure_firewall.ps1')],check=True)
+        runtime=prepare_client_in_place(args.client, run)
+        subprocess.run(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'tools/ensure_firewall.ps1'),'-Client',str(runtime)],check=True)
     configs=materialize(run,args.kit,runtime,args.mode=='cycle' and not args.remote_peer,args.weapon_profile,args.target_los,
                         args.loot_catalog, death_on_zero=args.death_on_zero,
                         own_armor_absorb_percent=args.own_armor_absorb_percent,

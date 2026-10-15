@@ -19,7 +19,7 @@ SUMMARY = frozenset(('build', 'map', 'mode', 'kit', 'weapon_profile', 'target',
                      'starter_item_source', 'starter_magazine_policy', 'debug_console',
                      'start_hour', 'temperature_raw', 'native_airdrop', 'native_evacuation',
                      'diagnostic_departure', 'original_account_authentication',
-                     'original_starter_inventory', 'local_session_id', 'launcher_platform'))
+                     'original_starter_inventory', 'local_session_id', 'launcher_platform', 'client_mode'))
 EVENT = frozenset(('sequence', 'timestamp', 'kind', 'action', 'reason', 'synthetic',
                    'experimental', 'failed_checks', 'slot', 'source', 'destination',
                    'source_slot', 'target_slot', 'requested_slot', 'gun_definition',

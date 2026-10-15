@@ -44,7 +44,7 @@ f:close()
 
 
 class DebugConsoleSession:
-    """Вызывать только для уже проверенной независимой runtime-копии."""
+    """Вызывать для проверенного клиента; создаёт и удаляет только собственные debug-файлы."""
     def __init__(self, runtime, run):
         self.runtime = Path(runtime)
         self.run = Path(run)

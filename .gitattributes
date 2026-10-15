@@ -1,0 +1,9 @@
+# Сохраняем байты перенесённых исходников и SHA при checkout на Windows.
+* -text
+# Форматирование стороннего MIT-кода сохранено, включая CRLF/старые пробелы.
+search/** whitespace=-blank-at-eol,cr-at-eol
+server/lobby/** whitespace=-blank-at-eol,cr-at-eol
+
+# Локальные протокольные fixtures: сохраняем побайтно, не показываем значения в diff.
+private/candidate-001.key binary
+private/lobby-ck.bin binary

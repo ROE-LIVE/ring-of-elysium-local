@@ -1,0 +1,22 @@
+{
+  "uid": "0x2040000123460",
+  "listing_file": "@wire/aafd8570467dc2ef669bdd269ac1d148fd4f22c301066791ee1822560cdf09e8",
+  "profile_file": "@wire/224f7c71244d18c53fceac01470fc3ea6a77cf0e45cceb87fc4d446503433af4",
+  "movement_file": "@wire/46b12a1cca829f385005fe93e71b08225ecbcf361ec6aa4ac46d06974571a506",
+  "waypoints": [
+    [
+      366650,
+      544149,
+      259077
+    ]
+  ],
+  "speed_cm_seconds": 0,
+  "hp": 1000,
+  "pellet_damage": 100,
+  "armor": {
+    "definition": 201001,
+    "durability": 300,
+    "absorb_percent": 50
+  },
+  "death_loot_reserve": 6
+}

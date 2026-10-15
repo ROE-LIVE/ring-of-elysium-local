@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Обёртка сборки для лобби-эмулятора из search/Ring-of-Elysium-Lobby-Emulator (MIT).
+
+    Исходники компилируются по относительному пути. Lobby_Module заменён
+    локальной адаптацией: независимые одновременные TCP-сессии, без изменений replay.
+    Оригинальный LobbyEmulator.csproj нацелен на .NET Framework 4.5.1 и собирается только
+    MSBuild/Visual Studio; в этом окружении установлен лишь .NET SDK 8 (dotnet.exe),
+    поэтому цель сборки — net8.0, а языковые возможности (интерполяция строк) поддерживаются.
+    Используемые типы (System.Net.Sockets, System.IO, System.Linq) платформенно-независимы.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>LobbyEmulator</AssemblyName>
+    <RootNamespace>LobbyEmulator</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SourceRoot>$(MSBuildThisFileDirectory)..\..\..\search\Ring-of-Elysium-Lobby-Emulator\LobbyEmulator\</SourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(SourceRoot)**\*.cs" Exclude="$(SourceRoot)Lobby_Module.cs" />
+    <Compile Include="LocalLobbyModule2022.cs" />
+  </ItemGroup>
+</Project>

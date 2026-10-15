@@ -1,0 +1,4 @@
+cryptography==50.0.1
+lz4==4.4.5
+cffi==2.1.1
+pycparser==3.0

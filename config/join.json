@@ -1,0 +1,22 @@
+{
+  "delay_after_found": 1,
+  "notification": {
+    "unknown_00": 0,
+    "instance_id": 1,
+    "unknown_0c": 0,
+    "unknown_14": 0,
+    "unknown_18": 0,
+    "unknown_20": 1,
+    "unknown_28": 16010,
+    "unknown_2c": 0
+  },
+  "response": {
+    "result": 0,
+    "route": "0:127.0.0.1:18001",
+    "block_88": "00000000000000000000000000000000",
+    "block_98": "00000000000000000000000000000000",
+    "connection_id_a8": 1,
+    "unknown_ac": 0,
+    "flag_b0": 0
+  }
+}

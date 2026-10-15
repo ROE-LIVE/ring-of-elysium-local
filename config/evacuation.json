@@ -1,0 +1,10 @@
+{
+  "diagnostic_archive_statistics": false,
+  "terminal_file": "@wire/fcd767f0e4db9b83a2cd98b5aa5b542c81f8b4f52341e4294b1e6d0021109edd",
+  "outcome_file": "@wire/ef54f14db1089e15982967828fb77fda7410ca07fe40cf2f553315a73f73a173",
+  "limitation": "Одиночная реконструкция: death/timeout terminal;2400 из ICELAND_S10064, binding16010 не доказан;106E reason15 diagnostic, rewards0",
+  "climb_protection_seconds": 0,
+  "reconstructed_session_statistics": true,
+  "singleplayer_result_on_death": true,
+  "singleplayer_timeout_seconds": 2400
+}

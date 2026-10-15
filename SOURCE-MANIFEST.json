@@ -1,0 +1,810 @@
+[
+  {
+    "path": ".gitattributes",
+    "sha256": "d84d498e041c665c00a8cfda8c54067b5dbbbe550fa0b55ca1e58f3778095aa6"
+  },
+  {
+    "path": ".gitignore",
+    "sha256": "eef9d48f6b59831ed8c22cc747371e08fb07f658ca9d5c2c0361c97675a4219b"
+  },
+  {
+    "path": "AGENTS.md",
+    "sha256": "842659797c42a2d199a2ec2add4a928c105f03983d75c3a8d93811a212b1b38a"
+  },
+  {
+    "path": "CONTRIBUTING.md",
+    "sha256": "63cfdc2ea7d881d0e55046981102e512e74ab1ff23f41f144c7170db7eb86a49"
+  },
+  {
+    "path": "PROVENANCE.json",
+    "sha256": "9b88d6e8f8831dcfe6e715e8cf99679d5171424a598bf4c2d545c045e9ee59a7"
+  },
+  {
+    "path": "README.md",
+    "sha256": "c985d3d2fa0e11636aa9ca3116953cc7c89031bbf5d330ba9b48d30efe9617e5"
+  },
+  {
+    "path": "RIGHTS.md",
+    "sha256": "761ed6c9dbf58da93ea7b63ea0cc32fc47ee38c294446e96beae52646ea8fd5b"
+  },
+  {
+    "path": "SHARE-CHECK.md",
+    "sha256": "e5eed16af1aabd4d1ebb9edc0d286ec7799e58f18392de396bd8a3c5fc5ed40a"
+  },
+  {
+    "path": "SMOKE-TEST.md",
+    "sha256": "02b3306542f4e71779dbda94fabfbae0e5dfadedc83f138f4f879318feef8a80"
+  },
+  {
+    "path": "VALIDATION.md",
+    "sha256": "0836741ef767b6e623e8069a3939a5d490faa8b8b4e941953c434d0a56e545fc"
+  },
+  {
+    "path": "WINDOWS-TESTS.md",
+    "sha256": "8c8276a0ade234799a31e357e441c0381bafacd8ed978fc31353e3580480d25f"
+  },
+  {
+    "path": "config/actor.json",
+    "sha256": "26609c055a0b4b1ec50ab89949f0c58cbad9ef55ed9c35729c0c78a89d1993cc"
+  },
+  {
+    "path": "config/ballistic-golden-citori.json",
+    "sha256": "d8680dc139cb2b925fd23c6b72b329083e73eb16c2f0d71836ac7811e7fc446d"
+  },
+  {
+    "path": "config/ballistic-golden-m4.json",
+    "sha256": "e7796f3a3f0cfa66c10c82dfed6b13e64bc3245396ff1ab05f6c117cf9fffeb4"
+  },
+  {
+    "path": "config/bot-ground-route.json",
+    "sha256": "bccd49682d3519588e4c43cb0a818e6586ff603501eee654404c0ae96254ae8b"
+  },
+  {
+    "path": "config/cosmetics.json",
+    "sha256": "64ea2c823d5542e5ef2c14bc44d580a9f63434ae3c4dc4b77381bf6945c3ce9c"
+  },
+  {
+    "path": "config/environment.json",
+    "sha256": "883fbfdb3e897104b3466604ff3e48c6efef65d925326e8c23fb666f7d8f8504"
+  },
+  {
+    "path": "config/evacuation.json",
+    "sha256": "ac94aa0538499b9ba465b014e7f73f9d1cac816a753957bf24743229062b05d5"
+  },
+  {
+    "path": "config/join.json",
+    "sha256": "3d576df3b488be34fd29ba525179ec3c7b98745894a7606d585c9d08763fcb17"
+  },
+  {
+    "path": "config/loot-broken-armor.json",
+    "sha256": "74de91f67fdcb26ec977b36f780c74881bd0c11604f9a85dc08fa39903f60d44"
+  },
+  {
+    "path": "config/loot-pool61.json",
+    "sha256": "89efac66388b4d9351c8376f5ece66e12bcc3b5e3f49d4e1f4ea88b107270491"
+  },
+  {
+    "path": "config/loot-test-quarter.json",
+    "sha256": "112b49d9384d5a9661f135505d60f14cd11a330d848c9e4c0e8f1e3971736491"
+  },
+  {
+    "path": "config/parcel.json",
+    "sha256": "2514183ce799fec3cf346a875a5327ba29bf51d03a3080c118c50dba8144c7b8"
+  },
+  {
+    "path": "config/region-source.json",
+    "sha256": "489d83d002f7cf94b4b995b4ab210649eea84b431a83c703cabc1fe82b45bbe3"
+  },
+  {
+    "path": "config/room.json",
+    "sha256": "01406dc3cfa1e173a865b5beb982a83c7805b3843bc0e38ecc1058538e93f34f"
+  },
+  {
+    "path": "config/scene-cycle.json",
+    "sha256": "3ff9e40e8526cb9d12baa439016a5eac2ff20f225038d940b5835f38b3ebe30b"
+  },
+  {
+    "path": "config/scene-walk.json",
+    "sha256": "c91b18151a1f4d330a98cd342bd83e0a884034a5e59eb5e9790c104db6f7d6a4"
+  },
+  {
+    "path": "config/target-armored.json",
+    "sha256": "79e10762215b7b01e9d1851286e4faa8b27e7dcc81fc9bb8b843a38cde578f2c"
+  },
+  {
+    "path": "config/target-plain.json",
+    "sha256": "0c47c4bbed1a9b9e0a91770b868b3974d714ad974b7251b078e9ac363f78e61a"
+  },
+  {
+    "path": "config/weapon-climb.json",
+    "sha256": "bebda3342b530d56abd354da8fc51f198d8c4c42aaf904367727dacf6098a454"
+  },
+  {
+    "path": "config/weapon-glider.json",
+    "sha256": "8d7ff4d65b3b182a90d4433646ba1cf8b179e5247162b469db18ee4ebaaad2a3"
+  },
+  {
+    "path": "config/weapon-snowboard.json",
+    "sha256": "028d9987cec675f964746d74a17c61f2db06f8313d7dd6e3c63692645d2ac100"
+  },
+  {
+    "path": "config/windows-smoke-20261015.json",
+    "sha256": "318bcaee49556a75aea16dd4eb7442983a8f049ba71f9e99c8d4ac3f60ebf87d"
+  },
+  {
+    "path": "config/winter-breakables.json",
+    "sha256": "f4c4f8f9842928b4222ee06c2c3ff96b318ac43f4a1f5c75f1ba19408f9b6eff"
+  },
+  {
+    "path": "config/winter-doors.json",
+    "sha256": "40ff9e358a60610ad619705aa06bf2096966efd50006d7d89b0616e15dfbe3b1"
+  },
+  {
+    "path": "config/wire.json",
+    "sha256": "d56e713382c578160178d10600b7cae63c35f51079b9fcaeef6c00d7dd229d3a"
+  },
+  {
+    "path": "config/world.json",
+    "sha256": "b048d1ab6cb7fe74f9cf2f6580124fd5b72991d0bc00044f2001f119892c1d71"
+  },
+  {
+    "path": "docs/HIT-FIELDS-20261015.md",
+    "sha256": "d483e34ce6c4ea06a1bc58e165cc3c85c74072f831715be88bceee5d3803b3b2"
+  },
+  {
+    "path": "docs/WINDOWS-RAW-REVIEW-20261015.md",
+    "sha256": "0a570bd5845c1e469cfbd4900bdca642841e9bd628e5a57effc5f2ca7bc67c69"
+  },
+  {
+    "path": "docs/WINDOWS-TESTS-20261015-FEEDBACK.md",
+    "sha256": "8c8276a0ade234799a31e357e441c0381bafacd8ed978fc31353e3580480d25f"
+  },
+  {
+    "path": "docs/evidence.json",
+    "sha256": "dbe242fde8d30e88d06d0bef48c810874f5f0abde45d0352d3a22e0981d60137"
+  },
+  {
+    "path": "export-report.cmd",
+    "sha256": "d1324955e9d67972095736b960894503c3726cc22955460f8175375ee23f8563"
+  },
+  {
+    "path": "play.cmd",
+    "sha256": "a9b09875f2f3942875af882c7f312893a61f9367e0661053b75c4c804e5e6bb6"
+  },
+  {
+    "path": "private/README.md",
+    "sha256": "5f60e954ed7a10dab674fb6555b8d66c26fee720b2999e5ff79e41bdf7b3f869"
+  },
+  {
+    "path": "private/candidate-001.key",
+    "sha256": "3dd70685b4063f8b14a0e33f2160cbf853234ea97e88b8063592fadc08217394"
+  },
+  {
+    "path": "private/lobby-ck.bin",
+    "sha256": "368838d1ac4e4b69cfc7819f0a678a022f42ff839248c27bd14d7502676dca1d"
+  },
+  {
+    "path": "requirements.txt",
+    "sha256": "97e5b9692df4855793cb66a51f88ab594a538e2d16c2cbb18f58b86e7d36df41"
+  },
+  {
+    "path": "run-roe-2022.cmd",
+    "sha256": "3d50fdad6d9ab045c3d5e3a840a289fdffdec3d78eb9ec3b6b2d416eb424e6e3"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LICENSE",
+    "sha256": "c33b47c4abfab058c5f587e7920c59189bb36cd4ca4a558c739f0b37ee525d03"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/Lobby_Module.cs",
+    "sha256": "f60da7329df2264ce7420475fb0b39d516dceb65ef5149ff7a4930e31c6e0ad3"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/Logic/IPacketReader.cs",
+    "sha256": "bd8244505be3b25b9637af3482240c3f88d5b03aee65730a331f9210f3e28430"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/Logic/LobbyPreData.cs",
+    "sha256": "c63f1898b9e03d72a437d5c13319777f7f1063bb4925ae4680605f8011b9af2b"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/NetworkPacketParserBuilder.cs",
+    "sha256": "b2216c08fb3ebe1518e68665181ff75408eaf12a32f3efe0390171eccb6ced29"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/Program.cs",
+    "sha256": "df5aa48b01683c63e4191874f5b582d12c1b70e974d414e384b162d220426ecc"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/Utils/ConsoleLogger.cs",
+    "sha256": "ea217482aa499b1838cbb020a3703502a9c5a0b83f1ee1e5fa2f029fdc741d18"
+  },
+  {
+    "path": "search/Ring-of-Elysium-Lobby-Emulator/LobbyEmulator/Utils/StringExtensions.cs",
+    "sha256": "30e7803b02dd1fc64359bada8dcc8b5b3a0541858f32ca681314bc6f3d3c1476"
+  },
+  {
+    "path": "server/directory/actor_probe_2022.py",
+    "sha256": "a8158139ec6524bf8f3f812ace574087600e4ed25b27fb517525f51f938e1236"
+  },
+  {
+    "path": "server/directory/attachment_probe_2022.py",
+    "sha256": "38032e2cb514a4c849558fa831150ac91108277bf4d84b0b1ca032247d859fd8"
+  },
+  {
+    "path": "server/directory/ballistics_2022.py",
+    "sha256": "ff571fd08bf3440dbcdfff640e30cd8d4cfe920d9f9a35402d8f4ea3b3afb055"
+  },
+  {
+    "path": "server/directory/bot_controller_2022.py",
+    "sha256": "193c6c5cc3889f6ed666a6fe90b7b4967542c3bb7765e52173653efbacd9e00d"
+  },
+  {
+    "path": "server/directory/breakable_state_2022.py",
+    "sha256": "ed523a11ce7ce871e340b89103bea801e4956a58f8f89708c73ec38712919151"
+  },
+  {
+    "path": "server/directory/cosmetic_selection_2022.py",
+    "sha256": "a106ad95e98ef0ecf17de53ad2247358b56d92770f3e4aba3f9c22885a62aeef"
+  },
+  {
+    "path": "server/directory/death_parcel_2022.py",
+    "sha256": "af15a8f2318c37293b961fba09d224ecce6dfbf04f0b2bee04ea015ff02d1b33"
+  },
+  {
+    "path": "server/directory/door_state_2022.py",
+    "sha256": "d0753dfd05d2fcbd09b71712821b92e3fd92a78523d9a36285f36a9d4584a1cc"
+  },
+  {
+    "path": "server/directory/environment_probe_2022.py",
+    "sha256": "6d60bb89b92588afd5a37985e15b5b0c22389959c782d14b3f6b494cfdd4142b"
+  },
+  {
+    "path": "server/directory/game_endpoint_probe_2022.py",
+    "sha256": "4b2370e46f6ac531894dedb3f8d17306788c8463fc4945af18e9f1380cc948b0"
+  },
+  {
+    "path": "server/directory/ground_route_2022.py",
+    "sha256": "bad20ca764a2fc8e8f64fff737babbd38fb2f21089a4e9ff7a227776f95127e5"
+  },
+  {
+    "path": "server/directory/inventory_codec_2022.py",
+    "sha256": "121bb4bee9980993185defba3fcff58f0a90f25f1eebda34ccc48d5768cd32ed"
+  },
+  {
+    "path": "server/directory/listener.py",
+    "sha256": "f567faedfc0e9d5a49c8a62393a8b0bdf47a71d8b3fcd666c454593f8426efec"
+  },
+  {
+    "path": "server/directory/live_scene_probe_2022.py",
+    "sha256": "d330a6ef9d442800c1881d5eaf9424104937c46c373e526b589e33ff79d62ecb"
+  },
+  {
+    "path": "server/directory/loot_catalog_2022.py",
+    "sha256": "70542ab6b7f969bffbcd782e889ebed784c5ffcf252ab858a71d620cc2febdda"
+  },
+  {
+    "path": "server/directory/match_result_2022.py",
+    "sha256": "290466e831120c087f7a192a45ef0c79c9352e8cfbb5bf4154ef6af56a94844b"
+  },
+  {
+    "path": "server/directory/match_statistics_2022.py",
+    "sha256": "cefa8b4da419b5d595a4a1a7104d8ef71bee770f818898a9e0957f4efd210799"
+  },
+  {
+    "path": "server/directory/medical_probe_2022.py",
+    "sha256": "c446a4d5f6e52cc3ac1a6b0e0fca498782b81f19075edb1a73a5539bd7f09cf2"
+  },
+  {
+    "path": "server/directory/movement_validation_2022.py",
+    "sha256": "fac581498ec70bba667e0a146232936b8d7d9e644c14cfd2ae0e8a93da55c5ce"
+  },
+  {
+    "path": "server/directory/parcel_catalog_2022.py",
+    "sha256": "838a126e29488c493249ed03aaae7695474a13a8dbe9b8ca2a077f6e1fba8878"
+  },
+  {
+    "path": "server/directory/parcel_probe_2022.py",
+    "sha256": "cdba2d092c8a334c7f97fd727163d305af39e2bdd2024d6558efedd67736fb9b"
+  },
+  {
+    "path": "server/directory/peer_avatar_2022.py",
+    "sha256": "7bbddfbd2c3a99f981fe6011de40f2b093e9cfcf7a2c270e984a27a834bb71c2"
+  },
+  {
+    "path": "server/directory/peer_equipment_2022.py",
+    "sha256": "97e70c5e7cf27fd7bfd6e03f7f0f18c258814f753c85041e885e975109c68839"
+  },
+  {
+    "path": "server/directory/peer_lifecycle_2022.py",
+    "sha256": "650033018bf6bf2ddad4fa7c23c00cfd72b906d8cffba73612c43cdc95db574e"
+  },
+  {
+    "path": "server/directory/peer_motion_2022.py",
+    "sha256": "fef1091679283dbdd48141ed116e5bc2fcf734f162301c45500274cfd3209674"
+  },
+  {
+    "path": "server/directory/peer_spectator_2022.py",
+    "sha256": "162278f587529cd7bb708239a9a0c89e1a1976064771594ca247606d74c59986"
+  },
+  {
+    "path": "server/directory/region_index_2022.py",
+    "sha256": "7660214c57e7a002db617efb6a133d32112cbb494a9805f1bf2c86c534ed7385"
+  },
+  {
+    "path": "server/directory/reliable_udp_2022.py",
+    "sha256": "46542c30b7280e57322c8515fb6e746312d0507687bad3cf9225e047eb277247"
+  },
+  {
+    "path": "server/directory/room_cosmetics_2022.py",
+    "sha256": "3ad53f723581a1dda8449a9da35de03598652ed66070c7e92971f3442ca640e6"
+  },
+  {
+    "path": "server/directory/shared_combat_2022.py",
+    "sha256": "ce1371c1c6bd8d9e290c3314477a5cb0c05ef3c7ef80b9cc600da2b6369c869f"
+  },
+  {
+    "path": "server/directory/shared_evacuation_2022.py",
+    "sha256": "d3a0f72c2af5d87d0bdf8ea35c027128347828a93462c14882bacdf3fbf0a4ce"
+  },
+  {
+    "path": "server/directory/shared_loot_2022.py",
+    "sha256": "e89845736067caff2eb704f0486896a1e90d9d0f6b24aba78adc4cd5910c14c4"
+  },
+  {
+    "path": "server/directory/shared_vehicle_2022.py",
+    "sha256": "d7acdc310936613dbcb4ee1cdee17997a64883de22ed53400b6a4f242e791ec6"
+  },
+  {
+    "path": "server/directory/state_scene_actions_2022.py",
+    "sha256": "a44721b859c41661365bd384f80dac214ceddb688c01f2db515f7cc0d6c720be"
+  },
+  {
+    "path": "server/directory/throwable_actions_2022.py",
+    "sha256": "a8da52fd855af57a3fbff6f3f19f287ede6b9b458cc1667d553dd7e82a4203fc"
+  },
+  {
+    "path": "server/directory/throwable_inventory_2022.py",
+    "sha256": "41a92bd15dd091e4049731367f14a3e834294ee16ea489fc31c88ca401a4b8e1"
+  },
+  {
+    "path": "server/directory/vehicle_probe_2022.py",
+    "sha256": "80dda3fc848b9396c83b660eccdec9f6283ab165e6a0e78b026de2e4583f1f5c"
+  },
+  {
+    "path": "server/directory/weapon_probe_2022.py",
+    "sha256": "556a8a41704d59a8bfaa340204eeb07252a647cd570b00b0b5ab662e2d267dd9"
+  },
+  {
+    "path": "server/directory/winter_selection_2022.py",
+    "sha256": "3bdab4c20841cfb0d75d06416e23a1d30b337fa6c62816d33873543fdf91a6e5"
+  },
+  {
+    "path": "server/directory/winter_spawn_points_2022.json",
+    "sha256": "211ab331d9f829e9230fe23dd8ac4e9cf98064688d6878428e9149ad43425e09"
+  },
+  {
+    "path": "server/directory/world_probe_2022.py",
+    "sha256": "eee04c2fea2d9280a00b02cb178ef0887bad3ef33ff3c96f9f08a0022e8b67a5"
+  },
+  {
+    "path": "server/lobby/LobbyEmulator.Sdk/LobbyEmulator.Sdk.csproj",
+    "sha256": "2ca20ab7a2e4ed1fb298d2a6ae987b01d7d244c81a50d2c50cb5e23528ccc04a"
+  },
+  {
+    "path": "server/lobby/LobbyEmulator.Sdk/LocalLobbyModule2022.cs",
+    "sha256": "fb83bdee02a4b6190e052ac39cff8d88367b21517875a63baa3dfcbab5d6b22f"
+  },
+  {
+    "path": "tests/test_actor_bots_2022.py",
+    "sha256": "507ff453ef9cdec0785b97b6326868fd6e9fab9d9dec1e5ee15370ddffb1a841"
+  },
+  {
+    "path": "tests/test_actor_hit_fields_2022.py",
+    "sha256": "2e42646bfa0656b13512f2ece5cdf21f7e616f325c54d7bfe61cd243d1423110"
+  },
+  {
+    "path": "tests/test_actor_raycast_2022.py",
+    "sha256": "e277cfc206a862eee15e9f7b32a5b55c21a314bd6a4ad52adcdc937ef7414f7e"
+  },
+  {
+    "path": "tests/test_airdrop_fixture_2022.py",
+    "sha256": "71409d029f994d7d514381de2fac51dfa08ea354309ea888d4f8adab6fa2137b"
+  },
+  {
+    "path": "tests/test_attachment_probe_2022.py",
+    "sha256": "48ae2fcc545e312e4da47033f969b6b4ba9a8de11041116eb2778b29815b08e8"
+  },
+  {
+    "path": "tests/test_audit_cosmetics_catalog_2022.py",
+    "sha256": "94a89cd4650c9cbce95ce751172231651d699fd2b979ea1ac793e24c15480648"
+  },
+  {
+    "path": "tests/test_ballistics_2022.py",
+    "sha256": "73953ecc1760019a7ce0c12e3ba85b4dd194a761ed1dd776bee36310d2bfbcca"
+  },
+  {
+    "path": "tests/test_bot_controller_2022.py",
+    "sha256": "a178d0556e2a728bd8b6162b722f81a9ceff1c331859d50ddd85dbe3ecf93b98"
+  },
+  {
+    "path": "tests/test_breakable_state_2022.py",
+    "sha256": "98609e921bdf1c06cd93c48c4a3e8c7e358e0c68969b2b60b3721851c2c9319c"
+  },
+  {
+    "path": "tests/test_cosmetics_proxy_2022.py",
+    "sha256": "16e949050f8960941545497ac664bb36897e777e080849758d67909f461e24f2"
+  },
+  {
+    "path": "tests/test_death_parcel_2022.py",
+    "sha256": "53a03c247e284313e4528f316b43874e6b1b74e84fbe0f3fa79e10c1a8408c3a"
+  },
+  {
+    "path": "tests/test_debug_console_2022.py",
+    "sha256": "0cb6075149b525bad626ce8fe6977253e73df16cec978e49403b515187b56f29"
+  },
+  {
+    "path": "tests/test_door_state_2022.py",
+    "sha256": "1173fa314fc598a269293dfe9353c0e2f9fe554525e5efd0fb8770ba57c18c8c"
+  },
+  {
+    "path": "tests/test_entity_status_action_2022.py",
+    "sha256": "cdd1e4c8bcea28bc392daf179c56f1150152ed441fe216aef9fa885aa9ef601c"
+  },
+  {
+    "path": "tests/test_evacuation_flight_2022.py",
+    "sha256": "794252e51cee833e130e0bdbfa43334606551a30bf18e0005382a8e41c632f2f"
+  },
+  {
+    "path": "tests/test_export_test_report_2022.py",
+    "sha256": "568cb2d1bb282d66875ac6a9a568b27ce6a89d1498cad4964060953ccd146206"
+  },
+  {
+    "path": "tests/test_game_endpoint_probe_2022.py",
+    "sha256": "076a8d78d5fc099179f5a439f1ede36b0f80972b9eb3c711e1fe4d48a9e2056e"
+  },
+  {
+    "path": "tests/test_gameplay_action_sequences_2022.py",
+    "sha256": "64cb6e1d343edcaf69840dd03cb20bf9d59e02be91c34823c60976875a6b16a1"
+  },
+  {
+    "path": "tests/test_generate_winter_doors_2022.py",
+    "sha256": "d47eb2448122be4b7741fa5e1e414d54774b55f0f4bd82e1d5b98a62753c6d8a"
+  },
+  {
+    "path": "tests/test_ground_route_2022.py",
+    "sha256": "5e5a63313e4833e2b2b5157a048e97df6aba199ef6d38d29316ff17576196d46"
+  },
+  {
+    "path": "tests/test_inventory_codec_2022.py",
+    "sha256": "f123c5f5d3635bbee7f179e2fb5c241d25e1793c1f50ef5858b63403df60edb2"
+  },
+  {
+    "path": "tests/test_inventory_conservation_2022.py",
+    "sha256": "d4ebc8018fe1d4a4486d34b7d3d322386ba27f41187ee76d7a4eee613bc426ae"
+  },
+  {
+    "path": "tests/test_join_probe_2022.py",
+    "sha256": "4ee67d6f371ed6196cc99fe80eb525097f292e7bc5c840f3c09abe32f92b90fd"
+  },
+  {
+    "path": "tests/test_lan_tunnel_2022.py",
+    "sha256": "09cd4b2ae7f266734dcc799ec6934ec4b1b6ce6b28280e9024c01750d37115b5"
+  },
+  {
+    "path": "tests/test_live_scene_probe_2022.py",
+    "sha256": "b551da909231e969f57bf7147abc159dc225c9c5e251748853e622b59c5f0b67"
+  },
+  {
+    "path": "tests/test_lobby_actor_uid_2022.py",
+    "sha256": "4c255b8691b14640a5fe120ff6161ba9d0ef03fb5b0fbd87d5ab125fce08093d"
+  },
+  {
+    "path": "tests/test_local_account_2022.py",
+    "sha256": "bda0a3333480258587dc2c021b307ce02ae8fb205b0bc9b6691284bdc1304301"
+  },
+  {
+    "path": "tests/test_local_clothing_2022.py",
+    "sha256": "8804eaefc6afa4d24c75bb20e683d3c5b0195fa0c4e96c21c00e163367d63866"
+  },
+  {
+    "path": "tests/test_local_cosmetics_2022.py",
+    "sha256": "7a1db7eedd807c748687a7bb3e4f6a67a6aac17f8a9f7d7c11554ea1411dc1d6"
+  },
+  {
+    "path": "tests/test_loot_catalog_2022.py",
+    "sha256": "c7e93781b20f0cf49ff62ab0ba8a4d6f77228c65d364f127097c1713a03c8381"
+  },
+  {
+    "path": "tests/test_match_pacing_2022.py",
+    "sha256": "7027a716bc8742e23547612dddd76258d18b770d2937ab3284b7b1cab6fa7e66"
+  },
+  {
+    "path": "tests/test_match_result_2022.py",
+    "sha256": "a0e8e1b7ef01df35057cbece43bf3e2279b48537485edb73ba9237905f4b8e45"
+  },
+  {
+    "path": "tests/test_match_statistics_2022.py",
+    "sha256": "e4464a310e50efecbfed6d2cdaf0a21517dc9f3a50be2520aa5590939ca64ec4"
+  },
+  {
+    "path": "tests/test_medical_probe_2022.py",
+    "sha256": "c5b3eee36c58466359a859602206d07d68ce8b11e29f2447726dd1cf215031e5"
+  },
+  {
+    "path": "tests/test_movement_validation_2022.py",
+    "sha256": "bc98537ad5d982fe328c41b07f4c9119068f17f9b626ced64da108baf502e882"
+  },
+  {
+    "path": "tests/test_original_jeeps_2022.py",
+    "sha256": "43362694a3062dd6adeedbe0eea3e874642deb5ee566b048e2f76020cb1deb8c"
+  },
+  {
+    "path": "tests/test_parcel_catalog_2022.py",
+    "sha256": "8c400e4a5bfe610689aab79735b28b6c171a8c24d19f4df8b38050c492c0cbc9"
+  },
+  {
+    "path": "tests/test_parcel_probe_2022.py",
+    "sha256": "762e11534145f5150348b1ded9c8e4de2fe8eea974b44e76b5159c78fa719699"
+  },
+  {
+    "path": "tests/test_peer_avatar_2022.py",
+    "sha256": "36f5139180405b779d7447f7e2372d0c6c79c8cd6776c579b6ff2ed33503ddce"
+  },
+  {
+    "path": "tests/test_peer_equipment_2022.py",
+    "sha256": "798d4a69c055686c9dc3c5d07c996331b0557ebe4e77eb37f75687f0c68d788e"
+  },
+  {
+    "path": "tests/test_peer_lifecycle_2022.py",
+    "sha256": "5982ba934359c9795b740fe346c6d6de428358254340dd470699c73970a8fd8c"
+  },
+  {
+    "path": "tests/test_peer_motion_2022.py",
+    "sha256": "f1cffeec85af9d9d2923dc320223cf1a0df5e0403ee9ad3cd7cd5e738c1110d4"
+  },
+  {
+    "path": "tests/test_peer_spectator_2022.py",
+    "sha256": "c6bf7d89279df2643f6fb22a29dcf3d8e7ee4540210e1f150de51204ea11891a"
+  },
+  {
+    "path": "tests/test_public_packaging.py",
+    "sha256": "14405d7cf2992fa7289ba423ad0f9ab0a349edc096b7bb417c84ece1ad820372"
+  },
+  {
+    "path": "tests/test_region_index_2022.py",
+    "sha256": "ffa45b2514258362df4bae07c827d6ca61e08d06e8e476598ec88e06ea5b24b7"
+  },
+  {
+    "path": "tests/test_reliable_udp_2022.py",
+    "sha256": "9d24c6857aaaeb02839ad116a54d78d56c2b0a10d152ceae91d588e5cce1cf1d"
+  },
+  {
+    "path": "tests/test_roe_clock_2022.py",
+    "sha256": "b8e1a9e8136b305a999052e0df2992d2a8af2274285faa4438e39bca48c6f803"
+  },
+  {
+    "path": "tests/test_roe_join_instance_2022.py",
+    "sha256": "efa8f7a3595f92158ca63632c085bc3abf64eadd35e0ac014841db7ba5117f58"
+  },
+  {
+    "path": "tests/test_roe_protocol_2022.py",
+    "sha256": "e89984031adad2c7b4defb0da04884e7f39cac49b9f8bfc8bcf1aa48ba6e4e6d"
+  },
+  {
+    "path": "tests/test_roe_room_2023.py",
+    "sha256": "fc9f16735b45e0223194585319a1644bfd4055daa8ab7f5a81c2f59594817e27"
+  },
+  {
+    "path": "tests/test_roe_tgcp_2023.py",
+    "sha256": "eb1f35110b9cbbb1c22744b1556d2ede3939dabdadb758b362ebc64d87a7396d"
+  },
+  {
+    "path": "tests/test_room_cosmetics_2022.py",
+    "sha256": "ff67c28faba6e82f29ca8227818fafed63001fa6cecc8cfbcec65c05e15cf660"
+  },
+  {
+    "path": "tests/test_shared_combat_2022.py",
+    "sha256": "826a1662fddc90959b794ba5220a45f7e4e614e8f2a10ce8307df98cb52c95da"
+  },
+  {
+    "path": "tests/test_shared_combat_endpoint_2022.py",
+    "sha256": "80448880d44d5de1bec45d827a37cf19d1090581ab49f34c1702f127681fe001"
+  },
+  {
+    "path": "tests/test_shared_death_loot_2022.py",
+    "sha256": "a1c45f6a4804334a0dcf07ffacedd6e81cdf3556e08d9760f521e9fcbf967311"
+  },
+  {
+    "path": "tests/test_shared_evacuation_2022.py",
+    "sha256": "b7ceec193140129ee99a08324bc03a0321a6f323110bdc1cb1894bd3807e5a56"
+  },
+  {
+    "path": "tests/test_shared_loot_2022.py",
+    "sha256": "8cb69f85b47ad63c53922e2d362af7048c541827210fae2580dafc8f4ea93b7f"
+  },
+  {
+    "path": "tests/test_shared_vehicle_2022.py",
+    "sha256": "bcb5ba812f42d80a3693cdea8949141da17efd90458fcb97f94de20ac1d48327"
+  },
+  {
+    "path": "tests/test_state_scene_actions_2022.py",
+    "sha256": "41f478590c6ba7e651af8c34f6d0cd4df165da2ba839901f85771c10155ed45b"
+  },
+  {
+    "path": "tests/test_throwable_actions_2022.py",
+    "sha256": "90e6be487c14b8302d366781e012ff41a9f53c44e679081bcec1d5f06640d934"
+  },
+  {
+    "path": "tests/test_throwable_inventory_2022.py",
+    "sha256": "e6647ffc533b5f555164a0cd10b1230d5494485506b2b5e6b3159ee6f3e12484"
+  },
+  {
+    "path": "tests/test_vehicle_probe_2022.py",
+    "sha256": "0a255239b47b11e6d9cac3d101ebc9a2a29b1b04542ec3744bb082d50fccf76a"
+  },
+  {
+    "path": "tests/test_weapon_cosmetics_2022.py",
+    "sha256": "2473e668b5ac83c3ccace904713cdf95a471f6e214e54b400c854f42a52b2d41"
+  },
+  {
+    "path": "tests/test_weapon_probe_2022.py",
+    "sha256": "c42b4ebd8b8a214d75d45199002dc9143b93a5ee5b677fe553c82984cf1c43bf"
+  },
+  {
+    "path": "tests/test_windows_kit.py",
+    "sha256": "e5d8abfa2af234b55474116e6064e38f4c6c8e0bbb3bdd411afd4d486870e03f"
+  },
+  {
+    "path": "tests/test_winter_selection_2022.py",
+    "sha256": "955b4851110ccd56d2feb8fab6e7c3185fc60b34c39887b0424b70ad27c3f7f5"
+  },
+  {
+    "path": "tests/test_world_probe_2022.py",
+    "sha256": "715d095550129c104c423518f5b29f63582bc92439aa140c6c00373042762863"
+  },
+  {
+    "path": "tools/airdrop_fixture_2022.py",
+    "sha256": "54020994278711dafa3209980cc0bdb49f4b8ab35eae3e8f382174c371efdedd"
+  },
+  {
+    "path": "tools/analyze_room_messages_2023.py",
+    "sha256": "a4bba43a8bb7428fd0fcac7da6438070cede02a9e7f05031b25a344dbc730ffd"
+  },
+  {
+    "path": "tools/audit_cosmetics_catalog_2022.py",
+    "sha256": "fb5b86762e96841e94d7e377693168cf84cf1f142349dabfbaa6084672a1262e"
+  },
+  {
+    "path": "tools/boat_practice_2022.py",
+    "sha256": "0dcfd15152de497fadbec13b3085d328d9164c59e34f0657b48c9b7757d1b2e7"
+  },
+  {
+    "path": "tools/bootstrap.ps1",
+    "sha256": "71c546efd28630c0dd61bcce8a064f68abe88ad90b3f250a43d9c14982b48b65"
+  },
+  {
+    "path": "tools/climb_practice_2022.py",
+    "sha256": "de4d7b42fc1727ca0758941b07da48f61d6e2fcdfddd6840efcc26506a534103"
+  },
+  {
+    "path": "tools/debug_console_2022.py",
+    "sha256": "d55487a0869e8e6445cf7475595f8bf3c072b20dd2ed55505697e3380a674578"
+  },
+  {
+    "path": "tools/ensure_firewall.ps1",
+    "sha256": "2fe2ac970d65de8a7399355d2ff687296457f939697a507b1c03aa4657e635da"
+  },
+  {
+    "path": "tools/entity_status_action_2022.py",
+    "sha256": "3a6bbc237617c7489379e895aee9a7bac2d073d2f7ea84b828672f9bce9262ab"
+  },
+  {
+    "path": "tools/evacuation_flight_2022.py",
+    "sha256": "76b891e375cffb5fb41b0f6b388a9dbca5ff2f2d2684852eac9d06323f9d2a88"
+  },
+  {
+    "path": "tools/export_test_report_2022.py",
+    "sha256": "47f4ff991e8ddad62842415618565daa08c7dda706fd80ca29a942cfb84f34b1"
+  },
+  {
+    "path": "tools/generate_winter_breakables_2022.py",
+    "sha256": "6e064345e236fdcc6f2757c78533ac57912cd7cdd12408b1d02ce76efac1a6ea"
+  },
+  {
+    "path": "tools/generate_winter_doors_2022.py",
+    "sha256": "d6377bbb01f171430ba5227cc0644745c78f338170304047c43f81ad51939c36"
+  },
+  {
+    "path": "tools/heartbeat_probe_2022.py",
+    "sha256": "dc60278146550c95701b7a168256e325f94120e88538125fb1e5b50ee9c243d9"
+  },
+  {
+    "path": "tools/lan_tunnel_2022.py",
+    "sha256": "7d45148e26998fced87a487cd0a7b3d2ba67825cfa76443a79c7f7ea10ad1d43"
+  },
+  {
+    "path": "tools/lobby_actor_uid_2022.py",
+    "sha256": "3bfa2438a02e1bb85dd2f0304e13b83ee7fbbc0d38f7f285cca2afcdc4eaf9f5"
+  },
+  {
+    "path": "tools/local_account_2022.py",
+    "sha256": "0f28195413312c3d70610b36bf30743a45e6a95fc404ad7b012a24c87acabc50"
+  },
+  {
+    "path": "tools/local_clothing_2022.py",
+    "sha256": "fc2e0936bcbc50ac4325984927f55b154c87bec3986383638ff90d80fb068fba"
+  },
+  {
+    "path": "tools/local_cosmetics_2022.py",
+    "sha256": "35c22c470a88e3154fb0d369e1be64c3f28951a4008c6c85a5e51aacc37324ce"
+  },
+  {
+    "path": "tools/match_pacing_2022.py",
+    "sha256": "fbcb3a6881896244a780cc06e5ac059003f992431a9c5090373ba45464230cc2"
+  },
+  {
+    "path": "tools/original_jeeps_2022.py",
+    "sha256": "c3313a01e13f7dc9c90a0e52ca9ec3587d28699fcd0483e25df2da2d08b18a9a"
+  },
+  {
+    "path": "tools/remote_peer_2022.py",
+    "sha256": "39b2dc7d41b0c76730319f13978245ce9d5f20e049d7786d3e9f92e33e1c1a43"
+  },
+  {
+    "path": "tools/replay_ballistics_2022.py",
+    "sha256": "4960f5a0b1d04d2a2adafc11d4b45f468d5e6bff50509d4a290530216cc66cb1"
+  },
+  {
+    "path": "tools/roe_clock_2022.py",
+    "sha256": "966cd5f4c2b4a738803f469bf0f3e2c0bb61e621e1cb0d0377a5c9a027b18a07"
+  },
+  {
+    "path": "tools/roe_join_instance_2022.py",
+    "sha256": "7c0917ae6f34fb3f2c17ec48ec4c7a8b6a977134705e70c23e41fd18b9f2346b"
+  },
+  {
+    "path": "tools/roe_protocol_2022.py",
+    "sha256": "6206753161c9cf2a783e1e9d17ca2609d1c7790ab70705226e3e5011246381f6"
+  },
+  {
+    "path": "tools/roe_room_2023.py",
+    "sha256": "3de3fda7d78b3595511d827ca9ce89e04820428c33d235fd7fb291dc52233f1a"
+  },
+  {
+    "path": "tools/roe_scene_2023.py",
+    "sha256": "73ef44b5168ff052337cdbaab0f59ac7fad074d3f7010508c750e404c799a9f5"
+  },
+  {
+    "path": "tools/roe_team_2022.py",
+    "sha256": "9588f5bdbdf4120eaeaa7412e2f951305837c425d94cde4cf7ad4e412e09b96f"
+  },
+  {
+    "path": "tools/roe_tgcp_2023.py",
+    "sha256": "ffa2764faf3100cb4754d48f3492abca850f85c86a875d750885a45ec7ec2e93"
+  },
+  {
+    "path": "tools/run_service.py",
+    "sha256": "bd4e70a02909f6bf2f1ca95e7ad9a944b399cbde09cbafb31a011d9f7986bc55"
+  },
+  {
+    "path": "tools/scene_action_2022.py",
+    "sha256": "89157080167b2eda5aa091857bd727323d7e43e7143525e8805ac2240c16082d"
+  },
+  {
+    "path": "tools/share_audit.py",
+    "sha256": "503aadb5f957717f3f6f198c1888b9e7150d924f7bfdadd9f15cc4d102650f04"
+  },
+  {
+    "path": "tools/snowmotor_fixture_2022.py",
+    "sha256": "dca58488a8c7a3709f5697beb30f6d466956eb4209afc7211ecdda8bc8ef5260"
+  },
+  {
+    "path": "tools/verify_lobby_concurrency_2022.py",
+    "sha256": "e4dc97d710dea4081fa3123f6bc5eee00376dc82f1495382636db7c226ff74ae"
+  },
+  {
+    "path": "tools/windows_launch.py",
+    "sha256": "34cd96238f400ad9338fd85255057ee03bf6cc607718f4842ca16e47c9dcb58a"
+  }
+]

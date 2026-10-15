@@ -1,0 +1,13 @@
+{
+  "map_id": 16010,
+  "hour": 8,
+  "temperature_raw": 500,
+  "original_random_clock_choice": false,
+  "original_temperature_algorithm": false,
+  "metadata": {
+    "hour_source": "EnvrMapTimeTable/TableBin140: map16010 permits7/8/15/16",
+    "duration_source": "EnvrTimeTable/TableBin95:720min;24weights sum10000;4.32sec per unit",
+    "temperature": "Собственное начальное значение500=5°C; температурная кривая не восстановлена",
+    "wire": "4816 hourBE32+serverUNIXsecondsBE32;10d0 attr5+signedtemperature"
+  }
+}

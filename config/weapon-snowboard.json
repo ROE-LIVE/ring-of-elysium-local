@@ -1,0 +1,48 @@
+{
+  "gun_inventory_file": "@wire/fb6f57ea88083c238f05297df7619a9b45cce5b1b82f06eca98bb516ceaad092",
+  "ammunition_inventory_file": "@wire/e63af3d138096dca0d1fb54dcc8e318d5a5f0816204076ab95919941152ef332",
+  "loot": {
+    "entity_file": "@wire/5fcfaab52038c22e57c6a2ee78dcefb3c16788077a913a0d020c6088291aee69",
+    "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+  },
+  "additional_loot": [
+    {
+      "entity_file": "@wire/e3682e849563f49eefc215c584fec5beb175f8eaf3c350c41fe421f48ebe3593",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/9917d389270af1dd86ddcd4f5399cc3a3cb436896b46f06c53e5803aca425a7d",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/801ef03f2d850ba6a3170aae6ddf2bda43ade7838f02cc60573c2f9ce8095c08",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/0ec245c3e2a5e943bcc5170f2ed432200408d4a544a357f4b8816b8ad5d70891",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/a42b70a35a1af99ca523761a232a2b98bef137fa37ac604a2d7b4f3712eceabf",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/8a0908262d8bc6c5b3606c610301dbbfefbcdf64ef73a6440c74b2dcdb828ab7",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/f1fbaadb1f082554b21f3a429613f2379d692ece7173ebc36a8055c2429b3e31",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    },
+    {
+      "entity_file": "@wire/2924be01187d28dea2fdb09ae3b7829bd0d456a824aefc1aa6cc3faaafdd63ce",
+      "acknowledgement_file": "@wire/21e8afa65defc6cede51aa07927e428b59580d7d7a0d929be2aa18178f59379d"
+    }
+  ],
+  "gun_on_start": true,
+  "starting_equipment": [
+    200906,
+    201001,
+    200101
+  ]
+}

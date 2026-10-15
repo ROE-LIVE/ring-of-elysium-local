@@ -1,0 +1,19 @@
+{
+  "map_id": 16010,
+  "radius_cm": 2000,
+  "visible_limit": 32,
+  "batch_limit": 16,
+  "source_points_verified": false,
+  "original_algorithm_verified": false,
+  "original_aoi_verified": false,
+  "entities": [
+    {"index": 190500, "entity_uid": 2905000, "item_id": 10201, "quantity": 1, "position": [365030, 543960, 259109]},
+    {"index": 190501, "entity_uid": 2905001, "item_id": 10202, "quantity": 1, "position": [365030, 544040, 259109]},
+    {"index": 190502, "entity_uid": 2905002, "item_id": 30001, "quantity": 60, "position": [365100, 543960, 259109]},
+    {"index": 190503, "entity_uid": 2905003, "item_id": 30002, "quantity": 60, "position": [365100, 544040, 259109]},
+    {"index": 190504, "entity_uid": 2905004, "item_id": 30003, "quantity": 30, "position": [365160, 543960, 259109]},
+    {"index": 190505, "entity_uid": 2905005, "item_id": 30004, "quantity": 10, "position": [365160, 544040, 259109]},
+    {"index": 190506, "entity_uid": 2905006, "item_id": 200102, "quantity": 1, "position": [364950, 543960, 259109]},
+    {"index": 190507, "entity_uid": 2905007, "item_id": 201002, "quantity": 1, "position": [364950, 544040, 259109]}
+  ]
+}

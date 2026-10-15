@@ -21,7 +21,11 @@
   },
   {
     "path": "README.md",
-    "sha256": "c985d3d2fa0e11636aa9ca3116953cc7c89031bbf5d330ba9b48d30efe9617e5"
+    "sha256": "489c03e63251228abafdb4480e551ac1752dc689d9482f7b0377b1da710fb54b"
+  },
+  {
+    "path": "README.ru.md",
+    "sha256": "b8987052937b1fbc40332373592078a8cb8b0a15be439e0cdb9d381f1adafaa4"
   },
   {
     "path": "RIGHTS.md",

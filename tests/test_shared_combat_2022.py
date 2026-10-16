@@ -59,7 +59,9 @@ class SharedCombatTests(unittest.TestCase):
         outputs,event,victim=self.combat.hit(self.a,self.hit(),100.1);stats.observe(event)
         self.assertIs(victim,self.b)
         self.assertEqual((self.b['world'].hp,self.b['weapon'].equipment_durability[12]),(35,5))
-        self.assertEqual([code for code,_ in outputs[0][1]],[0x11ea])
+        self.assertEqual([code for code,_ in outputs[0][1]],[0x11ea,0x11eb])
+        feedback = dict(outputs[0][1])[0x11eb]
+        self.assertEqual(struct.unpack_from('>QQ',feedback),(10,self.target))
         own_hp=next(body for code,body in outputs[1][1] if code==0x1069)
         self.assertEqual(struct.unpack_from('>Q',own_hp)[0],20)
         self.assertEqual(self.combat.hit(self.a,self.hit(),100.2)[1]['reason'],'duplicate_hit')

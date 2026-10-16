@@ -90,7 +90,7 @@ class SharedCombatRooms:
         validator.started = True
         validator.shots = source['combat_shots']
         validator.hits = set(source.get('combat_hits',set()))
-        responses,event = validator.hit(payload)
+        responses,event = validator.hit(payload, shooter_uid=state['actor_uid'])
         if event['action'] != 'hit_damage':
             return [],dict(event,action='peer_hit_rejected'),None
         # Только после проверки/кодирования всего результата фиксируем HP,
@@ -99,7 +99,7 @@ class SharedCombatRooms:
         staged_weapon.equipment_durability = dict(weapon.equipment_durability)
         damage,armor_packets,_ = staged_weapon.absorb_combat_damage(self.damage)
         own_packets,_ = staged_world.apply_damage(damage,source['avatar'])
-        source_packets = [(code,body) for code,body in responses if code == 0x11ea]
+        source_packets = [(code,body) for code,body in responses if code in (0x11ea, 0x11eb)]
         weapon.equipment_durability.update(staged_weapon.equipment_durability)
         world.__dict__.update(staged_world.__dict__)
         source['combat_hits'] = validator.hits

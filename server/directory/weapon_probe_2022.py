@@ -15,7 +15,7 @@ from throwable_inventory_2022 import THROWABLE_PROFILES, THROWABLE_SLOTS, throwa
 from attachment_probe_2022 import (
     ATTACHMENT_BAG_SLOTS, ATTACHMENT_PROFILES, SUPPORTED_ATTACHMENTS,
     AttachmentInstance, attachment_record, gun_attachment_record, move_attachment,
-    EXTENDED_CAPACITIES)
+    EXTENDED_CAPACITIES, pickup_attachment_to_gun)
 
 # Позиции equipment и определения из TableBin/A89; проверка wire в опыте20261007.
 EQUIPMENT_SLOTS = {201001: 12, 201002: 12, 201003: 12, 201004: 12,
@@ -819,19 +819,25 @@ class WeaponState:
             automatic = byte == 0 and short == 0 and flag == 1
             manual_gun = (byte == 1 and flag == 0 and loot.definition in GUN_PROFILES
                           and self.gun_fits_slot(loot.definition, short))
-            if (not available or slot != 0 or target != 0
-                    or not (automatic or manual_gun) or final != 0
+            # Native00115.10: рукоятка и магазин с земли передают UID оружия,
+            # container3 и attachment point2/3. UID/совместимость проверяет helper.
+            manual_attachment = byte == 3 and flag == 0 and loot.definition in SUPPORTED_ATTACHMENTS
+            target_ok = target == 0 or manual_attachment
+            if (not available or slot != 0 or not target_ok
+                    or not (automatic or manual_gun or manual_attachment) or final != 0
                     or distance_squared >= 750**2):
                 # Публичные поля подбора: разделяем отказ drag/дистанции,
                 # не ослабляя ограничения и не записывая авторизацию.
                 checks = {'available': available, 'slot_zero': slot == 0,
-                          'target_zero': target == 0, 'destination_variant': automatic or manual_gun,
+                          'target_zero': target_ok, 'destination_variant': automatic or manual_gun or manual_attachment,
                           'final_zero': final == 0, 'distance': distance_squared < 750**2}
                 return [], {'action': 'rejected', 'reason': 'pickup_fixture_or_distance',
                             'failed_checks': [name for name, passed in checks.items() if not passed],
                             'loot_index': index, 'requested_slot': slot, 'requested_target': hex(target),
                             'request_byte': byte, 'request_short': short, 'request_flag': flag,
                             'request_final': final, 'distance_squared_cm': distance_squared}
+            if manual_attachment:
+                return pickup_attachment_to_gun(self, loot, target, short)
             duplicate = index in self.picked_loot or (loot == self.fixture.loot and self.loot_picked)
             amount = loot.quantity
             discarded = None

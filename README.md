@@ -37,6 +37,8 @@ The game can write its normal settings and cache into the selected folder. With 
 
 Wait for the launcher to report readiness, then enter through **Training**. Keep the **DEFAULT** spawn cell for your first test to start near the fixed test loot. The scenario provides movement, inventory, three weapon slots, firing and reloading, a target, region closures, an airdrop, and evacuation. `play.cmd` sets an accelerated cycle of about 9.5 minutes; the 1,500-second process limit also includes login and preparation.
 
+Direct ground-to-weapon attachment dragging and native hit markers have now been checked under Proton, including body, head, armor, and lethal hits. The client invokes its original hitmarker sound events; audible output on Windows still needs testing. See [W17](WINDOWS-TESTS-W17.md) and [research notes](docs/HIT-FEEDBACK-20261016.md).
+
 ## Verified behavior and remaining work
 
 The previous Windows build was tested for pickups, three weapon slots, firing, reloading, the target, zones, and a Kill 1 / Rescued 1 result. The new profile disables the invisible training hazard near the evacuation rope and extends the schedule. It has been tested under Proton, but **this public package has not yet been tested by launching the game on Windows**. See the [Windows log review](docs/WINDOWS-RAW-REVIEW-20261015.md).
@@ -109,6 +111,8 @@ Bootstrap устанавливает Python и .NET8 SDK локально в `.t
 Сама игра может записывать обычные настройки и кэш в выбранную папку. При включённой по умолчанию диагностике launcher добавляет собственный marker `FileDriven/_GM_CONTROL_` и файл `ROE_Probe_state_*.lua` с уникальным именем. Числовой TSV переносится в отчёт сеанса. После штатного завершения собственные debug-файлы удаляются, существующие пользовательские файлы сохраняются. При прерывании launcher временные файлы могут остаться.
 
 Дождитесь сообщения launcher о готовности, войдите через **Training**. Для первого теста оставьте клетку **DEFAULT**, чтобы оказаться рядом с фиксированным тестовым лутом. Доступны обычное движение, инвентарь, три оружейных слота, стрельба/перезарядка, мишень, закрытие областей, дроп и эвакуация. `play.cmd` задаёт ускоренный цикл≈9.5мин;1500с — общий лимит процесса с учётом входа.
+
+Прямой перенос совместимого модуля с земли на оружие и штатные отметки попаданий теперь проверены в Proton: тело, голова, броня и добивание. Клиент вызывает собственные звуковые события; слышимый результат Windows ещё нужно проверить. Отдельный [чек-лист W17](WINDOWS-TESTS-W17.md), [результаты исследования](docs/HIT-FEEDBACK-20261016.md).
 
 ## Что проверено и что проверить
 

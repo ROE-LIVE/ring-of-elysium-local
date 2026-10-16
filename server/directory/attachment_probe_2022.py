@@ -108,6 +108,82 @@ def compatible(gun_definition, attachment_definition, index):
     return attachment_definition in SUPPORTED_ATTACHMENTS and profile is not None and profile[0] == index and profile[1] in types and index in indexes
 
 
+def pickup_attachment_to_gun(weapon, loot, target_uid, point):
+    """Native15.10:3B63 ground→gun, targetUID/B3/Hpoint/auto0; без промежуточной сумки."""
+    guns = {gun.uid: (slot, gun) for slot, gun in weapon.guns.items()}
+
+    def acknowledgement(amount):
+        return 0x3b64, struct.pack('>IIIBI', loot.index, 0, amount, 1, loot.definition) + bytes(28)
+
+    def reject(reason):
+        return [acknowledgement(0)], {'action': 'rejected', 'reason': reason,
+                                     'index': loot.index, 'definition': loot.definition,
+                                     'pickup_mode': 'manual_attachment',
+                                     'requested_target': hex(target_uid), 'requested_destination': point}
+
+    if target_uid not in guns:
+        return reject('attachment_target_uid')
+    slot, gun = guns[target_uid]
+    duplicate = loot.index in weapon.picked_loot or (loot == weapon.fixture.loot and weapon.loot_picked)
+    if duplicate:
+        return [acknowledgement(loot.quantity), (0x82b, struct.pack('>Q', loot.entity_uid)), *weapon.reconcile_inventory(),
+                *weapon.magazine_syncs(), weapon.capacity_sync()], {
+            'action': 'duplicate_pickup', 'index': loot.index, 'quantity': 0,
+            'pickup_mode': 'manual_attachment', 'gun_slot': slot, 'part_index': point}
+    if weapon.pending_reload:
+        return reject('attachment_reload_pending')
+    if loot.quantity != 1:
+        return reject('attachment_ground_stack')
+    if not compatible(gun.definition, loot.definition, point):
+        return reject('incompatible_attachment')
+    previous = gun.parts.get(point)
+    destination = None
+    if previous is not None:
+        destination = next((index for index in ATTACHMENT_BAG_SLOTS if index not in weapon.attachments), None)
+        if destination is None:
+            return reject('attachment_destination')
+    # Наша политика замены: прежний обвес возвращается в сумку. При нехватке места
+    # операция отвергается целиком; исходная серверная политика ещё неизвестна.
+    extra_weight = ATTACHMENT_PROFILES[previous.definition][2] if previous else 0
+    new_capacity = (EXTENDED_CAPACITIES.get(gun.definition, weapon.base_magazine_capacity(gun.definition))
+                    if point == 3 and loot.definition in (40401, 40403, 40405)
+                    else weapon.base_magazine_capacity(gun.definition))
+    overflow = max(0, gun.clip-new_capacity) if point == 3 else 0
+    ammunition = weapon.ammunition_definition(gun.definition)
+    if overflow:
+        if weapon.ammunition_quantity(ammunition) + overflow > 999:
+            return reject('attachment_overflow_stack_full')
+        extra_weight += overflow*weapon.ammunition_weight(ammunition)
+    if weapon.bag_weight_hundredths() + extra_weight > weapon.bag_capacity*100:
+        return reject('attachment_bag_full')
+    instance = AttachmentInstance(loot.definition, loot.instance_uid or weapon.new_instance_uid())
+    gun.parts[point] = instance
+    if previous is not None:
+        weapon.attachments[destination] = previous
+        weapon.known_attachment_slots.add(destination)
+    if overflow:
+        gun.clip -= overflow
+        weapon.set_ammunition_quantity(ammunition, weapon.ammunition_quantity(ammunition)+overflow)
+    weapon.picked_loot.add(loot.index)
+    if loot == weapon.fixture.loot:
+        weapon.loot_picked = True
+    replies = [acknowledgement(1), weapon.slot_sync(1, slot)]
+    if previous is not None:
+        replies.append(weapon.slot_sync(2, destination))
+    if overflow:
+        replies.append(weapon.ammunition_slot_sync(ammunition))
+    replies.extend(weapon.magazine_syncs())
+    replies.append(weapon.capacity_sync())
+    replies.append((0x82b, struct.pack('>Q', loot.entity_uid)))
+    return replies, {'action': 'pickup', 'index': loot.index, 'definition': loot.definition,
+                     'quantity': 1, 'remaining': 0, 'pickup_mode': 'manual_attachment',
+                     'requested_destination': point, 'destination_slot': slot,
+                     'gun_slot': slot, 'gun_definition': gun.definition, 'gun_uid': hex(gun.uid),
+                     'part_index': point, 'instance_uid': hex(instance.uid),
+                     'returned_attachment': previous.definition if previous else None,
+                     'returned_attachment_slot': destination, 'returned_ammunition': overflow}
+
+
 def move_attachment(weapon, payload):
     """3e80/tag6: UID+ref B/H для источника/назначения, Hqty, Bown."""
     if len(payload) != 26:

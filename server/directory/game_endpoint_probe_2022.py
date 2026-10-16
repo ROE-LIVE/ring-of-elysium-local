@@ -660,7 +660,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 self.capture.record('weapon_probe',synthetic=True,remote=remote,**armor_event)
                                                 self.capture.record('world_probe',synthetic=True,remote=remote,**damage_event)
                                     if message.command == 0x11dd:
-                                        responses, event = actor.hit(message.payload)
+                                        responses, event = actor.hit(message.payload, shooter_uid=state['actor_uid'])
                                         state.setdefault('match_statistics', MatchStatistics()).observe(event)
                                         self.send_application_batch(d, remote, state, responses)
                                         self.capture.record('actor_probe', synthetic=True, **event)

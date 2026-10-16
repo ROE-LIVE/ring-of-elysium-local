@@ -14,6 +14,7 @@ from world_probe_2022 import encode_health
 from weapon_probe_2022 import ARMOR_DURABILITY, RELOAD_TIMES
 from ground_route_2022 import GroundRoute
 from peer_motion_2022 import encode_peer_trajectory, encode_peer_stop
+from hit_feedback_2022 import encode_hit_broadcast
 
 
 def segment_box_entry(origin, end, lower, upper):
@@ -256,7 +257,7 @@ class ActorState:
                          'damage': before-self.hp, 'hp': self.hp, 'absorbed': absorbed,
                          'armor_durability': self.armor_durability,
                          'original_damage_formula': False}
-    def hit(self, payload):
+    def hit(self, payload, shooter_uid=None):
         if len(payload) != 106:
             raise ValueError('SHOOT_TARGET_WITH_DIR_REQ ожидает106байт')
         pellet = struct.unpack_from('>I', payload)[0]
@@ -271,8 +272,9 @@ class ActorState:
         origin = shot[:3] if shot is not None else None
         geometry = {}
         # Имена подтверждены SWIG getters2022 15.10; decoder140C3FE00
-        # сохраняет те же packed offsets. part_id пока не сопоставлен
-        # с головой/телом. Поле83 — chShooter_path_use_c, не headshot.
+        # сохраняет те же packed offsets. Native16.10: part1 включает head
+        # feedback, part2/3 — обычный; исходные множители урона не восстановлены.
+        # Поле83 — chShooter_path_use_c, не headshot.
         # Старые имена оставлены для совместимости журнальных анализаторов.
         fields = {'gun_definition': accepted[1] if accepted else None,
                   'hit_tag62': payload[62], 'hit_field71': struct.unpack_from('>I', payload, 71)[0],
@@ -307,18 +309,33 @@ class ActorState:
             reason, geometry = self.validate_ray(payload, shot)
         if reason:
             return [], {'action': 'hit_rejected', 'reason': reason, 'target': hex(target), 'counter': counter, 'tick': tick, 'pellet': pellet, **fields, **geometry}
-        self.hits.add(identity)
         before = self.hp
         # Явный учебный баланс: absorbed расходует столько же raw durability.
         # Это не исходная формула ROE и не различение body/head hit zones.
         absorbed = min(self.armor_durability,
                        self.fixture.damage * self.fixture.armor_absorb_percent // 100)
+        next_hp = max(0, self.hp - (self.fixture.damage - absorbed))
+        feedback = None
+        if shooter_uid is not None and accepted[1] is not None:
+            try:
+                feedback = encode_hit_broadcast(
+                    shooter_uid, target,
+                    tuple(a-b for a,b in zip(fields['hit_impact'], point)),
+                    payload[62], before-next_hp, next_hp == 0, absorbed > 0,
+                    tick, accepted[1])
+            except (ValueError, OverflowError):
+                return [], {'action': 'hit_rejected', 'reason': 'feedback_fields',
+                            'target': hex(target), 'counter': counter, 'tick': tick,
+                            'pellet': pellet, **fields, **geometry}
+        self.hits.add(identity)
         self.armor_durability -= absorbed
-        self.hp = max(0, self.hp - (self.fixture.damage - absorbed))
-        # Native140c41120/handler14130fd50: result+12=0 и damage+32>0
-        # разрешают уведомление UI попадания. Остальные неизвестные поля0.
+        self.hp = next_hp
+        # 16.10:11EA legacy handler разрешает EventPlayerHitTarget только EuRPG.
+        # Для штатных QSRifle нужен11EB, подтверждённый decoder/consumer2022.
         acknowledgement = struct.pack('>IQIII', 0, target, 0, 0, 0) + bytes(8) + struct.pack('>I', before-self.hp)
         responses = [(0x1069, encode_health(target, self.hp)), (0x11ea, acknowledgement)]
+        if feedback is not None:
+            responses.append((0x11eb, feedback))
         if absorbed:
             responses.append(self.armor_sync())
         if self.hp == 0:
@@ -330,7 +347,9 @@ class ActorState:
             'action': 'hit_damage', 'target': hex(target), 'counter': counter,
             'tick': tick, 'pellet': pellet, 'damage': before-self.hp,
             'hp': self.hp, 'absorbed': absorbed, 'armor_durability': self.armor_durability,
-            'armor_definition': self.fixture.armor_definition, 'experimental': True, **fields, **geometry}
+            'armor_definition': self.fixture.armor_definition, 'experimental': True,
+            'hit_feedback_command': '0x11eb' if feedback is not None else None,
+            **fields, **geometry}
 
     def validate_ray(self, payload, shot):
         # Native decoder140c3fe00: +25 и +50 — float XYZ, +37 — int XYZ.

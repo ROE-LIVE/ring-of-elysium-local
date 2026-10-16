@@ -21,7 +21,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "ed95e5de34a1c91aec7e9172d74acbe1a2a030e322f586b059156a0ad2eb7bcf"
+    "sha256": "16f2dbdab24452290e02c66a2bc98409e58ef9183f769a804791544a93d592c3"
   },
   {
     "path": "RIGHTS.md",
@@ -33,11 +33,16 @@
   },
   {
     "path": "SMOKE-TEST.md",
-    "sha256": "f18a6d6f15161b1f00872722c3b90166deae84df760c1670c5756ca49a4142c8"
+    "sha256": "9f9b118a3c5d65020e64c07425f051af04951d8a3639bc663718e1696263c847"
   },
   {
     "path": "VALIDATION.md",
     "sha256": "526031da76dcbd63fe155dc5672c9dc8c8c6fc756cd94ae56358d18a58e680db"
+  },
+  {
+    "path": "WINDOWS-TESTS-W17.md",
+    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
+    "sha256": "8871b188b9de56f704bf58e1263b77fa4ba0fd51d4b69e21ec387d2917f2c9aa"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -148,6 +153,11 @@
     "sha256": "b048d1ab6cb7fe74f9cf2f6580124fd5b72991d0bc00044f2001f119892c1d71"
   },
   {
+    "path": "docs/HIT-FEEDBACK-20261016.md",
+    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
+    "sha256": "d32ff97019664b98f9219ed66b7d966f9d49cad4b0acc847cde5e165af94f7f6"
+  },
+  {
     "path": "docs/HIT-FIELDS-20261015.md",
     "sha256": "d483e34ce6c4ea06a1bc58e165cc3c85c74072f831715be88bceee5d3803b3b2"
   },
@@ -229,11 +239,11 @@
   },
   {
     "path": "server/directory/actor_probe_2022.py",
-    "sha256": "a8158139ec6524bf8f3f812ace574087600e4ed25b27fb517525f51f938e1236"
+    "sha256": "43f366ed512005f974992eaaad99a0453483e6f1a460744991d952f108c87a79"
   },
   {
     "path": "server/directory/attachment_probe_2022.py",
-    "sha256": "38032e2cb514a4c849558fa831150ac91108277bf4d84b0b1ca032247d859fd8"
+    "sha256": "5aa07c744c81797d688c9a230d9d27d25396d8678538bf022b981f2e451f77a4"
   },
   {
     "path": "server/directory/ballistics_2022.py",
@@ -265,11 +275,16 @@
   },
   {
     "path": "server/directory/game_endpoint_probe_2022.py",
-    "sha256": "4b2370e46f6ac531894dedb3f8d17306788c8463fc4945af18e9f1380cc948b0"
+    "sha256": "a4cc546e2de53e7059883aca4a5e4f95e2d60f6b846cdbf614f2b7d747a0af4a"
   },
   {
     "path": "server/directory/ground_route_2022.py",
     "sha256": "bad20ca764a2fc8e8f64fff737babbd38fb2f21089a4e9ff7a227776f95127e5"
+  },
+  {
+    "path": "server/directory/hit_feedback_2022.py",
+    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
+    "sha256": "977562f2c580f1c6de1e6d6687df9fdee16e27c5041ba04158af95074a8a31cd"
   },
   {
     "path": "server/directory/inventory_codec_2022.py",
@@ -345,7 +360,7 @@
   },
   {
     "path": "server/directory/shared_combat_2022.py",
-    "sha256": "ce1371c1c6bd8d9e290c3314477a5cb0c05ef3c7ef80b9cc600da2b6369c869f"
+    "sha256": "853ec99dac23af56d48b2fba20dc706f00b9a6e053c87c3976a887df4e2d2017"
   },
   {
     "path": "server/directory/shared_evacuation_2022.py",
@@ -377,7 +392,7 @@
   },
   {
     "path": "server/directory/weapon_probe_2022.py",
-    "sha256": "556a8a41704d59a8bfaa340204eeb07252a647cd570b00b0b5ab662e2d267dd9"
+    "sha256": "293987b1ed7c8c9360884e76f61a2f8026c7e18d72ed3e980d7306ad4dc04148"
   },
   {
     "path": "server/directory/winter_selection_2022.py",
@@ -417,7 +432,7 @@
   },
   {
     "path": "tests/test_attachment_probe_2022.py",
-    "sha256": "48ae2fcc545e312e4da47033f969b6b4ba9a8de11041116eb2778b29815b08e8"
+    "sha256": "5e1759dea8a4cb78f1fa75fd59b1900fc0cb4cecac50c59233e1ff7644eb5c69"
   },
   {
     "path": "tests/test_audit_cosmetics_catalog_2022.py",
@@ -478,6 +493,11 @@
   {
     "path": "tests/test_ground_route_2022.py",
     "sha256": "5e5a63313e4833e2b2b5157a048e97df6aba199ef6d38d29316ff17576196d46"
+  },
+  {
+    "path": "tests/test_hit_feedback_2022.py",
+    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
+    "sha256": "23a5e45e548f26439e078227f49045bc0b9fb626b2e0bc009693ec5e9ffcddc2"
   },
   {
     "path": "tests/test_inventory_codec_2022.py",
@@ -617,7 +637,7 @@
   },
   {
     "path": "tests/test_shared_combat_2022.py",
-    "sha256": "826a1662fddc90959b794ba5220a45f7e4e614e8f2a10ce8307df98cb52c95da"
+    "sha256": "a6ea10e1118aebb01661f2903791d386e74a240b1aba480123b38059eabc7645"
   },
   {
     "path": "tests/test_shared_combat_endpoint_2022.py",

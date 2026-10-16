@@ -9,7 +9,7 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "e99dc444c659f855e278ceddc4174ed83e67b5ed60fe39846850e444553359d0"
+    "sha256": "027f72d0fcc2f745cfc26cb4a4bb3521462ecb9d823d84650bba42b7fbc184ed"
   },
   {
     "path": "CONTRIBUTING.md",
@@ -21,7 +21,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "16f2dbdab24452290e02c66a2bc98409e58ef9183f769a804791544a93d592c3"
+    "sha256": "4be5e2cd7cbc627a3648c8fffd44cc4788ca58c0ff09365777cfd3ab31a829a7"
   },
   {
     "path": "RIGHTS.md",
@@ -42,7 +42,11 @@
   {
     "path": "WINDOWS-TESTS-W17.md",
     "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
-    "sha256": "6380f4a3980b96d5d3ca17a57c16b524f8ed99bbc1b5027118e025bb5460a542"
+    "sha256": "7c0ed0e3eeecafdc293b910b23fcb0c8d82f017049fcc67af06a9cd0ed7d7371"
+  },
+  {
+    "path": "WINDOWS-TESTS-W18.csv",
+    "sha256": "73330cdab72346f27cbec28b161b0100051eb937672fbebcb8b4dc65a497b6b3"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -159,7 +163,7 @@
   {
     "path": "docs/HIT-FEEDBACK-20261016.md",
     "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
-    "sha256": "723a1a2601a4bf0ccb7c63d643f35abf0284fe493e6ae0eb352878398b0407a6"
+    "sha256": "d1cb75ab32022894dda8af6729234850bd38beeb0f6b6bbf4ca7f0efaf98b681"
   },
   {
     "path": "docs/HIT-FIELDS-20261015.md",
@@ -167,7 +171,7 @@
   },
   {
     "path": "docs/HIT-RECORDS-20261016.md",
-    "sha256": "eaf5a8c04b2764fd5190348325ac2486786eb6781c8872e97a6c825e2934914f"
+    "sha256": "394c97d7e0e26c67e02493a9a7198cf30784e3fa29741546dda13cb47e5ef53a"
   },
   {
     "path": "docs/PROJECTILE-MATERIALS-20261016.md",
@@ -192,6 +196,10 @@
   {
     "path": "docs/WINDOWS-TESTS-20261015-FEEDBACK.md",
     "sha256": "8c8276a0ade234799a31e357e441c0381bafacd8ed978fc31353e3580480d25f"
+  },
+  {
+    "path": "docs/WINDOWS-W17-REVIEW-20261016.txt",
+    "sha256": "d3f898f3177eeff1e27237a934b9c88ee09d55aa01a3ee0505857bb7469f94bc"
   },
   {
     "path": "docs/evidence.json",

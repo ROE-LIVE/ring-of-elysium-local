@@ -37,7 +37,7 @@ The game can write its normal settings and cache into the selected folder. With 
 
 Wait for the launcher to report readiness, then enter through **Training**. Keep the **DEFAULT** spawn cell for your first test to start near the fixed test loot. The scenario provides movement, inventory, three weapon slots, firing and reloading, a target, region closures, an airdrop, and evacuation. `play.cmd` sets an accelerated cycle of about 9.5 minutes; the 1,500-second process limit also includes login and preparation.
 
-Direct ground-to-weapon attachment dragging and native hit markers have now been checked under Proton, including body, head, armor, and lethal hits. The client invokes its original hitmarker sound events; audible output on Windows still needs testing. See [W17](WINDOWS-TESTS-W17.md) and [research notes](docs/HIT-FEEDBACK-20261016.md).
+Direct ground-to-weapon attachment dragging and native hit markers have now been checked under Proton, including body, head, armor, and lethal hits. Windows run 20261016T134206-fafd00 with the legacy launcher also confirmed audible body/head/kill feedback and AK attachment handling. Full-magazine R still plays a reload animation/sound without changing ammunition; follow-up cases in WINDOWS-TESTS-W18.csv await a fix. See [W17](WINDOWS-TESTS-W17.md) and [research notes](docs/HIT-FEEDBACK-20261016.md).
 
 ## Verified behavior and remaining work
 
@@ -112,7 +112,7 @@ Bootstrap устанавливает Python и .NET8 SDK локально в `.t
 
 Дождитесь сообщения launcher о готовности, войдите через **Training**. Для первого теста оставьте клетку **DEFAULT**, чтобы оказаться рядом с фиксированным тестовым лутом. Доступны обычное движение, инвентарь, три оружейных слота, стрельба/перезарядка, мишень, закрытие областей, дроп и эвакуация. `play.cmd` задаёт ускоренный цикл≈9.5мин;1500с — общий лимит процесса с учётом входа.
 
-Прямой перенос совместимого модуля с земли на оружие и штатные отметки попаданий теперь проверены в Proton: тело, голова, броня и добивание. Клиент вызывает собственные звуковые события; слышимый результат Windows ещё нужно проверить. Отдельный [чек-лист W17](WINDOWS-TESTS-W17.md), [результаты исследования](docs/HIT-FEEDBACK-20261016.md).
+Прямой перенос совместимого модуля с земли на оружие и штатные отметки попаданий теперь проверены в Proton: тело, голова, броня и добивание. Windows-прогон20261016T134206-fafd00 через прежний launcher подтвердил слышимый body/head/kill feedback и модулиAK. При полном магазине R ещё запускает анимацию/звук без изменения патронов; CSV WINDOWS-TESTS-W18.csv ожидает исправления. Отдельный [чек-лист W17](WINDOWS-TESTS-W17.md), [результаты исследования](docs/HIT-FEEDBACK-20261016.md).
 
 ## Что проверено и что проверить
 

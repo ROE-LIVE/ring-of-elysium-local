@@ -1,3 +1,5 @@
+16.10 07:16UTC: Native019 source heightfield2112²,49материалов; Linux/Win samplesSHA совпали. Reader безSDK:2genuineSnowfloorheight/normal/face совпали<=0.00718cm;12DLLoracle/6unit. tools/probe_iceland_heightfield_2022.py; defaultspawn не менялся. docs/TERRAIN-HEIGHTFIELD-20261016.md.
+
 16.10: Native017 AK throughRock E47→27.25454,11DD144/count2→HP900→800/11EB/UI/Wwise; variabletailисправлен; source mesh одного камня/BVH opt-in. WindowsW17pending, originalHP/serverpenetration открыты. docs/HIT-RECORDS-20261016.md.
 
 # Правила передаваемого комплекта

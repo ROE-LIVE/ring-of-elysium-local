@@ -9,7 +9,7 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "3784f8212548ba5b380ed3908b859b6c38529e2c042d20a5cf1d53c7c52b7b50"
+    "sha256": "e99dc444c659f855e278ceddc4174ed83e67b5ed60fe39846850e444553359d0"
   },
   {
     "path": "CONTRIBUTING.md",
@@ -175,11 +175,15 @@
   },
   {
     "path": "docs/SESSION-RESULT-20261016.md",
-    "sha256": "191fa49f97f409f3ab8041563f096808e39a166bf1b665fc46049c914d1f819a"
+    "sha256": "b8a59f28d7128e27258169489026729500187356aaf7fe65a55d61093ac9521e"
   },
   {
     "path": "docs/SOURCE-COLLISION-20261016.md",
-    "sha256": "a4753c209585b674062efb152b758808b975505323cb384f06f5d35fdfac80a1"
+    "sha256": "069f99c1f4b13f4c9d319fab966be5893c5316b466710198f05852ab27e5597b"
+  },
+  {
+    "path": "docs/TERRAIN-HEIGHTFIELD-20261016.md",
+    "sha256": "046bbffc4d3ab38af041a9c03353f8eb08b158ccfc3272337505e7404a609b48"
   },
   {
     "path": "docs/WINDOWS-RAW-REVIEW-20261015.md",
@@ -279,7 +283,7 @@
   },
   {
     "path": "server/directory/collision_mesh_2022.py",
-    "sha256": "4573423478dbeed234bae50325a5be813786af54dcd73058eb89d85adf5e5655"
+    "sha256": "d97a6a710524f588cdac7005bdbbd7841b7de1f1ea1dd16c2efa8e7fc7672726"
   },
   {
     "path": "server/directory/collision_triangle_2022.py",
@@ -484,7 +488,7 @@
   },
   {
     "path": "tests/test_collision_mesh_2022.py",
-    "sha256": "aad9e337664faa03edac996481754b3da59620fafac242a0fd897b3212b1f824"
+    "sha256": "46289cc6b9747e6c3839c70559494ee4e178d56ba5f560fe8f00211cca8c1e4d"
   },
   {
     "path": "tests/test_collision_triangle_2022.py",
@@ -538,6 +542,10 @@
     "path": "tests/test_hit_feedback_2022.py",
     "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
     "sha256": "23a5e45e548f26439e078227f49045bc0b9fb626b2e0bc009693ec5e9ffcddc2"
+  },
+  {
+    "path": "tests/test_iceland_heightfield_2022.py",
+    "sha256": "8cdc9414090ba03f9741550af15b5f47078afdc2621c274715ad159db53961f0"
   },
   {
     "path": "tests/test_inventory_codec_2022.py",
@@ -830,6 +838,10 @@
   {
     "path": "tools/prepare_iceland_rock_collision_2022.py",
     "sha256": "919295e9db4e0fea6a31662ead69a2d16b14a109a3cec4b50f631ebf3671ab03"
+  },
+  {
+    "path": "tools/probe_iceland_heightfield_2022.py",
+    "sha256": "7d35c6971c1e82888dbd921d8d713c5ecd954a10f0e8a6eded4a8a28c35f0eb8"
   },
   {
     "path": "tools/remote_peer_2022.py",

@@ -8,7 +8,6 @@ import sys
 import tempfile
 import unittest
 
-import lz4.block
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'server/directory'))
@@ -32,7 +31,11 @@ class MeshTests(unittest.TestCase):
         self.write(self.raw)
 
     def write(self, raw):
-        packed = lz4.block.compress(raw,store_size=False)
+        # Достаточно корректного literal-only raw LZ4 для синтетического SFC.
+        size=len(raw);extension=bytearray();extra=max(0,size-15)
+        while extra>=255:extension.append(255);extra-=255
+        if size>=15:extension.append(extra)
+        packed=bytes([min(size,15)<<4])+bytes(extension)+raw
         self.archive = self.directory/'own.sfc'
         self.archive.write_bytes(bytes(16)+struct.pack('<I',len(packed))+packed+struct.pack('<I',len(raw)))
         self.descriptor['sha256'] = hashlib.sha256(raw).hexdigest()

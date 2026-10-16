@@ -10,9 +10,12 @@ import math
 from pathlib import Path
 import re
 import struct
+import sys
 import xml.etree.ElementTree as ET
 
-import lz4.block
+# Используем уже проверенный bounded decoder peer; новой зависимости нет.
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'tools'))
+from roe_tgcp_2023 import decompress_lz4_block
 
 from collision_triangle_2022 import cross, dot, sub, segment_triangle_entry
 
@@ -101,8 +104,8 @@ class CollisionMesh:
         if not 1 <= raw_size <= 4*1024*1024:
             raise ValueError('Collision raw block превышает4МиБ')
         try:
-            raw = lz4.block.decompress(packed,uncompressed_size=raw_size)
-        except lz4.block.LZ4BlockError as error:
+            raw = decompress_lz4_block(packed,maximum=raw_size)
+        except ValueError as error:
             raise ValueError('Неверный LZ4 collision block') from error
         if len(raw) != raw_size or hashlib.sha256(raw).hexdigest() != expected:
             raise ValueError('SHA collision ресурса не совпала')

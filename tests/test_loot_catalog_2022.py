@@ -8,11 +8,29 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server/directory'))
-from loot_catalog_2022 import LootCatalog, LootCatalogState
+from loot_catalog_2022 import LootCatalog, LootCatalogState, record_catalog_summary
 from weapon_probe_2022 import LootFixture, WeaponFixture, WeaponState
 
 
 class CatalogTests(unittest.TestCase):
+    def test_summary_uses_validated_snapshot_and_preserves_launch_fields(self):
+        import hashlib
+        _, state = self.fixture(count=2)
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory)
+            snapshot = run / 'catalog.json'
+            snapshot.write_bytes(b'{"checked_snapshot":true}')
+            record_catalog_summary(run, snapshot, state.catalog)
+            self.assertFalse((run / 'launch-summary.json').exists())
+            (run / 'launch-summary.json').write_text('{"build":"2022-test","kit":"glider"}')
+            record_catalog_summary(run, snapshot, state.catalog)
+            summary = json.loads((run / 'launch-summary.json').read_text())
+            self.assertEqual((summary['build'], summary['kit']), ('2022-test', 'glider'))
+            self.assertEqual(summary['loot_catalog_sha256'], hashlib.sha256(snapshot.read_bytes()).hexdigest())
+            self.assertEqual(summary['loot_catalog_items'], 2)
+            self.assertEqual(summary['loot_catalog_bounds_cm'], [0, 0, 0, 10, 0, 0])
+            self.assertNotIn(str(snapshot), json.dumps(summary))
+
     def fixture(self, quantity=10, count=1, batch=16):
         template = bytes(100)
         fixed = LootFixture(1, 1, 1, (0, 0, 0), bytes(45), 30004, template)
@@ -29,6 +47,23 @@ class CatalogTests(unittest.TestCase):
 
     def request(self, index=100):
         return struct.pack('>IIQBHB3iB', index, 0, 0, 0, 0, 1, 0, 0, 0, 0)
+
+    def test_first_position_outside_catalog_reports_empty_visibility_once(self):
+        weapon, state = self.fixture()
+        self.assertEqual(state.poll(), ([], []))
+        weapon.update_position((1000, 2000, 3000))
+        packets, events = state.poll()
+        self.assertEqual(packets, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]['position'], [1000, 2000, 3000])
+        self.assertEqual(events[0]['spawned_indexes'], [])
+        self.assertEqual((events[0]['catalog_total'], events[0]['visible']), (1, 0))
+        self.assertEqual(state.poll(), ([], []))
+        weapon.update_position((0, 0, 0))
+        packets, events = state.poll()
+        self.assertEqual([code for code, _ in packets], [0x821])
+        self.assertEqual(events[0]['spawned_indexes'], [100])
+        self.assertEqual(events[0]['position'], [0, 0, 0])
 
     def test_bounded_batches_and_explicit_position_before_visibility(self):
         weapon, state = self.fixture(count=8, batch=3)

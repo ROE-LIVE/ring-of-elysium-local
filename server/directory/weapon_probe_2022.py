@@ -400,9 +400,11 @@ class WeaponState:
 
     @property
     def magazine_capacity(self):
-        gun = self.guns[self.selected_slot]
+        return self.gun_magazine_capacity(self.guns[self.selected_slot])
+
+    def gun_magazine_capacity(self, gun):
         if 3 in gun.parts and gun.parts[3].definition in (40401, 40403, 40405):
-            return EXTENDED_CAPACITIES[gun.definition]
+            return EXTENDED_CAPACITIES.get(gun.definition, self.base_magazine_capacity(gun.definition))
         return self.base_magazine_capacity(gun.definition)
 
     def base_magazine_capacity(self, definition):
@@ -696,6 +698,10 @@ class WeaponState:
             gun = bytearray(gun_attachment_record(self.fixture.gun, instance.parts))
             gun[:4] = bytes((1, slot, 1, 0))
             struct.pack_into('>IQ', gun, 4, instance.definition, instance.uid)
+            # ITEM_DATA ref+56 (item+54) -> gun+810: вместимость для native
+            # проверки полной R и reload prediction. Шаблон Citori содержит2;
+            # смены definition/4A0 недостаточно для остальных пушек/магазинов.
+            struct.pack_into('>I', gun, 56, self.gun_magazine_capacity(instance))
             # После вставки attachment records поле сдвигается на12 байт/part.
             struct.pack_into('>I', gun, 72 + 12 * len(instance.parts), instance.skin_id)
             records.append(bytes(gun))

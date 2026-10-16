@@ -18,6 +18,7 @@ from hit_feedback_2022 import encode_hit_broadcast
 from collision_triangle_2022 import load_triangles, segment_triangle_entry
 from collision_mesh_2022 import load_collision_meshes
 from shoot_target_records_2022 import decode_hit_records
+from projectile_materials_2022 import evaluate_rock
 
 
 def segment_box_entry(origin, end, lower, upper):
@@ -66,6 +67,7 @@ class ActorFixture:
     # Выбранные world-грани задаются явно; исходная коллизия всей карты неизвестна.
     collision_triangles: tuple | None = None
     collision_meshes: tuple = ()
+    material_penetration: bool = False
 
     @classmethod
     def load(cls, path):
@@ -172,8 +174,12 @@ class ActorFixture:
             behavior = dict(loot_indexes=list(indexes),after_seconds=after,speed_cm_seconds=pace)
         triangles = load_triangles(c['collision_triangles']) if 'collision_triangles' in c else None
         meshes = load_collision_meshes(path.parent/c['collision_mesh_file']) if 'collision_mesh_file' in c else ()
+        penetration = c.get('material_penetration', False)
+        if (type(penetration) is not bool
+                or penetration and (len(meshes) != 1 or meshes[0].material_id != 305)):
+            raise ValueError('material_penetration требует bool и один выбранный Rock305 mesh')
         return cls(uid, bytes(a), bytes(b), bytes(m), points[0], points, speed, hp, damage, equipment, attack,
-                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles, meshes)
+                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles, meshes, penetration)
 
 
 class ActorState:
@@ -315,7 +321,7 @@ class ActorState:
             reason = 'range'
         elif (self.fixture.collision_boxes is not None or self.fixture.collision_triangles is not None
               or self.fixture.collision_meshes):
-            reason, geometry = self.validate_ray(payload, shot)
+            reason, geometry = self.validate_ray(payload, shot, accepted[1])
         if reason:
             return [], {'action': 'hit_rejected', 'reason': reason, 'target': hex(target), 'counter': counter, 'tick': tick, 'pellet': pellet, **fields, **geometry}
         before = self.hp
@@ -360,7 +366,7 @@ class ActorState:
             'hit_feedback_command': '0x11eb' if feedback is not None else None,
             **fields, **geometry}
 
-    def validate_ray(self, payload, shot):
+    def validate_ray(self, payload, shot, gun_definition=None):
         # Native decoder140c3fe00: +25 и +50 — float XYZ, +37 — int XYZ.
         # Primary hit-own-9091: +25 совпадает с origin11da, +50 — точка
         # поверхности, а +37 — положение actor. Пределы ниже наши, не баланс ROE.
@@ -399,6 +405,13 @@ class ActorState:
                 return 'line_of_sight', {**info, 'blocking_triangle': index,
                                          'blocking_fraction': entry}
         for mesh in self.fixture.collision_meshes:
+            if self.fixture.material_penetration:
+                try:
+                    reason, penetration = evaluate_rock(mesh, origin, impact, gun_definition)
+                except ValueError:
+                    return 'penetration_geometry_limit', {**info, 'validation': 'diagnostic_ray_material'}
+                return reason, {**info, 'validation': 'diagnostic_ray_material',
+                                'penetration': penetration}
             hit = mesh.first_hit(origin,impact)
             if hit is not None:
                 fraction,face = hit

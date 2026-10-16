@@ -4,12 +4,28 @@
 обычные 821/82b, а pickup обслуживает существующий WeaponState.
 """
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 import struct
 
 from weapon_probe_2022 import AMMUNITION_WEIGHTS, ARMOR_DURABILITY, EQUIPMENT_SLOTS, GUN_PROFILES, MEDICAL_PROFILES, SUPPORTED_ATTACHMENTS, LootFixture
 from throwable_inventory_2022 import THROWABLE_PROFILES
+
+
+def record_catalog_summary(run, path, catalog):
+    """Описание уже проверенного снимка, без исходного пути или содержимого JSON."""
+    summary_path = Path(run) / 'launch-summary.json'
+    if not summary_path.is_file():
+        return
+    summary = json.loads(summary_path.read_text(encoding='utf-8-sig'))
+    summary.update(loot_catalog_sha256=hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+                   loot_catalog_items=len(catalog.items), loot_catalog_radius_cm=catalog.radius,
+                   loot_catalog_bounds_cm=[min(item.position[axis] for item in catalog.items)
+                                           for axis in range(3)] +
+                                          [max(item.position[axis] for item in catalog.items)
+                                           for axis in range(3)])
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
 @dataclass(frozen=True)
@@ -79,6 +95,7 @@ class LootCatalogState:
         catalog.validate_fixture(weapon.fixture)
         self.catalog, self.weapon = catalog, weapon
         self.visible = set()
+        self.initial_position_reported = False
         self.buckets = {}
         for item in catalog.items:
             if item.index in weapon.loot_registry:
@@ -122,10 +139,12 @@ class LootCatalogState:
             self.weapon.available_loot.add(item.entity_uid)
             self.visible.add(index)
         events = []
-        if remove or add:
+        if remove or add or not self.initial_position_reported:
             events.append(dict(action='catalog_visibility', spawned=len(add),
                                removed=len(remove), visible=len(self.visible),
                                spawned_indexes=add, removed_indexes=remove,
                                catalog_total=len(self.catalog.items),
+                               position=list(position),
                                original_aoi_verified=False))
+            self.initial_position_reported = True
         return packets, events

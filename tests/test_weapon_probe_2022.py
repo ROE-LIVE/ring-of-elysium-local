@@ -9,10 +9,36 @@ from dataclasses import replace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'server/directory'))
-from weapon_probe_2022 import LootFixture, WeaponFixture, WeaponState, equipment_record
+from weapon_probe_2022 import GUN_PROFILES, GunInstance, LootFixture, WeaponFixture, WeaponState, equipment_record
+from attachment_probe_2022 import AttachmentInstance
 
 
 class WeaponStateTests(unittest.TestCase):
+    def test_each_gun_inventory_advertises_its_capacity_independently_of_clip(self):
+        state = WeaponState(WeaponFixture(bytes(82), bytes(60), weapon_slots=3), 42)
+        for definition, (_, capacity) in GUN_PROFILES.items():
+            with self.subTest(definition=definition):
+                state.guns = {1: GunInstance(definition, max(0, capacity - 1), 123)}
+                record = next(r for r in state.inventory_records() if r[:2] == b'\x01\x01')
+                self.assertEqual(struct.unpack_from('>I', record, 56)[0], capacity)
+                self.assertEqual(state.guns[1].clip, max(0, capacity - 1))
+                self.assertEqual(state.magazine_capacity, capacity)
+
+    def test_inventory_capacity_tracks_extended_magazine_on_every_slot(self):
+        state = WeaponState(WeaponFixture(bytes(82), bytes(60), weapon_slots=3), 42)
+        state.guns = {1: GunInstance(20002, 17, 100),
+                      2: GunInstance(10201, 23, 101, {3: AttachmentInstance(40403, 200)}),
+                      3: GunInstance(10202, 7, 102)}
+        def capacities():
+            return {r[1]: struct.unpack_from('>I', r, 56)[0]
+                    for r in state.inventory_records() if r[0] == 1 and r[1] in (1, 2, 3)}
+        self.assertEqual(capacities(), {1: 17, 2: 40, 3: 30})
+        state.guns[3].parts[3] = state.guns[2].parts.pop(3)
+        self.assertEqual(capacities(), {1: 17, 2: 30, 3: 40})
+        state.guns[3].parts.clear()
+        self.assertEqual(capacities(), {1: 17, 2: 30, 3: 30})
+        self.assertEqual([g.clip for g in state.guns.values()], [17, 23, 7])
+
     def test_full_or_no_reserve_reload_is_noop_without_ack_or_ammo_change(self):
         for clip, reserve, reason in ((2, 6, 'magazine_full'), (1, 0, 'reserve_empty')):
             with self.subTest(reason=reason):

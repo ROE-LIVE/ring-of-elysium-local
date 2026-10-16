@@ -160,6 +160,34 @@ class CollisionMesh:
             stack.extend(node.children)
         return best
 
+    def boundary_hits(self, origin, end):
+        """Пересечения выбранного mesh; совпавшие рёбра дают одну границу.
+
+        Только опора для ограниченного material-опыта: не классифицирует
+        открытые поверхности/вложенные объёмы как полноценный solid solver.
+        """
+        # Общая проверка конечности/пределов совпадает с solid LOS.
+        self.first_hit(origin, end)
+        hits, stack = [], [self.root]
+        while stack:
+            node = stack.pop()
+            if bounds_entry(origin, end, node.lower, node.upper) is None:
+                continue
+            for face in node.faces:
+                fraction = segment_triangle_entry(origin, end, self.triangles[face])
+                if fraction is not None:
+                    hits.append((fraction, face))
+            stack.extend(node.children)
+        distance = math.dist(origin, end)
+        unique = []
+        for hit in sorted(hits):
+            if unique and (hit[0] - unique[-1][0]) * distance < .001:
+                continue
+            unique.append(hit)
+            if len(unique) > 32:
+                raise ValueError('Больше32 границ выбранного mesh')
+        return tuple(unique)
+
 
 def load_collision_meshes(path):
     path = Path(path)

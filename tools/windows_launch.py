@@ -414,10 +414,11 @@ def materialize(run, kit, client=None, cycle=False, weapon_profile='citori', tar
         # Снимок пользовательского каталога фиксирует реально проверенный вход.
         target = run/'custom-loot-catalog.json'
         target.write_bytes(source.read_bytes())
-        from loot_catalog_2022 import LootCatalog
+        from loot_catalog_2022 import LootCatalog, record_catalog_summary
         fixture = WeaponFixture.load(selected_weapon_path)
         catalog = LootCatalog.load(target, fixture.all_loot[0].entity)
         catalog.validate_fixture(fixture)
+        record_catalog_summary(run, target, catalog)
         configs['custom-loot-catalog'] = target
     if death_on_zero:
         # Явный локальный terminal-death; исходные downed/revive не восстановлены.
@@ -491,7 +492,7 @@ def write_launch_summary(run, args):
                    spawn_selection_supported=True, kit_selection_in_game_supported=True,
                    spawn_height_basis="team_l_estimates_native_selected_cells",
                    original_starter_inventory=False)
-    summary.update(launcher_revision='20261015-inplace-v1', client_mode='in_place', weapon_slots=3,
+    summary.update(launcher_revision='20261016-capacity-terrain-v3-inplace', client_mode='in_place', weapon_slots=3,
                    starter_item_source='INITITEM.XML/map16010/stage1',
                    starter_magazine_policy='full_capacity_local',
                    source_hashes={name:digest(ROOT/name) for name in (
@@ -765,6 +766,8 @@ def main():
             elif args.target != 'none':command+=['--actor-config',str(configs['target-'+args.target])]
             peer,log=start('endpoint',command);wait_ready(peer,log,'"kind": "ready"')
             print(f'Сервисы готовы. Режим: {args.mode}; оружие: {args.weapon_profile}; комплект: {args.kit}. Журнал: {run}',flush=True)
+            if 'custom-loot-catalog' in configs:
+                print('Лут каталога появляется на земле у заданных координат. Откройте Tab → Vicinity; оружие не выдаётся в руки.', flush=True)
             if args.boat_practice:
                 print('BoatPractice: фиксированный старт на лодке203. После приземления F — водитель, W/S — ход/тормоз, F — выход в воду; WASD — плавание.',flush=True)
             if args.climb_practice:

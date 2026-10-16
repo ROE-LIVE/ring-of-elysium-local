@@ -9,7 +9,7 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "027f72d0fcc2f745cfc26cb4a4bb3521462ecb9d823d84650bba42b7fbc184ed"
+    "sha256": "57f15b6eaf1efe3da727e75177280a25e63942a2bf7578a5e2ca5fec96ab569c"
   },
   {
     "path": "CONTRIBUTING.md",
@@ -21,7 +21,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "4be5e2cd7cbc627a3648c8fffd44cc4788ca58c0ff09365777cfd3ab31a829a7"
+    "sha256": "71b6d56aea3097aec394d5d8bf57f740ed90b0466cf55172ebf24699b3933f85"
   },
   {
     "path": "RIGHTS.md",
@@ -41,12 +41,11 @@
   },
   {
     "path": "WINDOWS-TESTS-W17.md",
-    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
     "sha256": "7c0ed0e3eeecafdc293b910b23fcb0c8d82f017049fcc67af06a9cd0ed7d7371"
   },
   {
     "path": "WINDOWS-TESTS-W18.csv",
-    "sha256": "73330cdab72346f27cbec28b161b0100051eb937672fbebcb8b4dc65a497b6b3"
+    "sha256": "f64b39f45f014212fae4961f4f5d0b58f5571b784379ad6027aeed05f395cc39"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -138,7 +137,7 @@
   },
   {
     "path": "config/windows-smoke-20261015.json",
-    "sha256": "318bcaee49556a75aea16dd4eb7442983a8f049ba71f9e99c8d4ac3f60ebf87d"
+    "sha256": "f18a445a0860dc41051a4f07873a1430fb6e0f87ce7d805ae28648e4f256e1f0"
   },
   {
     "path": "config/winter-breakables.json",
@@ -162,7 +161,6 @@
   },
   {
     "path": "docs/HIT-FEEDBACK-20261016.md",
-    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
     "sha256": "d1cb75ab32022894dda8af6729234850bd38beeb0f6b6bbf4ca7f0efaf98b681"
   },
   {
@@ -174,8 +172,24 @@
     "sha256": "394c97d7e0e26c67e02493a9a7198cf30784e3fa29741546dda13cb47e5ef53a"
   },
   {
+    "path": "docs/LOOT-SURFACE-20261016.md",
+    "sha256": "d9fac2ddc33aee3dad99c96c647bf09662bc0ed3053b415952f212c7a6351015"
+  },
+  {
+    "path": "docs/MATERIAL-PENETRATION-20261016.md",
+    "sha256": "1effb034b94c0d7964a6436cd878febff00f97f7256e6500d36c11769ec5d5f0"
+  },
+  {
     "path": "docs/PROJECTILE-MATERIALS-20261016.md",
     "sha256": "02926fc5106ce4a7543a0a46d6b45e4b2fa1702347bc7a80191fbdfe423e8041"
+  },
+  {
+    "path": "docs/RELOAD-CAPACITY-20261016.md",
+    "sha256": "d18d10c058e15ed62bcf03964e91cbf7f3dbd2d8b3262edb9c58c385df1718bf"
+  },
+  {
+    "path": "docs/SESSION-RESULT-20261016-AFTERNOON.md",
+    "sha256": "8d4dcd0d02c5ec4d66967b70b0f5d4c0a671d3546cb0cb2244d24251e8cd2fd4"
   },
   {
     "path": "docs/SESSION-RESULT-20261016.md",
@@ -188,6 +202,10 @@
   {
     "path": "docs/TERRAIN-HEIGHTFIELD-20261016.md",
     "sha256": "046bbffc4d3ab38af041a9c03353f8eb08b158ccfc3272337505e7404a609b48"
+  },
+  {
+    "path": "docs/WINDOWS-150144-REVIEW-20261016.md",
+    "sha256": "dc4cf5e05110647f75419bf8fe7102e4cfae5641a22548cd642329cfd2770e1e"
   },
   {
     "path": "docs/WINDOWS-RAW-REVIEW-20261015.md",
@@ -216,14 +234,6 @@
   {
     "path": "private/README.md",
     "sha256": "5f60e954ed7a10dab674fb6555b8d66c26fee720b2999e5ff79e41bdf7b3f869"
-  },
-  {
-    "path": "private/candidate-001.key",
-    "sha256": "3dd70685b4063f8b14a0e33f2160cbf853234ea97e88b8063592fadc08217394"
-  },
-  {
-    "path": "private/lobby-ck.bin",
-    "sha256": "368838d1ac4e4b69cfc7819f0a678a022f42ff839248c27bd14d7502676dca1d"
   },
   {
     "path": "requirements.txt",
@@ -271,7 +281,7 @@
   },
   {
     "path": "server/directory/actor_probe_2022.py",
-    "sha256": "b720d298ed33a3eeba703ed68c9492efe9e48f523051091bc787c8f0ef8ce85f"
+    "sha256": "649b17867fd8e2ab37a610c7f37ba51074cde3bbaa62df3d6decb12402a07e27"
   },
   {
     "path": "server/directory/attachment_probe_2022.py",
@@ -291,7 +301,7 @@
   },
   {
     "path": "server/directory/collision_mesh_2022.py",
-    "sha256": "d97a6a710524f588cdac7005bdbbd7841b7de1f1ea1dd16c2efa8e7fc7672726"
+    "sha256": "3fe84ba3b1ff7d5014943c3823bc7e8f037d73aa3ebb80e2de7a55ddc8d57f6a"
   },
   {
     "path": "server/directory/collision_triangle_2022.py",
@@ -323,7 +333,6 @@
   },
   {
     "path": "server/directory/hit_feedback_2022.py",
-    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
     "sha256": "977562f2c580f1c6de1e6d6687df9fdee16e27c5041ba04158af95074a8a31cd"
   },
   {
@@ -340,7 +349,7 @@
   },
   {
     "path": "server/directory/loot_catalog_2022.py",
-    "sha256": "70542ab6b7f969bffbcd782e889ebed784c5ffcf252ab858a71d620cc2febdda"
+    "sha256": "cf8f22ceb2499a0a670c7c63971d5271b8a604a2359f196b745cc39f4607f90b"
   },
   {
     "path": "server/directory/match_result_2022.py",
@@ -385,6 +394,10 @@
   {
     "path": "server/directory/peer_spectator_2022.py",
     "sha256": "162278f587529cd7bb708239a9a0c89e1a1976064771594ca247606d74c59986"
+  },
+  {
+    "path": "server/directory/projectile_materials_2022.py",
+    "sha256": "1c498d97dda744f9cacf9809d6abfef3bae018f34f0ac91d71ebb7cbdd119894"
   },
   {
     "path": "server/directory/region_index_2022.py",
@@ -436,7 +449,7 @@
   },
   {
     "path": "server/directory/weapon_probe_2022.py",
-    "sha256": "293987b1ed7c8c9360884e76f61a2f8026c7e18d72ed3e980d7306ad4dc04148"
+    "sha256": "3e66f36e396e46224e2d15de613a7bbde73a630716e8fa6b1fbd70a2c9ac2b08"
   },
   {
     "path": "server/directory/winter_selection_2022.py",
@@ -528,7 +541,7 @@
   },
   {
     "path": "tests/test_export_test_report_2022.py",
-    "sha256": "3f596b7b243dffd8a3dc62f0fb173446ada9c9bf0d5076a7503ffaa9db1cc268"
+    "sha256": "0b94917e6e884842f7b35d6a1053249b83b782a2c637ac6616afb4326866b21b"
   },
   {
     "path": "tests/test_game_endpoint_probe_2022.py",
@@ -548,7 +561,6 @@
   },
   {
     "path": "tests/test_hit_feedback_2022.py",
-    "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
     "sha256": "23a5e45e548f26439e078227f49045bc0b9fb626b2e0bc009693ec5e9ffcddc2"
   },
   {
@@ -593,7 +605,7 @@
   },
   {
     "path": "tests/test_loot_catalog_2022.py",
-    "sha256": "c7e93781b20f0cf49ff62ab0ba8a4d6f77228c65d364f127097c1713a03c8381"
+    "sha256": "547698cf91b20b1fcfcecb80e8d6ee7db76f8f80e141df3d4f2f1e49daf6814e"
   },
   {
     "path": "tests/test_match_pacing_2022.py",
@@ -646,6 +658,10 @@
   {
     "path": "tests/test_peer_spectator_2022.py",
     "sha256": "c6bf7d89279df2643f6fb22a29dcf3d8e7ee4540210e1f150de51204ea11891a"
+  },
+  {
+    "path": "tests/test_projectile_materials_2022.py",
+    "sha256": "01a47d559b1b567c7801a7bd99e272574a094b9c2800b588ce0adf15b406f81c"
   },
   {
     "path": "tests/test_public_packaging.py",
@@ -741,7 +757,7 @@
   },
   {
     "path": "tests/test_weapon_probe_2022.py",
-    "sha256": "c42b4ebd8b8a214d75d45199002dc9143b93a5ee5b677fe553c82984cf1c43bf"
+    "sha256": "114bc4e26b40c72c955bb14c763fbaed0c5a6ab8fc31ce7711a2b37533f13c28"
   },
   {
     "path": "tests/test_windows_kit.py",
@@ -766,6 +782,10 @@
   {
     "path": "tools/audit_cosmetics_catalog_2022.py",
     "sha256": "fb5b86762e96841e94d7e377693168cf84cf1f142349dabfbaa6084672a1262e"
+  },
+  {
+    "path": "tools/audit_loot_surface_2022.py",
+    "sha256": "73a9622b1ea4e58925b7547a485e5dd55ae4655c723f2b0f6827899a0a3015da"
   },
   {
     "path": "tools/boat_practice_2022.py",
@@ -797,7 +817,7 @@
   },
   {
     "path": "tools/export_test_report_2022.py",
-    "sha256": "c1fa4d5bb1d7cb2bbbde78dd5d5a249cba200e38b8aa20e6f795d6545a1f2b48"
+    "sha256": "19add2f5636f86a6cbfbd53e5d2f4f360d59419ac28421377bb30de0230cbff3"
   },
   {
     "path": "tools/generate_winter_breakables_2022.py",
@@ -917,6 +937,6 @@
   },
   {
     "path": "tools/windows_launch.py",
-    "sha256": "b9d1d82a36e62e1f7d369aa6f9fc28932eab5a3588535ba089dfe22643715a4e"
+    "sha256": "933a11edaa41d42ee3061df2dfb282b9acd9d20b00165f65896dc2fb5ddc8788"
   }
 ]

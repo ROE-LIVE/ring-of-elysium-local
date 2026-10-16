@@ -10,12 +10,15 @@ KINDS = frozenset(('weapon_probe', 'actor_probe', 'world_probe', 'medical_probe'
                    'parcel_probe', 'vehicle_probe', 'door_probe', 'breakable_probe', 'throwable_probe',
                    'match_statistics', 'winter_kit_initialized', 'winter_selection',
                    'winter_selection_rejected', 'selection_started', 'live_state_action',
-                   'gameplay_handoff_complete', 'gameplay_handoff_pending', 'gameplay_resume_reload_reconcile'))
+                   'gameplay_handoff_complete', 'gameplay_handoff_pending', 'gameplay_resume_reload_reconcile',
+                   'loot_catalog_ready', 'loot_catalog_probe'))
 SUMMARY = frozenset(('build', 'map', 'mode', 'kit', 'weapon_profile', 'target',
                      'bots', 'reliable_udp', 'idle_handoff', 'duration', 'verify_only',
                      'world_cycle_enabled', 'cycle_scale', 'diagnostic_hazard_enabled',
                      'death_on_zero', 'winter_doors_enabled', 'winter_windows_enabled',
                      'custom_loot_catalog_enabled', 'launcher_revision', 'weapon_slots',
+                     'loot_catalog_sha256', 'loot_catalog_items', 'loot_catalog_radius_cm',
+                     'loot_catalog_bounds_cm',
                      'starter_item_source', 'starter_magazine_policy', 'debug_console',
                      'start_hour', 'temperature_raw', 'native_airdrop', 'native_evacuation',
                      'diagnostic_departure', 'original_account_authentication',
@@ -51,6 +54,14 @@ EVENT = EVENT | frozenset(('collision_record_count', 'collision_records',
                             'opaque_u8_1', 'opaque_u8_2', 'material_id', 'point',
                             'unit_uid', 'hit_feedback_command', 'validation',
                             'blocking_mesh', 'blocking_source_face', 'blocking_fraction', 'blocking_material_id'))
+# Индексы/счётчики AOI нужны для разбора «лут не появился»; содержимое пакетов
+# и пути к пользовательскому каталогу по-прежнему не экспортируются.
+EVENT = EVENT | frozenset(('count', 'radius_cm', 'spawned', 'removed', 'visible',
+                            'spawned_indexes', 'removed_indexes', 'catalog_total',
+                            'original_aoi_verified'))
+EVENT = EVENT | frozenset(('penetration', 'mesh_id', 'source_faces', 'original_server_policy',
+                            'energy_initial', 'energy_after', 'penetration_power',
+                            'thickness_cm', 'entry', 'exit'))
 NUMERIC = frozenset(('snapshot', 'qs_current_map_id_unclassified', 'magazine_slot1',
                      'magazine_slot2', 'magazine_slot3', 'reserve_citori', 'reserve_m4',
                      'reserve_ak47', 'reserve_glock', 'reserve_de', 'bandages',

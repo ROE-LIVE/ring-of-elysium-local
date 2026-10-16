@@ -7,13 +7,96 @@
   "original_algorithm_verified": false,
   "original_aoi_verified": false,
   "entities": [
-    {"index": 190500, "entity_uid": 2905000, "item_id": 10201, "quantity": 1, "position": [365030, 543960, 259109]},
-    {"index": 190501, "entity_uid": 2905001, "item_id": 10202, "quantity": 1, "position": [365030, 544040, 259109]},
-    {"index": 190502, "entity_uid": 2905002, "item_id": 30001, "quantity": 60, "position": [365100, 543960, 259109]},
-    {"index": 190503, "entity_uid": 2905003, "item_id": 30002, "quantity": 60, "position": [365100, 544040, 259109]},
-    {"index": 190504, "entity_uid": 2905004, "item_id": 30003, "quantity": 30, "position": [365160, 543960, 259109]},
-    {"index": 190505, "entity_uid": 2905005, "item_id": 30004, "quantity": 10, "position": [365160, 544040, 259109]},
-    {"index": 190506, "entity_uid": 2905006, "item_id": 200102, "quantity": 1, "position": [364950, 543960, 259109]},
-    {"index": 190507, "entity_uid": 2905007, "item_id": 201002, "quantity": 1, "position": [364950, 544040, 259109]}
-  ]
+    {
+      "index": 190500,
+      "entity_uid": 2905000,
+      "item_id": 10201,
+      "quantity": 1,
+      "position": [
+        365030,
+        543960,
+        259111
+      ]
+    },
+    {
+      "index": 190501,
+      "entity_uid": 2905001,
+      "item_id": 10202,
+      "quantity": 1,
+      "position": [
+        365030,
+        544040,
+        259120
+      ]
+    },
+    {
+      "index": 190502,
+      "entity_uid": 2905002,
+      "item_id": 30001,
+      "quantity": 60,
+      "position": [
+        365100,
+        543960,
+        259108
+      ]
+    },
+    {
+      "index": 190503,
+      "entity_uid": 2905003,
+      "item_id": 30002,
+      "quantity": 60,
+      "position": [
+        365100,
+        544040,
+        259116
+      ]
+    },
+    {
+      "index": 190504,
+      "entity_uid": 2905004,
+      "item_id": 30003,
+      "quantity": 30,
+      "position": [
+        365160,
+        543960,
+        259105
+      ]
+    },
+    {
+      "index": 190505,
+      "entity_uid": 2905005,
+      "item_id": 30004,
+      "quantity": 10,
+      "position": [
+        365160,
+        544040,
+        259113
+      ]
+    },
+    {
+      "index": 190506,
+      "entity_uid": 2905006,
+      "item_id": 200102,
+      "quantity": 1,
+      "position": [
+        364950,
+        543960,
+        259124
+      ]
+    },
+    {
+      "index": 190507,
+      "entity_uid": 2905007,
+      "item_id": 201002,
+      "quantity": 1,
+      "position": [
+        364950,
+        544040,
+        259130
+      ]
+    }
+  ],
+  "surface_policy": "diagnostic terrain +2cm; eight outdoor fixture points only",
+  "terrain_source_sha256": "8332fe282b7949acbe717b256638543c6aa32398744b84cfdfe25d7735467d6f",
+  "previous_catalog_sha256": "318bcaee49556a75aea16dd4eb7442983a8f049ba71f9e99c8d4ac3f60ebf87d"
 }

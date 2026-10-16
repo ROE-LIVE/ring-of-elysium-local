@@ -15,3 +15,6 @@ In-place:529 unittest пройдены с PowerShell helper,3PSфайла рас
 Сброс: reset.cmd / reset_local.ps1, общий FileShare.None lock launcher/reset, удаление FW только для хеша выбранного пути; квитанции собственных Lua/TSV/marker с SHA и timestamp, архивирование числового TSV в run. Отдельные флаги FreshProfile/ReinstallDependencies. Регрессии: идемпотентность, сохранение игры/профилей/логов, неизвестные/изменённые файлы, старые квитанции, подмена пути/ссылки, занятый lock; сценарий reset entrypoint проверен с подменой Windows firewall subprocess. Реальный Windows/UAC отдельно не проверен.
 
 Итог reset:537unittestOK с реальным PowerShellhelper и подменой WindowsFW в entrypoint-тесте; parser4PSфайловOK. Настоящий firewall/UAC не изменялся.
+
+
+16.10: опциональный triangle LOS и7синтетических регрессий; 558 unittest OK. Публичные9PowerShell проверок отдельно повторены с vendored pwsh7.6.6 и прошли. verify-only cycle/Scale3/1500/reliableUDP/idlehandoff прошёл. Native010/011 один настоящий Rock: front/open hit, hidden no11DD, exposed hit; original penetration не внедрён. docs/PROJECTILE-MATERIALS-20261016.md. Новый Windows-повтор не выполнен.

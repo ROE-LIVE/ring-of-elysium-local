@@ -37,7 +37,7 @@
   },
   {
     "path": "VALIDATION.md",
-    "sha256": "526031da76dcbd63fe155dc5672c9dc8c8c6fc756cd94ae56358d18a58e680db"
+    "sha256": "722023558f4bb47a634123e72188aabbb0229409f81adde88032548ee8068d5d"
   },
   {
     "path": "WINDOWS-TESTS-W17.md",
@@ -153,13 +153,21 @@
     "sha256": "b048d1ab6cb7fe74f9cf2f6580124fd5b72991d0bc00044f2001f119892c1d71"
   },
   {
+    "path": "docs/HIT-COLLISION-PRODUCER-20261016.md",
+    "sha256": "fd962af361cc547f64d474ad1166432f9941466394107a99f88a288f5a20b6f7"
+  },
+  {
     "path": "docs/HIT-FEEDBACK-20261016.md",
     "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
-    "sha256": "d32ff97019664b98f9219ed66b7d966f9d49cad4b0acc847cde5e165af94f7f6"
+    "sha256": "723a1a2601a4bf0ccb7c63d643f35abf0284fe493e6ae0eb352878398b0407a6"
   },
   {
     "path": "docs/HIT-FIELDS-20261015.md",
     "sha256": "d483e34ce6c4ea06a1bc58e165cc3c85c74072f831715be88bceee5d3803b3b2"
+  },
+  {
+    "path": "docs/PROJECTILE-MATERIALS-20261016.md",
+    "sha256": "b5fd5845609596d61944cf5f518629859e15acf859128d81ca8cb808753db1c7"
   },
   {
     "path": "docs/WINDOWS-RAW-REVIEW-20261015.md",
@@ -239,7 +247,7 @@
   },
   {
     "path": "server/directory/actor_probe_2022.py",
-    "sha256": "43f366ed512005f974992eaaad99a0453483e6f1a460744991d952f108c87a79"
+    "sha256": "150b7f68e04fd23c83f414958eaa6f6110fb22addeb864783a8f1e8c5c2ad9c9"
   },
   {
     "path": "server/directory/attachment_probe_2022.py",
@@ -256,6 +264,10 @@
   {
     "path": "server/directory/breakable_state_2022.py",
     "sha256": "ed523a11ce7ce871e340b89103bea801e4956a58f8f89708c73ec38712919151"
+  },
+  {
+    "path": "server/directory/collision_triangle_2022.py",
+    "sha256": "873d456f6f4e16395c16f258185c2924ca72b37c299ad579112d521e18d8ac8a"
   },
   {
     "path": "server/directory/cosmetic_selection_2022.py",
@@ -449,6 +461,10 @@
   {
     "path": "tests/test_breakable_state_2022.py",
     "sha256": "98609e921bdf1c06cd93c48c4a3e8c7e358e0c68969b2b60b3721851c2c9319c"
+  },
+  {
+    "path": "tests/test_collision_triangle_2022.py",
+    "sha256": "56bd538a553337c1f95e22340b36d7a13acc8c5d97ab0925118bfea8456ff0fb"
   },
   {
     "path": "tests/test_cosmetics_proxy_2022.py",

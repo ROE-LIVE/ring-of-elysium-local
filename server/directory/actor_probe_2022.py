@@ -15,6 +15,7 @@ from weapon_probe_2022 import ARMOR_DURABILITY, RELOAD_TIMES
 from ground_route_2022 import GroundRoute
 from peer_motion_2022 import encode_peer_trajectory, encode_peer_stop
 from hit_feedback_2022 import encode_hit_broadcast
+from collision_triangle_2022 import load_triangles, segment_triangle_entry
 
 
 def segment_box_entry(origin, end, lower, upper):
@@ -60,6 +61,8 @@ class ActorFixture:
     movement_animation: bool = False
     attack_pause_seconds: float = 0.0
     behavior: dict | None = None
+    # Выбранные world-грани задаются явно; исходная коллизия всей карты неизвестна.
+    collision_triangles: tuple | None = None
 
     @classmethod
     def load(cls, path):
@@ -164,8 +167,9 @@ class ActorFixture:
                     or type(pace) not in (int,float) or not math.isfinite(pace) or not 1 <= pace <= 400):
                 raise ValueError('behavior:1..5loot_indexes, after2..120, speed1..400')
             behavior = dict(loot_indexes=list(indexes),after_seconds=after,speed_cm_seconds=pace)
+        triangles = load_triangles(c['collision_triangles']) if 'collision_triangles' in c else None
         return cls(uid, bytes(a), bytes(b), bytes(m), points[0], points, speed, hp, damage, equipment, attack,
-                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior)
+                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles)
 
 
 class ActorState:
@@ -305,7 +309,7 @@ class ActorState:
             reason = 'target_position'
         elif sum((a-b)**2 for a, b in zip(origin, self.position)) > 10000**2:
             reason = 'range'
-        elif self.fixture.collision_boxes is not None:
+        elif self.fixture.collision_boxes is not None or self.fixture.collision_triangles is not None:
             reason, geometry = self.validate_ray(payload, shot)
         if reason:
             return [], {'action': 'hit_rejected', 'reason': reason, 'target': hex(target), 'counter': counter, 'tick': tick, 'pellet': pellet, **fields, **geometry}
@@ -358,12 +362,14 @@ class ActorState:
         origin, aim = shot[:3], shot[3:]
         reported_origin = struct.unpack_from('>3f', payload, 25)
         impact = struct.unpack_from('>3f', payload, 50)
-        info = {'validation': 'diagnostic_ray_aabb', 'origin': origin,
+        validation = ('diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
+                      else 'diagnostic_ray_aabb')
+        info = {'validation': validation, 'origin': origin,
                 'aim': aim, 'impact': impact}
         if not all(math.isfinite(x) and abs(x) <= 10000000
                    for x in (*shot, *reported_origin, *impact)):
             # JSON журнала не должен содержать NaN/Infinity.
-            return 'ray_nonfinite', {'validation': 'diagnostic_ray_aabb'}
+            return 'ray_nonfinite', {'validation': validation}
         if sum((a-b)**2 for a, b in zip(origin, reported_origin)) > 100**2:
             return 'shot_origin', info
         if sum((a-b)**2 for a, b in zip(impact, self.position)) > 250**2:
@@ -378,9 +384,14 @@ class ActorState:
         if (ray_sq < 1 or along <= 0
                 or along*along < ray_sq*hit_sq*math.cos(math.radians(10))**2):
             return 'shot_direction', info
-        for index, (lower, upper) in enumerate(self.fixture.collision_boxes):
+        for index, (lower, upper) in enumerate(self.fixture.collision_boxes or ()):
             if segment_box_entry(origin, impact, lower, upper) is not None:
                 return 'line_of_sight', {**info, 'blocking_box': index}
+        for index, triangle in enumerate(self.fixture.collision_triangles or ()):
+            entry = segment_triangle_entry(origin, impact, triangle)
+            if entry is not None:
+                return 'line_of_sight', {**info, 'blocking_triangle': index,
+                                         'blocking_fraction': entry}
         return None, info
 
     def poll(self, now, tick, player_position=None, protected=False):
@@ -421,6 +432,8 @@ class ActorState:
             visible = (self.fixture.collision_boxes is None or not any(
                 segment_box_entry(origin,end,lower,upper) is not None
                 for lower,upper in self.fixture.collision_boxes))
+            visible = visible and not any(segment_triangle_entry(origin, end, triangle) is not None
+                                          for triangle in self.fixture.collision_triangles or ())
             eligible = (visible and now-self.started_at >= delay and distance <= radius**2
                     and (self.last_attack is None or now-self.last_attack >= interval))
             if eligible and self.magazine == 0 and self.reserve and self.reload_at is None:
@@ -448,7 +461,8 @@ class ActorState:
                 events.append({'action':'bot_attack','uid':hex(self.fixture.uid),
                                'damage':damage,'counter':self.attack_counter,
                                'position':self.position,'target_position':tuple(player_position),
-                               'validation':('distance_only' if self.fixture.collision_boxes is None
+                               'validation':('diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
+                                             else 'distance_only' if self.fixture.collision_boxes is None
                                              else 'diagnostic_ray_aabb'),
                                'magazine':self.magazine, 'reserve':self.reserve,
                                'spent_ammunition':self.spent_ammunition,

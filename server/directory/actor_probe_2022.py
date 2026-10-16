@@ -16,6 +16,8 @@ from ground_route_2022 import GroundRoute
 from peer_motion_2022 import encode_peer_trajectory, encode_peer_stop
 from hit_feedback_2022 import encode_hit_broadcast
 from collision_triangle_2022 import load_triangles, segment_triangle_entry
+from collision_mesh_2022 import load_collision_meshes
+from shoot_target_records_2022 import decode_hit_records
 
 
 def segment_box_entry(origin, end, lower, upper):
@@ -63,6 +65,7 @@ class ActorFixture:
     behavior: dict | None = None
     # Выбранные world-грани задаются явно; исходная коллизия всей карты неизвестна.
     collision_triangles: tuple | None = None
+    collision_meshes: tuple = ()
 
     @classmethod
     def load(cls, path):
@@ -168,8 +171,9 @@ class ActorFixture:
                 raise ValueError('behavior:1..5loot_indexes, after2..120, speed1..400')
             behavior = dict(loot_indexes=list(indexes),after_seconds=after,speed_cm_seconds=pace)
         triangles = load_triangles(c['collision_triangles']) if 'collision_triangles' in c else None
+        meshes = load_collision_meshes(path.parent/c['collision_mesh_file']) if 'collision_mesh_file' in c else ()
         return cls(uid, bytes(a), bytes(b), bytes(m), points[0], points, speed, hp, damage, equipment, attack,
-                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles)
+                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles, meshes)
 
 
 class ActorState:
@@ -262,8 +266,7 @@ class ActorState:
                          'armor_durability': self.armor_durability,
                          'original_damage_formula': False}
     def hit(self, payload, shooter_uid=None):
-        if len(payload) != 106:
-            raise ValueError('SHOOT_TARGET_WITH_DIR_REQ ожидает106байт')
+        records = decode_hit_records(payload)
         pellet = struct.unpack_from('>I', payload)[0]
         target = struct.unpack_from('>Q', payload, 4)[0]
         counter = struct.unpack_from('>I', payload, 88)[0]
@@ -281,6 +284,7 @@ class ActorState:
         # Поле83 — chShooter_path_use_c, не headshot.
         # Старые имена оставлены для совместимости журнальных анализаторов.
         fields = {'gun_definition': accepted[1] if accepted else None,
+                  'collision_record_count': len(records), 'collision_records': records,
                   'hit_tag62': payload[62], 'hit_field71': struct.unpack_from('>I', payload, 71)[0],
                   'hit_field78': struct.unpack_from('>I', payload, 78)[0],
                   'hit_flag83': payload[83], 'hit_field100': struct.unpack_from('>I', payload, 100)[0],
@@ -309,7 +313,8 @@ class ActorState:
             reason = 'target_position'
         elif sum((a-b)**2 for a, b in zip(origin, self.position)) > 10000**2:
             reason = 'range'
-        elif self.fixture.collision_boxes is not None or self.fixture.collision_triangles is not None:
+        elif (self.fixture.collision_boxes is not None or self.fixture.collision_triangles is not None
+              or self.fixture.collision_meshes):
             reason, geometry = self.validate_ray(payload, shot)
         if reason:
             return [], {'action': 'hit_rejected', 'reason': reason, 'target': hex(target), 'counter': counter, 'tick': tick, 'pellet': pellet, **fields, **geometry}
@@ -362,7 +367,8 @@ class ActorState:
         origin, aim = shot[:3], shot[3:]
         reported_origin = struct.unpack_from('>3f', payload, 25)
         impact = struct.unpack_from('>3f', payload, 50)
-        validation = ('diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
+        validation = ('diagnostic_ray_mesh' if self.fixture.collision_meshes
+                      else 'diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
                       else 'diagnostic_ray_aabb')
         info = {'validation': validation, 'origin': origin,
                 'aim': aim, 'impact': impact}
@@ -392,6 +398,13 @@ class ActorState:
             if entry is not None:
                 return 'line_of_sight', {**info, 'blocking_triangle': index,
                                          'blocking_fraction': entry}
+        for mesh in self.fixture.collision_meshes:
+            hit = mesh.first_hit(origin,impact)
+            if hit is not None:
+                fraction,face = hit
+                return 'line_of_sight', {**info,'blocking_mesh':mesh.identifier,
+                                         'blocking_source_face':face,'blocking_fraction':fraction,
+                                         'blocking_material_id':mesh.material_id}
         return None, info
 
     def poll(self, now, tick, player_position=None, protected=False):
@@ -434,6 +447,8 @@ class ActorState:
                 for lower,upper in self.fixture.collision_boxes))
             visible = visible and not any(segment_triangle_entry(origin, end, triangle) is not None
                                           for triangle in self.fixture.collision_triangles or ())
+            visible = visible and not any(mesh.first_hit(origin,end) is not None
+                                          for mesh in self.fixture.collision_meshes)
             eligible = (visible and now-self.started_at >= delay and distance <= radius**2
                     and (self.last_attack is None or now-self.last_attack >= interval))
             if eligible and self.magazine == 0 and self.reserve and self.reload_at is None:
@@ -461,7 +476,8 @@ class ActorState:
                 events.append({'action':'bot_attack','uid':hex(self.fixture.uid),
                                'damage':damage,'counter':self.attack_counter,
                                'position':self.position,'target_position':tuple(player_position),
-                               'validation':('diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
+                               'validation':('diagnostic_ray_mesh' if self.fixture.collision_meshes
+                                             else 'diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
                                              else 'distance_only' if self.fixture.collision_boxes is None
                                              else 'diagnostic_ray_aabb'),
                                'magazine':self.magazine, 'reserve':self.reserve,

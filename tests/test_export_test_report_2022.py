@@ -10,6 +10,24 @@ from export_test_report_2022 import export_report
 
 
 class ExportReportTests(unittest.TestCase):
+    def test_extended_hit_records_remain_diagnostic_without_nested_raw_data(self):
+        with tempfile.TemporaryDirectory() as folder:
+            run=Path(folder)/'run';(run/'scene').mkdir(parents=True)
+            (run/'launch-summary.json').write_text('{"build":"2022-test"}')
+            hit=dict(kind='actor_probe',action='hit_damage',hp=800,
+                     collision_record_count=2,hit_feedback_command='0x11eb',
+                     collision_records=[dict(kind=0,material_id=305,point=[1,2,3],
+                                             opaque_u8_1=0,opaque_u8_2=1,raw='must-not-copy'),
+                                        dict(kind=1,unit_uid='0x123',part_id=2,auth='must-not-copy')])
+            (run/'scene/events.jsonl').write_text(json.dumps(hit)+'\n')
+            out=Path(folder)/'report';export_report(run,out)
+            text=(out/'scene/events.jsonl').read_text();row=json.loads(text)
+            self.assertEqual((row['hp'],row['collision_record_count'],row['hit_feedback_command']),
+                             (800,2,'0x11eb'))
+            self.assertEqual(row['collision_records'][0]['material_id'],305)
+            self.assertEqual(row['collision_records'][1],dict(kind=1,unit_uid='0x123',part_id=2))
+            self.assertNotIn('must-not-copy',text)
+
     def test_export_includes_gameplay_and_numeric_state_without_network_or_identity(self):
         with tempfile.TemporaryDirectory() as folder:
             base=Path(folder);run=base/'run';(run/'scene').mkdir(parents=True)

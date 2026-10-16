@@ -46,6 +46,11 @@ EVENT = frozenset(('sequence', 'timestamp', 'kind', 'action', 'reason', 'synthet
                    'request_kind', 'actor_matches', 'requested_cell', 'request_flag',
                    'inventory_started', 'handoff_mode', 'previous_idle_seconds',
                    'world_position', 'world_hp', 'world_stage_index'))
+# Только разобранная игровая телеметрия; raw/identity/AUTH не добавляются.
+EVENT = EVENT | frozenset(('collision_record_count', 'collision_records',
+                            'opaque_u8_1', 'opaque_u8_2', 'material_id', 'point',
+                            'unit_uid', 'hit_feedback_command', 'validation',
+                            'blocking_mesh', 'blocking_source_face', 'blocking_fraction', 'blocking_material_id'))
 NUMERIC = frozenset(('snapshot', 'qs_current_map_id_unclassified', 'magazine_slot1',
                      'magazine_slot2', 'magazine_slot3', 'reserve_citori', 'reserve_m4',
                      'reserve_ak47', 'reserve_glock', 'reserve_de', 'bandages',

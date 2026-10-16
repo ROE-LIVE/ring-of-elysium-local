@@ -11,6 +11,7 @@ import struct
 
 from actor_probe_2022 import ActorState
 from weapon_probe_2022 import ARMOR_DURABILITY
+from shoot_target_records_2022 import decode_hit_records
 
 
 class SharedCombatRooms:
@@ -52,8 +53,7 @@ class SharedCombatRooms:
             member['combat_hits'] = {x for x in member.get('combat_hits',set()) if x[:2] != expired}
 
     def hit(self, state, payload, now):
-        if len(payload) != 106:
-            raise ValueError('SHOOT_TARGET_WITH_DIR_REQ ожидает106байт')
+        decode_hit_records(payload)
         target_uid = struct.unpack_from('>Q',payload,4)[0]
         source = self.member(state,now)
         target = next((m for (room,_),m in self.avatars.members.items()

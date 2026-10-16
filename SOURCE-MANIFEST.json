@@ -9,7 +9,7 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "0f742b803cf782e1763777efc22d14a0d6c4e7a7e2c4da73837c834520fb0cee"
+    "sha256": "3784f8212548ba5b380ed3908b859b6c38529e2c042d20a5cf1d53c7c52b7b50"
   },
   {
     "path": "CONTRIBUTING.md",
@@ -42,7 +42,7 @@
   {
     "path": "WINDOWS-TESTS-W17.md",
     "source": "Изменение собственного эмулятора16.10.2026: INV07/GUN05; см.docs/HIT-FEEDBACK-20261016.md",
-    "sha256": "8871b188b9de56f704bf58e1263b77fa4ba0fd51d4b69e21ec387d2917f2c9aa"
+    "sha256": "6380f4a3980b96d5d3ca17a57c16b524f8ed99bbc1b5027118e025bb5460a542"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -166,8 +166,20 @@
     "sha256": "d483e34ce6c4ea06a1bc58e165cc3c85c74072f831715be88bceee5d3803b3b2"
   },
   {
+    "path": "docs/HIT-RECORDS-20261016.md",
+    "sha256": "eaf5a8c04b2764fd5190348325ac2486786eb6781c8872e97a6c825e2934914f"
+  },
+  {
     "path": "docs/PROJECTILE-MATERIALS-20261016.md",
-    "sha256": "b5fd5845609596d61944cf5f518629859e15acf859128d81ca8cb808753db1c7"
+    "sha256": "02926fc5106ce4a7543a0a46d6b45e4b2fa1702347bc7a80191fbdfe423e8041"
+  },
+  {
+    "path": "docs/SESSION-RESULT-20261016.md",
+    "sha256": "191fa49f97f409f3ab8041563f096808e39a166bf1b665fc46049c914d1f819a"
+  },
+  {
+    "path": "docs/SOURCE-COLLISION-20261016.md",
+    "sha256": "a4753c209585b674062efb152b758808b975505323cb384f06f5d35fdfac80a1"
   },
   {
     "path": "docs/WINDOWS-RAW-REVIEW-20261015.md",
@@ -247,7 +259,7 @@
   },
   {
     "path": "server/directory/actor_probe_2022.py",
-    "sha256": "150b7f68e04fd23c83f414958eaa6f6110fb22addeb864783a8f1e8c5c2ad9c9"
+    "sha256": "b720d298ed33a3eeba703ed68c9492efe9e48f523051091bc787c8f0ef8ce85f"
   },
   {
     "path": "server/directory/attachment_probe_2022.py",
@@ -264,6 +276,10 @@
   {
     "path": "server/directory/breakable_state_2022.py",
     "sha256": "ed523a11ce7ce871e340b89103bea801e4956a58f8f89708c73ec38712919151"
+  },
+  {
+    "path": "server/directory/collision_mesh_2022.py",
+    "sha256": "4573423478dbeed234bae50325a5be813786af54dcd73058eb89d85adf5e5655"
   },
   {
     "path": "server/directory/collision_triangle_2022.py",
@@ -372,7 +388,7 @@
   },
   {
     "path": "server/directory/shared_combat_2022.py",
-    "sha256": "853ec99dac23af56d48b2fba20dc706f00b9a6e053c87c3976a887df4e2d2017"
+    "sha256": "53fe886d1f91f749acc6e379301f6ff470f09371efd2972ffbe899bd23ddd6b0"
   },
   {
     "path": "server/directory/shared_evacuation_2022.py",
@@ -385,6 +401,10 @@
   {
     "path": "server/directory/shared_vehicle_2022.py",
     "sha256": "d7acdc310936613dbcb4ee1cdee17997a64883de22ed53400b6a4f242e791ec6"
+  },
+  {
+    "path": "server/directory/shoot_target_records_2022.py",
+    "sha256": "3faf3127988a0c54bfebaa8a23910b96225f13fb514423a60cd8f92887c2811c"
   },
   {
     "path": "server/directory/state_scene_actions_2022.py",
@@ -463,6 +483,10 @@
     "sha256": "98609e921bdf1c06cd93c48c4a3e8c7e358e0c68969b2b60b3721851c2c9319c"
   },
   {
+    "path": "tests/test_collision_mesh_2022.py",
+    "sha256": "aad9e337664faa03edac996481754b3da59620fafac242a0fd897b3212b1f824"
+  },
+  {
     "path": "tests/test_collision_triangle_2022.py",
     "sha256": "56bd538a553337c1f95e22340b36d7a13acc8c5d97ab0925118bfea8456ff0fb"
   },
@@ -492,7 +516,7 @@
   },
   {
     "path": "tests/test_export_test_report_2022.py",
-    "sha256": "568cb2d1bb282d66875ac6a9a568b27ce6a89d1498cad4964060953ccd146206"
+    "sha256": "3f596b7b243dffd8a3dc62f0fb173446ada9c9bf0d5076a7503ffaa9db1cc268"
   },
   {
     "path": "tests/test_game_endpoint_probe_2022.py",
@@ -676,6 +700,10 @@
     "sha256": "bcb5ba812f42d80a3693cdea8949141da17efd90458fcb97f94de20ac1d48327"
   },
   {
+    "path": "tests/test_shoot_target_records_2022.py",
+    "sha256": "21703e4c98d4a912da25f85baeb5bca112300640697d90afe8bbcc23b924bc57"
+  },
+  {
     "path": "tests/test_state_scene_actions_2022.py",
     "sha256": "41f478590c6ba7e651af8c34f6d0cd4df165da2ba839901f85771c10155ed45b"
   },
@@ -753,7 +781,7 @@
   },
   {
     "path": "tools/export_test_report_2022.py",
-    "sha256": "6e2e438067f64f8f7557db6e5d76518e6304657671f16ce610deeab8803656aa"
+    "sha256": "c1fa4d5bb1d7cb2bbbde78dd5d5a249cba200e38b8aa20e6f795d6545a1f2b48"
   },
   {
     "path": "tools/generate_winter_breakables_2022.py",
@@ -798,6 +826,10 @@
   {
     "path": "tools/original_jeeps_2022.py",
     "sha256": "c3313a01e13f7dc9c90a0e52ca9ec3587d28699fcd0483e25df2da2d08b18a9a"
+  },
+  {
+    "path": "tools/prepare_iceland_rock_collision_2022.py",
+    "sha256": "919295e9db4e0fea6a31662ead69a2d16b14a109a3cec4b50f631ebf3671ab03"
   },
   {
     "path": "tools/remote_peer_2022.py",

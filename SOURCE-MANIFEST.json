@@ -17,7 +17,7 @@
   },
   {
     "path": "PROVENANCE.json",
-    "sha256": "1a560cd81b2c79523ac4b220c479d04a6c0d9577bb7ea3bed81ec7f0688e70f7"
+    "sha256": "baeaa6ef7b737a7556af23997db533f4655f5024ee276722ee34f711654e60a8"
   },
   {
     "path": "README.md",
@@ -245,7 +245,7 @@
   },
   {
     "path": "docs/SESSION-RESULT-20261018-PM.md",
-    "sha256": "0af2b7f55a80c9e406ebcdc6e8794dc02794dfb990d8c1430c57bd6faf718e8b"
+    "sha256": "f7465c9f0ddfb868cea187d886fa8e0717dc55c85ae554615d18594d27994c30"
   },
   {
     "path": "docs/SESSION-RESULT-20261018.md",
@@ -262,6 +262,10 @@
   {
     "path": "docs/TERRAIN-LOS-20261018.md",
     "sha256": "fd40d5ff3baed6a4bb951cf140ba633e2243377782b35ff1d32e7472dcd31d52"
+  },
+  {
+    "path": "docs/TERRAIN-ROCK-CONTROL-20261018.md",
+    "sha256": "03742a19be34f75d77833fbc86d6bacdbac12aa75936236c03059186cc64221b"
   },
   {
     "path": "docs/WINDOWS-150144-REVIEW-20261016.md",
@@ -297,19 +301,19 @@
   },
   {
     "path": "docs/recovery/history.csv",
-    "sha256": "afc6c7d76100c92aed86d0c64dcb90d0d67c885c4ce6edc1cac7dda344bd5da5"
+    "sha256": "b676d7bc632f34adc29c0959d0515b2aae3f25ba7e3eb43590828c42d48346e2"
   },
   {
     "path": "docs/recovery/mechanics-2022.csv",
-    "sha256": "27c00689a7edaf855fd0f95afb8995f7fbd72c2a3e37646090999c29d714fd6a"
+    "sha256": "418e744c57a679c24eb28b97c29146c76f85b044658a64e26e7b875c48c9e8d1"
   },
   {
     "path": "docs/recovery/status.md",
-    "sha256": "ab1df2f681d3219ac5ebeb0628627b997681c1c03d439593d8cd609848fd10d9"
+    "sha256": "180fd42c5a6936e8b80fec0a9aa339fc90e083bca4ee80cfa0f4adbf831ed976"
   },
   {
     "path": "docs/recovery/updates.csv",
-    "sha256": "58e4e1ba4665130e4842b3c3c58ec1f487b95276c24c53963543ace40ba9a4b7"
+    "sha256": "4e0aca1b162d5ef96d956542ed226d7c30945b29e32e8d801e231b83895b47b7"
   },
   {
     "path": "docs/recovery/windows-tests-20261018-w19.csv",

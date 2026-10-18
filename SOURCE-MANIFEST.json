@@ -17,7 +17,7 @@
   },
   {
     "path": "PROVENANCE.json",
-    "sha256": "2549c19c0f1e5a6f4c38addd641939487b47a53110cb5624e806b199d3c514a3"
+    "sha256": "a250134130b6c73daf04717899f30116c3500de693418435479943765ef4ba54"
   },
   {
     "path": "README.md",
@@ -293,7 +293,7 @@
   },
   {
     "path": "docs/signals-2022.csv",
-    "sha256": "9a8bfd735695abbb97d490ec46f16dfe54f5da1ee69d8d7446d9f1934bb95cd8"
+    "sha256": "f781d74a26761244ff1bf0c35068bc73abedb8862328f40cb1f57c5254342420"
   },
   {
     "path": "export-report.cmd",

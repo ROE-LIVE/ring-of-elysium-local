@@ -14,6 +14,15 @@ from weapon_probe_2022 import LootFixture,WeaponFixture,WeaponState
 
 
 class BotControllerTests(unittest.TestCase):
+    def test_controller_does_not_copy_player_starter_ammo_or_medical(self):
+        fixture = replace(self.player.fixture, starter_items=((20002, 1), (30003, 15), (70001, 5)),
+                          winter_starter_inventory=True)
+        player = WeaponState(fixture, 1)
+        bot = BotController(self.actor, player)
+        self.assertEqual((bot.inventory.guns, bot.inventory.reserve,
+                          bot.inventory.extra_ammunition, bot.inventory.medical), ({}, 0, {}, {}))
+        self.assertEqual((player.extra_ammunition, player.medical), ({30003: 15}, {70001: 5}))
+
     def setUp(self):
         self.graph=GroundRoute((('a',(0,0,100)),('b',(0,300,120)),('c',(600,300,140))),
                                (('a','b'),('b','c')),('a','c'),(), 'тест walk')

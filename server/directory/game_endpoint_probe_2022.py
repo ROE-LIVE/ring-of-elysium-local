@@ -36,6 +36,7 @@ from shared_evacuation_2022 import SharedEvacuationRooms
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
+from target_roster_2022 import TargetRoster, load_actor_fixtures
 from bot_controller_2022 import BotController
 from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
@@ -172,10 +173,22 @@ class Endpoint(asyncio.DatagramProtocol):
         self.selection_seconds = selection_seconds
         self.weapon_fixture = weapon_fixture
         self.live_commands = live_commands
+        # ID команды действует один раз для actor в пределах этого endpoint,
+        # включая последующие матчи; файл управления при finish не обнуляется.
+        self.live_sent_by_actor = {}
         self.world_fixture = world_fixture
-        if actor_fixture and actor_fixture.behavior and (shared_ground_loot or world_fixture is None):
+        self.actor_fixtures = (tuple(actor_fixture) if isinstance(actor_fixture, (tuple, list))
+                               else (actor_fixture,) if actor_fixture else ())
+        if (len(self.actor_fixtures) > 10
+                or len({f.uid for f in self.actor_fixtures}) != len(self.actor_fixtures)):
+            raise ValueError('Нужны не более10 уникальных мишеней')
+        if (len(self.actor_fixtures) > 1
+                and any(f.attack or f.behavior or f.speed or f.ground_route
+                        or len(f.waypoints) != 1 for f in self.actor_fixtures)):
+            raise ValueError('Несколько мишеней пока поддерживают только пассивный режим')
+        if any(f.behavior for f in self.actor_fixtures) and (shared_ground_loot or world_fixture is None):
             raise ValueError("BOT05 controller требует одиночный world, без shared-ground-loot")
-        self.actor_fixture = actor_fixture
+        self.actor_fixture = self.actor_fixtures[0] if self.actor_fixtures else None
         self.evacuation_delay = evacuation_delay
         self.parcel_fixture = parcel_fixture
         self.environment_fixture = environment_fixture
@@ -404,7 +417,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                         and not self.accept_inventory_action(state, message, remote)):
                                     continue
                                 if self.live_commands and message.command == 0x1f49:
-                                    control = state.setdefault('live_control', LiveSceneCommands(self.live_commands))
+                                    control = self.live_control_for(state)
                                     elapsed = time.monotonic() - self.started
                                     try:
                                         pending = control.poll(state['actor_uid'], int(elapsed*25)&0xffffffff, elapsed)
@@ -628,51 +641,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.emit_own_death_inventory(anchor[0],anchor[1],victim)
                                         self.cancel_dead_actions(victim,anchor[1])
                                 if self.actor_fixture and 'weapon' in state:
-                                    actor = state.setdefault('target_actor', ActorState(self.actor_fixture))
-                                    if actor.fixture.death_loot_reserve is not None and 'target_inventory' not in state:
-                                        state['target_inventory'] = target_inventory(actor, state['weapon'].fixture)
-                                    if message.command == 0x1f49:
-                                        tick = int((time.monotonic()-self.started)*25) & 0xffffffff
-                                        if not actor.started:
-                                            self.send_application_batch(d, remote, state, actor.begin(tick))
-                                            self.capture.record('actor_probe', action='actor_created', uid=hex(actor.fixture.uid), synthetic=True)
-                                        world = state.get('world')
-                                        vehicles = state.get('vehicles')
-                                        protected = bool(vehicles and (vehicles.seated
-                                            or vehicles.climb_protected(time.monotonic()))) or not state['weapon'].gun_owned or bool(world and getattr(world, 'dead', False))
-                                        if actor.fixture.behavior and world:
-                                            controller = state.setdefault('bot_controller',BotController(actor,state['weapon'])) if 'bot_controller' not in state else state['bot_controller']
-                                            bot_packets,bot_events = controller.poll(time.monotonic(),state['weapon'],world,vehicles)
-                                            state['target_inventory'] = controller.inventory
-                                            self.send_application_batch(d,remote,state,bot_packets)
-                                            for bot_event in bot_events:
-                                                self.capture.record('actor_probe',synthetic=True,**bot_event)
-                                        responses, events = actor.poll(time.monotonic(), tick,
-                                            world.position if world else None, protected=protected)
-                                        self.send_application_batch(d, remote, state, responses)
-                                        for event in events:
-                                            self.capture.record('actor_probe', synthetic=True, **event)
-                                            if event['action'] == 'bot_attack' and world:
-                                                damage, armor_packets, armor_event = state['weapon'].absorb_combat_damage(event['damage'])
-                                                damage_packets, damage_event = world.apply_damage(damage,actor.fixture.uid)
-                                                damage_event['validation'] = event['validation']
-                                                self.send_application_batch(d,remote,state,armor_packets + damage_packets)
-                                                self.capture.record('weapon_probe',synthetic=True,remote=remote,**armor_event)
-                                                self.capture.record('world_probe',synthetic=True,remote=remote,**damage_event)
-                                    if message.command == 0x11dd:
-                                        responses, event = actor.hit(message.payload, shooter_uid=state['actor_uid'])
-                                        state.setdefault('match_statistics', MatchStatistics()).observe(event)
-                                        self.send_application_batch(d, remote, state, responses)
-                                        self.capture.record('actor_probe', synthetic=True, **event)
-                                        if event.get('action') == 'hit_damage' and actor.hp == 0 and 'target_inventory' in state:
-                                            inventory = state['target_inventory']
-                                            if actor.fixture.armor_definition:
-                                                inventory.equipment_durability[12] = actor.armor_durability
-                                            corpses = state.setdefault('death_parcels', DeathParcelState())
-                                            responses, event = corpses.transfer(inventory, actor.position,
-                                                                                self.death_reserved_indexes(state))
-                                            self.send_application_batch(d, remote, state, responses)
-                                            self.capture.record('death_parcel_probe', synthetic=True, remote=remote, **event)
+                                    self.handle_targets(d, remote, state, message)
                                 if self.world_fixture and 'weapon' in state:
                                     if 'world' not in state:
                                         if self.shared_world_clock and not self.shared_loot.attach(state):
@@ -806,8 +775,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.peer_combat.note_fire(state,message.payload,event,time.monotonic())
                                     if message.command == 0x11da and 'vehicles' in state:
                                         state['vehicles'].note_fire(message.payload, event)
-                                    if message.command == 0x11da and 'target_actor' in state:
-                                        state['target_actor'].note_fire(message.payload, event)
+                                    if message.command == 0x11da and 'target_roster' in state:
+                                        state['target_roster'].note_fire(message.payload, event)
                                 if 'vehicles' in state and message.command == 0x1f49:
                                     now=time.monotonic()
                                     responses, events = state['vehicles'].poll(now,int((now-self.started)*25)&0xffffffff)
@@ -1059,7 +1028,7 @@ class Endpoint(asyncio.DatagramProtocol):
         # объекты прежней комнаты больше не нужны новому поиску/сеансу.
         released = []
         for field in ('world', 'weapon', 'medical', 'throwable_actions', 'vehicles',
-                      'parcels', 'target_actor', 'target_inventory', 'death_parcels',
+                      'parcels', 'target_actor', 'target_inventory', 'target_roster', 'bot_controller', 'death_parcels',
                       'loot_catalog', 'live_control', 'loot_spawned_uids'):
             if field in state:
                 state.pop(field)
@@ -1067,6 +1036,93 @@ class Endpoint(asyncio.DatagramProtocol):
         self.capture.record('match_gameplay_finished', synthetic=True, remote=remote,
                             cause=cause, pending_actions_cancelled=True,
                             released_gameplay_fields=released)
+
+    @staticmethod
+    def target_actors(state):
+        roster = state.get('target_roster')
+        if roster is not None:
+            return tuple(roster.actors.values())
+        actor = state.get('target_actor')
+        return (actor,) if actor else ()
+
+    def live_control_for(self, state):
+        if 'live_control' not in state:
+            sent = self.live_sent_by_actor.setdefault(state['actor_uid'], set())
+            state['live_control'] = LiveSceneCommands(self.live_commands, sent=sent)
+        return state['live_control']
+
+    @staticmethod
+    def target_inventory_for(state, actor):
+        roster = state.get('target_roster')
+        return (roster.inventories.get(actor.fixture.uid) if roster is not None
+                else state.get('target_inventory'))
+
+    def transfer_target_death(self, d, remote, state, actor):
+        inventory = self.target_inventory_for(state, actor)
+        if actor.hp != 0 or inventory is None:
+            return
+        if actor.fixture.armor_definition:
+            inventory.equipment_durability[12] = actor.armor_durability
+        corpses = state.setdefault('death_parcels', DeathParcelState())
+        packets, event = corpses.transfer(inventory, actor.position, self.death_reserved_indexes(state))
+        self.send_application_batch(d, remote, state, packets)
+        self.capture.record('death_parcel_probe', synthetic=True, remote=remote, **event)
+
+    def handle_targets(self, d, remote, state, message):
+        fixtures = self.actor_fixtures if len(self.actor_fixtures) > 1 else (self.actor_fixture,)
+        legacy = state.get('target_actor')
+        current = state.get('target_roster')
+        legacy_changed = (len(fixtures) == 1 and legacy is not None
+                          and (current is None or current.actors.get(legacy.fixture.uid) is not legacy))
+        if current is None or legacy_changed:
+            roster = TargetRoster(fixtures, state['weapon'].fixture, state['actor_uid'])
+            if legacy_changed:
+                roster.actors[fixtures[0].uid] = legacy
+            state['target_roster'] = roster
+            # Имена одиночного профиля сохранены для диагностических tools/tests.
+            first = next(iter(roster.actors.values()))
+            state['target_actor'] = first
+            if first.fixture.uid in roster.inventories:
+                state['target_inventory'] = roster.inventories[first.fixture.uid]
+        roster = state['target_roster']
+        if message.command == 0x11dd:
+            responses, event, actor = roster.hit(message.payload, state['actor_uid'])
+            state.setdefault('match_statistics', MatchStatistics()).observe(event)
+            self.send_application_batch(d, remote, state, responses)
+            self.capture.record('actor_probe', synthetic=True, **event)
+            if event.get('action') == 'hit_damage' and actor is not None:
+                self.transfer_target_death(d, remote, state, actor)
+        elif message.command == 0x1f49:
+            now = time.monotonic()
+            tick = int((now-self.started)*25) & 0xffffffff
+            world, vehicles = state.get('world'), state.get('vehicles')
+            protected = bool(vehicles and (vehicles.seated or vehicles.climb_protected(now))) or not state['weapon'].gun_owned or bool(world and getattr(world, 'dead', False))
+            for actor in roster.actors.values():
+                if not actor.started:
+                    self.send_application_batch(d, remote, state, actor.begin(tick))
+                    self.capture.record('actor_probe', action='actor_created', uid=hex(actor.fixture.uid),
+                                        synthetic=True, target_count=len(roster.actors))
+                if actor.fixture.behavior and world:
+                    if 'bot_controller' not in state:
+                        state['bot_controller'] = BotController(actor, state['weapon'])
+                    controller = state['bot_controller']
+                    bot_packets, bot_events = controller.poll(now, state['weapon'], world, vehicles)
+                    roster.inventories[actor.fixture.uid] = controller.inventory
+                    state['target_inventory'] = controller.inventory
+                    self.send_application_batch(d, remote, state, bot_packets)
+                    for event in bot_events:
+                        self.capture.record('actor_probe', synthetic=True, **event)
+                responses, events = actor.poll(now, tick, world.position if world else None, protected=protected)
+                self.send_application_batch(d, remote, state, responses)
+                for event in events:
+                    self.capture.record('actor_probe', synthetic=True, **event)
+                    if event['action'] == 'bot_attack' and world:
+                        damage, armor_packets, armor_event = state['weapon'].absorb_combat_damage(event['damage'])
+                        damage_packets, damage_event = world.apply_damage(damage, actor.fixture.uid)
+                        damage_event['validation'] = event['validation']
+                        self.send_application_batch(d, remote, state, armor_packets + damage_packets)
+                        self.capture.record('weapon_probe', synthetic=True, remote=remote, **armor_event)
+                        self.capture.record('world_probe', synthetic=True, remote=remote, **damage_event)
 
     def send_frame(self,d,remote,state,command,sequence,plain,extra=b'', applications=()):
         body=encrypt(plain,state['key'])
@@ -1127,8 +1183,8 @@ class Endpoint(asyncio.DatagramProtocol):
         if finished.definition != 50001 or not damage:
             return
         radius = THROWABLE_EFFECT_PROFILES[50001][1]
-        actor = state.get('target_actor')
-        boxes = actor.fixture.collision_boxes or () if actor else ()
+        actors = self.target_actors(state)
+        boxes = actors[0].fixture.collision_boxes or () if actors else ()
 
         def reachable(point):
             if point is None or sum((a-b)**2 for a,b in zip(point, finished.point)) > radius**2:
@@ -1137,21 +1193,14 @@ class Endpoint(asyncio.DatagramProtocol):
                            for lower, upper in boxes)
 
         reported = set(finished.actors) | {uid for uid, _ in finished.actor_fields}
-        if actor and actor.fixture.uid in reported and reachable(actor.position):
-            packets, event = actor.diagnostic_area_damage(damage)
-            state.setdefault('match_statistics', MatchStatistics()).observe(event)
-            self.send_application_batch(d, remote, state, packets)
-            self.capture.record('throwable_probe', synthetic=True, remote=remote,
-                                identifier=finished.identifier, **event)
-            if actor.hp == 0 and 'target_inventory' in state:
-                inventory = state['target_inventory']
-                if actor.fixture.armor_definition:
-                    inventory.equipment_durability[12] = actor.armor_durability
-                corpses = state.setdefault('death_parcels', DeathParcelState())
-                packets, event = corpses.transfer(inventory, actor.position,
-                                                  self.death_reserved_indexes(state))
+        for actor in actors:
+            if actor.fixture.uid in reported and reachable(actor.position):
+                packets, event = actor.diagnostic_area_damage(damage)
+                state.setdefault('match_statistics', MatchStatistics()).observe(event)
                 self.send_application_batch(d, remote, state, packets)
-                self.capture.record('death_parcel_probe', synthetic=True, remote=remote, **event)
+                self.capture.record('throwable_probe', synthetic=True, remote=remote,
+                                    identifier=finished.identifier, **event)
+                self.transfer_target_death(d, remote, state, actor)
         world = state.get('world')
         if world and not world.dead and reachable(world.position):
             hurt, armor_packets, armor_event = state['weapon'].absorb_combat_damage(damage)
@@ -1262,7 +1311,7 @@ class Endpoint(asyncio.DatagramProtocol):
         idle_seconds = now-previous.get('last_application_at', now)
         fields = ('actor_uid', 'room_uid', 'actor_display_name', 'scene_position', 'scene_position_sync', 'last_movement_position', 'movement_guard', 'scene_rules_sent', 'clock_started',
                   'selection_deadline', 'weapon', 'medical', 'vehicles', 'parcels', 'target_actor',
-                  'target_inventory', 'death_parcels', 'throwable_actions',
+                  'target_inventory', 'target_roster', 'bot_controller', 'death_parcels', 'throwable_actions',
                   'own_death_inventory_processed',
                   'world', 'match_statistics', 'match_end_policy', 'live_control', 'loot_spawned', 'loot_spawned_uids',
                   'winter_kit_initialized', 'winter_choice', 'born_point', 'loot_catalog', 'environment_initialized',
@@ -1302,6 +1351,10 @@ class Endpoint(asyncio.DatagramProtocol):
                             handoff_mode=handoff_mode, previous_idle_seconds=idle_seconds,
                             previous_remote=previous_identity[0], remote=identity[0],
                             experimental=True,
+                            target_count=len(self.target_actors(state)),
+                            target_states=[dict(uid=hex(actor.fixture.uid), hp=actor.hp,
+                                                armor_durability=actor.armor_durability)
+                                           for actor in self.target_actors(state)],
                             world_position=getattr(world, 'position', None),
                             world_hp=getattr(world, 'hp', None),
                             world_started=getattr(world, 'started', None),
@@ -1637,8 +1690,8 @@ async def main(args):
     world_path = getattr(args, 'world_config', None)
     world_fixture = WorldFixture.load(world_path) if world_path else None
     actor_path = getattr(args, 'actor_config', None)
-    actor_fixture = ActorFixture.load(actor_path) if actor_path else None
-    if actor_fixture and actor_fixture.attack and world_fixture is None:
+    actor_fixture = load_actor_fixtures(actor_path) if actor_path else None
+    if actor_fixture and any(f.attack for f in actor_fixture) and world_fixture is None:
         raise ValueError('Экспериментальная атака бота требует world-config для общих HP')
     parcel_path = getattr(args, 'parcel_config', None)
     parcel_fixture = load_parcel_fixture(parcel_path, weapon_fixture, loot_catalog) if parcel_path else None
@@ -1688,7 +1741,7 @@ if __name__=='__main__':
     p.add_argument('--shared-ground-loot',action='store_true',help='Общий наземный лут комнаты; без каталога и контейнеров; диагностический reset после последнего выхода')
     p.add_argument('--shared-world-clock',action='store_true',help='Общий календарь зон текущей комнаты; требует shared-ground-loot/world-config')
     p.add_argument('--shared-peer-health',action='store_true',help='Репликация HP участников через1069/533; требует peer-avatar-config/world-config/shared-ground-loot')
-    p.add_argument('--actor-config',type=Path,help='Диагностическая мишень и патруль; требует weapon-config')
+    p.add_argument('--actor-config',type=Path,help='Одна мишень/бот либо группа1..10 пассивных мишеней; требует weapon-config')
     p.add_argument('--parcel-config',type=Path,help='Экспериментальный аирдроп с содержимым 12ga; требует weapon-config')
     p.add_argument('--evacuation-delay-seconds',type=float,help='Одиночный опыт: отлёт через 2..60 секунд после посадки')
     p.add_argument('--evacuation-result-config',type=Path,help='Явный диагностический мост к газете с архивной статистикой; только после посадки')

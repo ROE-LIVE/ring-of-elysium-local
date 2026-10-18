@@ -105,7 +105,9 @@ def extract_region(client, target):
 
 def materialize(run, kit, client=None, cycle=False, weapon_profile='citori', target_los='off',
                 loot_catalog=None, death_on_zero=False, own_armor_absorb_percent=0, validate_movement=False,
-                frag_damage=100, start_hour=8, temperature_raw=500, native_airdrop=False, native_evacuation=False, diagnostic_departure=False, original_jeeps=False, climb_practice=False, vehicle_profile='jeep', boat_practice=False, bot_ground_route=False, bot_behavior=False, account_profile='default', winter_doors=False, winter_windows=False, cycle_scale=1, diagnostic_hazard=False):
+                frag_damage=100, start_hour=8, temperature_raw=500, native_airdrop=False, native_evacuation=False, diagnostic_departure=False, original_jeeps=False, climb_practice=False, vehicle_profile='jeep', boat_practice=False, bot_ground_route=False, bot_behavior=False, account_profile='default', winter_doors=False, winter_windows=False, cycle_scale=1, diagnostic_hazard=False, practice_targets=1):
+    if type(practice_targets) is not int or not 1 <= practice_targets <= 10:
+        raise ValueError('PracticeTargets: целое1..10')
     if type(cycle_scale) is not int or not 1 <= cycle_scale <= 10:
         raise ValueError('CycleScale: целое1..10')
     if type(diagnostic_hazard) is not bool:
@@ -438,6 +440,17 @@ def materialize(run, kit, client=None, cycle=False, weapon_profile='citori', tar
                               cycle_scale, diagnostic_hazard or bot_behavior)
     configs['world'].write_text(json.dumps(world,ensure_ascii=False,indent=2),encoding='utf-8')
     configs['scene-cycle'].write_text(json.dumps(scene,ensure_ascii=False,indent=2),encoding='utf-8')
+    if practice_targets > 1:
+        points = json.loads((ROOT/'config/practice-target-points.json').read_text())
+        if points['map_id'] != 16010:
+            raise ValueError('PracticeTargets требует map16010')
+        from target_roster_2022 import load_actor_fixtures
+        for kind in ('plain', 'armored'):
+            path = run/('target-roster-'+kind+'.json')
+            path.write_text(json.dumps(dict(template_file=str(configs['target-'+kind]),
+                passive_targets=points['targets'][:practice_targets]),ensure_ascii=False,indent=2),encoding='utf-8')
+            load_actor_fixtures(path)
+            configs['target-'+kind] = path
     return configs
 
 
@@ -474,6 +487,7 @@ def write_launch_summary(run, args):
                    bot_ground_route=bool(getattr(args,'bot_ground_route',False)),
                    bot_behavior=bool(getattr(args,'bot_behavior',False)),
                    live_control=bool(getattr(args,'live_control',False)),
+                   practice_targets=getattr(args,'practice_targets',1) if args.target != 'none' else 0,
                    reliable_udp=args.reliable_udp, idle_handoff=args.idle_handoff,
                    duration=args.duration, verify_only=args.verify_only,
                    world_cycle_enabled=args.mode == 'cycle',
@@ -492,13 +506,17 @@ def write_launch_summary(run, args):
                    spawn_selection_supported=True, kit_selection_in_game_supported=True,
                    spawn_height_basis="team_l_estimates_native_selected_cells",
                    original_starter_inventory=False)
-    summary.update(launcher_revision='20261016-capacity-terrain-v3-inplace', client_mode='in_place', weapon_slots=3,
+    summary.update(launcher_revision='20261018-target-roster-v1-inplace', client_mode='in_place', weapon_slots=3,
                    starter_item_source='INITITEM.XML/map16010/stage1',
                    starter_magazine_policy='full_capacity_local',
                    source_hashes={name:digest(ROOT/name) for name in (
                        'tools/windows_launch.py', 'server/directory/weapon_probe_2022.py',
                        'server/directory/winter_selection_2022.py', 'server/directory/world_probe_2022.py',
-                       'server/directory/actor_probe_2022.py', 'tools/match_pacing_2022.py', 'SOURCE-MANIFEST.json')})
+                       'server/directory/actor_probe_2022.py', 'server/directory/target_roster_2022.py',
+                       'server/directory/death_parcel_2022.py', 'server/directory/game_endpoint_probe_2022.py',
+                       'server/directory/bot_controller_2022.py', 'server/directory/state_scene_actions_2022.py',
+                       'server/directory/live_scene_probe_2022.py', 'tools/export_test_report_2022.py',
+                       'config/practice-target-points.json', 'tools/match_pacing_2022.py', 'SOURCE-MANIFEST.json')})
     from local_account_2022 import local_account
     account = local_account(ROOT/'runtime', getattr(args, 'profile', 'default'))
     summary.update(local_profile=account['name'], local_profile_id='local-2022:'+account['name'], local_actor_uid=hex(account['actor_uid']),
@@ -590,6 +608,8 @@ def main():
                         help='Учебный бюджет позиции XY5000/Z20000см/с; требует cycle, без физики/LOS карты')
     parser.add_argument('--target',choices=('none','plain','armored'),default='none',
                         help='Пассивная мишень с учебным HP/уроном; armored добавляет тестовый жилет')
+    parser.add_argument('--practice-targets',type=int,choices=range(1,11),default=1,
+                        help='Число пассивных мишеней1..10; требует Target')
     parser.add_argument('--target-los',choices=('off','open','blocked'),default='off',
                         help='Диагностический контроль луча; blocked задаёт невидимую серверную преграду')
     parser.add_argument('--reliable-udp',action='store_true',help='Экспериментальные ACK/retry и сборка игрового UDP')
@@ -658,6 +678,8 @@ def main():
         parser.error('BotGroundRoute требует Bots')
     if args.bots and args.target != 'none':
         parser.error('Выберите Bots либо Target: endpoint поддерживает одну тестовую сущность')
+    if args.practice_targets > 1 and (args.target == 'none' or args.bots):
+        parser.error('PracticeTargets>1 требует Target plain/armored без Bots')
     if args.target_los != 'off' and args.target == 'none':
         parser.error('TargetLOS требует Target plain/armored')
     if os.name != 'nt':
@@ -679,10 +701,12 @@ def main():
                             own_armor_absorb_percent=args.own_armor_absorb_percent,
                             validate_movement=args.validate_movement, frag_damage=args.frag_damage,
                             start_hour=args.start_hour, temperature_raw=args.temperature_raw,
-                            native_airdrop=args.native_airdrop, native_evacuation=args.native_evacuation, diagnostic_departure=args.diagnostic_departure, original_jeeps=args.original_jeeps, climb_practice=args.climb_practice, vehicle_profile=args.vehicle_profile, boat_practice=args.boat_practice, bot_ground_route=args.bot_ground_route, bot_behavior=args.bot_behavior, account_profile=args.profile, winter_doors=args.winter_doors, winter_windows=args.winter_windows, cycle_scale=args.cycle_scale, diagnostic_hazard=args.diagnostic_hazard)
+                            native_airdrop=args.native_airdrop, native_evacuation=args.native_evacuation, diagnostic_departure=args.diagnostic_departure, original_jeeps=args.original_jeeps, climb_practice=args.climb_practice, vehicle_profile=args.vehicle_profile, boat_practice=args.boat_practice, bot_ground_route=args.bot_ground_route, bot_behavior=args.bot_behavior, account_profile=args.profile, winter_doors=args.winter_doors, winter_windows=args.winter_windows, cycle_scale=args.cycle_scale, diagnostic_hazard=args.diagnostic_hazard, practice_targets=args.practice_targets)
         from actor_probe_2022 import ActorFixture
         if args.bots:ActorFixture.load(configs['actor'])
-        if args.target != 'none':ActorFixture.load(configs['target-'+args.target])
+        if args.target != 'none':
+            from target_roster_2022 import load_actor_fixtures
+            load_actor_fixtures(configs['target-'+args.target])
         from game_endpoint_probe_2022 import load_scene_rules
         from roe_room_2023 import decode_enter_room_response
         from local_cosmetics_2022 import LocalCosmetics
@@ -708,7 +732,7 @@ def main():
                         own_armor_absorb_percent=args.own_armor_absorb_percent,
                         validate_movement=args.validate_movement, frag_damage=args.frag_damage,
                         start_hour=args.start_hour, temperature_raw=args.temperature_raw,
-                            native_airdrop=args.native_airdrop, native_evacuation=args.native_evacuation, diagnostic_departure=args.diagnostic_departure, original_jeeps=args.original_jeeps, climb_practice=args.climb_practice, vehicle_profile=args.vehicle_profile, boat_practice=args.boat_practice, bot_ground_route=args.bot_ground_route, bot_behavior=args.bot_behavior, account_profile=args.profile, winter_doors=args.winter_doors, winter_windows=args.winter_windows, cycle_scale=args.cycle_scale, diagnostic_hazard=args.diagnostic_hazard)
+                            native_airdrop=args.native_airdrop, native_evacuation=args.native_evacuation, diagnostic_departure=args.diagnostic_departure, original_jeeps=args.original_jeeps, climb_practice=args.climb_practice, vehicle_profile=args.vehicle_profile, boat_practice=args.boat_practice, bot_ground_route=args.bot_ground_route, bot_behavior=args.bot_behavior, account_profile=args.profile, winter_doors=args.winter_doors, winter_windows=args.winter_windows, cycle_scale=args.cycle_scale, diagnostic_hazard=args.diagnostic_hazard, practice_targets=args.practice_targets)
     if args.remote_peer:
         check_ports([(8001,socket.SOCK_STREAM),(19001,socket.SOCK_STREAM),(18001,socket.SOCK_DGRAM)])
     elif args.lan_tunnel:

@@ -31,6 +31,7 @@
     [ValidateRange(0,1000)][int]$FragDamage = 100,
     [switch]$ValidateMovement,
     [ValidateSet('none','plain','armored')][string]$Target = 'none',
+    [ValidateRange(1,10)][int]$PracticeTargets = 1,
     [ValidateSet('off','open','blocked')][string]$TargetLOS = 'off',
     [string]$LootCatalog = '',
     [int]$Duration = 3600,
@@ -107,7 +108,7 @@ try {
     $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
     $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
     $env:DOTNET_ROOT = $dotnetHome
-    $arguments = @('-X','utf8','-B','-u',(Join-Path $PSScriptRoot 'windows_launch.py'),'--client',$Client,'--profile',$Profile,'--kit',$Kit,'--weapon-profile',$WeaponProfile,'--target',$Target,'--target-los',$TargetLOS,'--mode',$Mode,'--duration',"$Duration",'--cycle-scale',"$CycleScale",'--dotnet',$dotnet)
+    $arguments = @('-X','utf8','-B','-u',(Join-Path $PSScriptRoot 'windows_launch.py'),'--client',$Client,'--profile',$Profile,'--kit',$Kit,'--weapon-profile',$WeaponProfile,'--target',$Target,'--practice-targets',"$PracticeTargets",'--target-los',$TargetLOS,'--mode',$Mode,'--duration',"$Duration",'--cycle-scale',"$CycleScale",'--dotnet',$dotnet)
     if ($RemotePeer) { $arguments += @('--remote-peer',$RemotePeer) }
     if ($Bots) { $arguments += '--bots' }
     if ($WinterDoors) { $arguments += '--winter-doors' }

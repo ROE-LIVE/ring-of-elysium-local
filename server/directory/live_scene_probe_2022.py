@@ -7,9 +7,9 @@ from state_scene_actions_2022 import validate_state_action
 
 
 class LiveSceneCommands:
-    def __init__(self, path):
+    def __init__(self, path, sent=None):
         self.path = Path(path)
-        self.sent = set()
+        self.sent = set() if sent is None else sent
         self.signature = None
         self.commands = []
 

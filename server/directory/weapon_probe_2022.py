@@ -474,6 +474,8 @@ class WeaponState:
     def item_delta(self, container, slot, record):
         # Native140bd4d60: BE16 slot, U8 container, ITEM_DATA безref5fb.
         # Union тот же; полный ammo delta71B подтверждён cold46.
+        # Native00418.10: flag0 не применяет pickup в выбранном own-профиле
+        # (нет hand2/резерва M4), поэтому gameplay сохраняет проверенный flag1.
         return encode_item_delta(self.actor_uid, container, slot, record)
 
     def slot_sync(self, container, slot):

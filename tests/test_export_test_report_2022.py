@@ -10,6 +10,45 @@ from export_test_report_2022 import export_report
 
 
 class ExportReportTests(unittest.TestCase):
+    def test_death_owners_and_typed_action_are_exported_without_nested_secrets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            run = Path(folder) / 'run'
+            (run / 'scene').mkdir(parents=True)
+            (run / 'launch-summary.json').write_text('{"build":"2022-test"}')
+            corpse = dict(action='death_inventory_transferred', owner='0x123',
+                          parcel_id=450100, items=[dict(definition=30004, quantity=6,
+                          durability=0, identity='must-not-copy')], auth='must-not-copy')
+            rows = [dict(kind='death_parcel_probe', **corpse),
+                    dict(kind='live_state_action', id='one', action='damage_npc',
+                         accepted=True, administrative=True, corpse=corpse, key='must-not-copy')]
+            (run / 'scene/events.jsonl').write_text('\n'.join(map(json.dumps, rows)) + '\n')
+            out = Path(folder) / 'report'
+            export_report(run, out)
+            text = (out / 'scene/events.jsonl').read_text()
+            actual = list(map(json.loads, text.splitlines()))
+            self.assertEqual(actual[0]['owner'], '0x123')
+            self.assertEqual(actual[1]['corpse']['items'], [dict(definition=30004, quantity=6, durability=0)])
+            self.assertTrue(actual[1]['accepted'])
+            self.assertNotIn('must-not-copy', text)
+
+    def test_passive_targets_and_handoff_health_survive_filtered_export(self):
+        with tempfile.TemporaryDirectory() as folder:
+            run = Path(folder) / 'run'
+            (run / 'scene').mkdir(parents=True)
+            (run / 'launch-summary.json').write_text(json.dumps(dict(build='2022-test', practice_targets=10)))
+            event = dict(kind='gameplay_handoff_complete', target_count=10,
+                         target_states=[dict(uid='0x123', hp=400, armor_durability=0,
+                                             auth='must-not-copy')], raw='must-not-copy')
+            (run / 'scene/events.jsonl').write_text(json.dumps(event) + '\n')
+            out = Path(folder) / 'report'
+            export_report(run, out)
+            summary = json.loads((out / 'launch-summary.json').read_text())
+            actual = json.loads((out / 'scene/events.jsonl').read_text())
+            self.assertEqual(summary['practice_targets'], 10)
+            self.assertEqual(actual['target_count'], 10)
+            self.assertEqual(actual['target_states'], [dict(uid='0x123', hp=400, armor_durability=0)])
+            self.assertNotIn('must-not-copy', (out / 'scene/events.jsonl').read_text())
+
     def test_loot_visibility_export_preserves_spawn_remove_without_raw_or_paths(self):
         with tempfile.TemporaryDirectory() as folder:
             run = Path(folder) / 'run'

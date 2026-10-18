@@ -9,7 +9,7 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "57f15b6eaf1efe3da727e75177280a25e63942a2bf7578a5e2ca5fec96ab569c"
+    "sha256": "38236e35dd9099beec4950b8de6add15e204a0ce8343dc5aa84e2cf3fcb30600"
   },
   {
     "path": "CONTRIBUTING.md",
@@ -17,11 +17,11 @@
   },
   {
     "path": "PROVENANCE.json",
-    "sha256": "9b88d6e8f8831dcfe6e715e8cf99679d5171424a598bf4c2d545c045e9ee59a7"
+    "sha256": "2549c19c0f1e5a6f4c38addd641939487b47a53110cb5624e806b199d3c514a3"
   },
   {
     "path": "README.md",
-    "sha256": "71b6d56aea3097aec394d5d8bf57f740ed90b0466cf55172ebf24699b3933f85"
+    "sha256": "b1ceefcfcceae75663326e7975d54d797c7f31ab6d6702e4dfb7349e91a87523"
   },
   {
     "path": "RIGHTS.md",
@@ -37,7 +37,7 @@
   },
   {
     "path": "VALIDATION.md",
-    "sha256": "722023558f4bb47a634123e72188aabbb0229409f81adde88032548ee8068d5d"
+    "sha256": "492287bb433db3f76f278e37e0388940ee571400831a38cef43c6289dd0d9e18"
   },
   {
     "path": "WINDOWS-TESTS-W17.md",
@@ -46,6 +46,10 @@
   {
     "path": "WINDOWS-TESTS-W18.csv",
     "sha256": "f64b39f45f014212fae4961f4f5d0b58f5571b784379ad6027aeed05f395cc39"
+  },
+  {
+    "path": "WINDOWS-TESTS-W19.csv",
+    "sha256": "35814f3e15a07850077983539a5040624576dd1fafc4910d4b5cec5c8211cfde"
   },
   {
     "path": "WINDOWS-TESTS.md",
@@ -98,6 +102,10 @@
   {
     "path": "config/parcel.json",
     "sha256": "2514183ce799fec3cf346a875a5327ba29bf51d03a3080c118c50dba8144c7b8"
+  },
+  {
+    "path": "config/practice-target-points.json",
+    "sha256": "bd36dfbd653af056b6177459308ee621ca29ed4ee0a0e9e0f6d46fe7cf884036"
   },
   {
     "path": "config/region-source.json",
@@ -156,6 +164,10 @@
     "sha256": "b048d1ab6cb7fe74f9cf2f6580124fd5b72991d0bc00044f2001f119892c1d71"
   },
   {
+    "path": "docs/BOT-CONTROLLER-HANDOFF-20261018.md",
+    "sha256": "1c4957407005d55b8b2354e409be71d62b188b59f922a0d5064a8ea50db1dfdd"
+  },
+  {
     "path": "docs/HIT-COLLISION-PRODUCER-20261016.md",
     "sha256": "fd962af361cc547f64d474ad1166432f9941466394107a99f88a288f5a20b6f7"
   },
@@ -172,12 +184,40 @@
     "sha256": "394c97d7e0e26c67e02493a9a7198cf30784e3fa29741546dda13cb47e5ef53a"
   },
   {
+    "path": "docs/INVENTORY-BRANCH-CONTROL-20261018.md",
+    "sha256": "3920321a144fb72de44dcebfd7dab2a356bceabed8fd07f9c673c58b8a9d1e03"
+  },
+  {
+    "path": "docs/LIVE-COMMAND-LIFETIME-20261018.md",
+    "sha256": "a95ccb47a4bc47ae3a6eed6b4eb78a6e3a833f84e654c4a7c1feac0a8d04a43e"
+  },
+  {
     "path": "docs/LOOT-SURFACE-20261016.md",
     "sha256": "d9fac2ddc33aee3dad99c96c647bf09662bc0ed3053b415952f212c7a6351015"
   },
   {
+    "path": "docs/M4-THROUGH-ROCK-20261018.md",
+    "sha256": "fd22cc3ada60af81592c790e0e83c03ae134aa5c64bb0133b100df3fc6e961db"
+  },
+  {
     "path": "docs/MATERIAL-PENETRATION-20261016.md",
     "sha256": "1effb034b94c0d7964a6436cd878febff00f97f7256e6500d36c11769ec5d5f0"
+  },
+  {
+    "path": "docs/MODULE-SIGNAL-MAP-20261013.md",
+    "sha256": "ce2009b4f6653f4428907b6a338896ed9b8019d0ccc170103afe79ae0a8734ef"
+  },
+  {
+    "path": "docs/NET06-CAPACITY-HANDOFF-20261018.md",
+    "sha256": "a0acf4b386f9a397537a41663d936fdda663e76934df82fff388ed041c99c229"
+  },
+  {
+    "path": "docs/PASSIVE-TARGETS-20261018.md",
+    "sha256": "be06b1578e029cf3bd35f930999b2e9cdd4fc4aa27e3b3d957a69b61d85613cf"
+  },
+  {
+    "path": "docs/PICK-DECODE-CHAIN-20261018.md",
+    "sha256": "9bf76bcfb2a107500eab3ee273f3c5a4f069089a950bde38566d5bc37616888e"
   },
   {
     "path": "docs/PROJECTILE-MATERIALS-20261016.md",
@@ -194,6 +234,10 @@
   {
     "path": "docs/SESSION-RESULT-20261016.md",
     "sha256": "b8a59f28d7128e27258169489026729500187356aaf7fe65a55d61093ac9521e"
+  },
+  {
+    "path": "docs/SESSION-RESULT-20261018.md",
+    "sha256": "51e897f404688b7b36923793747c142cfd2d865b44aad33da3a1e1e022f775df"
   },
   {
     "path": "docs/SOURCE-COLLISION-20261016.md",
@@ -222,6 +266,34 @@
   {
     "path": "docs/evidence.json",
     "sha256": "dbe242fde8d30e88d06d0bef48c810874f5f0abde45d0352d3a22e0981d60137"
+  },
+  {
+    "path": "docs/recovery/execution-history.csv",
+    "sha256": "4482baa0a60910c90418373de7df3e0bbb5905f9d0afc666d9e960cef6116c05"
+  },
+  {
+    "path": "docs/recovery/history.csv",
+    "sha256": "d32936074c9bff0b9567da7a21892ec001897c1e6e83355971a7815a7f896ea8"
+  },
+  {
+    "path": "docs/recovery/mechanics-2022.csv",
+    "sha256": "719abfceadb5b5b446189768749753904173d2a2eebcf737c4c34478cc0090c6"
+  },
+  {
+    "path": "docs/recovery/status.md",
+    "sha256": "055e76e7e95128afb1e104a9a97ec9eeaa2ec679d1cfb54ee7f47a350aa4691f"
+  },
+  {
+    "path": "docs/recovery/updates.csv",
+    "sha256": "264e0765e178e76164d64708fdcc5b56137ffd689dfb58716958b93d1b9f68e5"
+  },
+  {
+    "path": "docs/recovery/windows-tests-20261018-w19.csv",
+    "sha256": "94531a2c8dece8fc54f3d2c9b714022d3f4c8e0a586e220ddb54abcb187f4fd2"
+  },
+  {
+    "path": "docs/signals-2022.csv",
+    "sha256": "9a8bfd735695abbb97d490ec46f16dfe54f5da1ee69d8d7446d9f1934bb95cd8"
   },
   {
     "path": "export-report.cmd",
@@ -293,7 +365,7 @@
   },
   {
     "path": "server/directory/bot_controller_2022.py",
-    "sha256": "193c6c5cc3889f6ed666a6fe90b7b4967542c3bb7765e52173653efbacd9e00d"
+    "sha256": "8655ddec016f7660aeac415f36e0139d842f97845ab2799de340645b5f265f27"
   },
   {
     "path": "server/directory/breakable_state_2022.py",
@@ -313,7 +385,7 @@
   },
   {
     "path": "server/directory/death_parcel_2022.py",
-    "sha256": "af15a8f2318c37293b961fba09d224ecce6dfbf04f0b2bee04ea015ff02d1b33"
+    "sha256": "6474477fe5c5634707af60e1010a2e6b79d9c10b0cd47919575169f6d383ead3"
   },
   {
     "path": "server/directory/door_state_2022.py",
@@ -325,7 +397,7 @@
   },
   {
     "path": "server/directory/game_endpoint_probe_2022.py",
-    "sha256": "a4cc546e2de53e7059883aca4a5e4f95e2d60f6b846cdbf614f2b7d747a0af4a"
+    "sha256": "7f27f913cfd51fc5f7b2b76b3acb72ea882c523309c304677783b95b2180eb31"
   },
   {
     "path": "server/directory/ground_route_2022.py",
@@ -345,7 +417,7 @@
   },
   {
     "path": "server/directory/live_scene_probe_2022.py",
-    "sha256": "d330a6ef9d442800c1881d5eaf9424104937c46c373e526b589e33ff79d62ecb"
+    "sha256": "92763113e39b3da2ca08ccd177678fac1aa802ef4b340a7210730834baba30d5"
   },
   {
     "path": "server/directory/loot_catalog_2022.py",
@@ -433,7 +505,11 @@
   },
   {
     "path": "server/directory/state_scene_actions_2022.py",
-    "sha256": "a44721b859c41661365bd384f80dac214ceddb688c01f2db515f7cc0d6c720be"
+    "sha256": "3cc126a5f2187e4f81b783d310f3c61e4c62402d715d3222a62232bda1cf12a8"
+  },
+  {
+    "path": "server/directory/target_roster_2022.py",
+    "sha256": "5f16a0a14dcdcf339a5c826f91065d937fb3106f1e0297dfae85ddb621af4e3c"
   },
   {
     "path": "server/directory/throwable_actions_2022.py",
@@ -449,7 +525,7 @@
   },
   {
     "path": "server/directory/weapon_probe_2022.py",
-    "sha256": "3e66f36e396e46224e2d15de613a7bbde73a630716e8fa6b1fbd70a2c9ac2b08"
+    "sha256": "fe1e2630c514abffe0672fd176dcbe87c26d0c1c75d864d57469996475e095f2"
   },
   {
     "path": "server/directory/winter_selection_2022.py",
@@ -501,7 +577,7 @@
   },
   {
     "path": "tests/test_bot_controller_2022.py",
-    "sha256": "a178d0556e2a728bd8b6162b722f81a9ceff1c331859d50ddd85dbe3ecf93b98"
+    "sha256": "976fa66f5977ece198bc63c896295459296ed7a14ef6952ff9b92f44ab0de4b4"
   },
   {
     "path": "tests/test_breakable_state_2022.py",
@@ -541,7 +617,7 @@
   },
   {
     "path": "tests/test_export_test_report_2022.py",
-    "sha256": "0b94917e6e884842f7b35d6a1053249b83b782a2c637ac6616afb4326866b21b"
+    "sha256": "46324839929d673e06722abac0f4af497f61e233dc78fb1c090be19b7a9464af"
   },
   {
     "path": "tests/test_game_endpoint_probe_2022.py",
@@ -585,7 +661,7 @@
   },
   {
     "path": "tests/test_live_scene_probe_2022.py",
-    "sha256": "b551da909231e969f57bf7147abc159dc225c9c5e251748853e622b59c5f0b67"
+    "sha256": "a0c02a8f11865516c7011cf9c1d89ea8f33e745aeeb9ba6e2b821ef570a82ded"
   },
   {
     "path": "tests/test_lobby_actor_uid_2022.py",
@@ -740,6 +816,10 @@
     "sha256": "41f478590c6ba7e651af8c34f6d0cd4df165da2ba839901f85771c10155ed45b"
   },
   {
+    "path": "tests/test_target_roster_2022.py",
+    "sha256": "cdddf674cf1fff680947cbd21037cc01ac0a924ad3dbf8f76d5fbce499d3e554"
+  },
+  {
     "path": "tests/test_throwable_actions_2022.py",
     "sha256": "90e6be487c14b8302d366781e012ff41a9f53c44e679081bcec1d5f06640d934"
   },
@@ -757,11 +837,11 @@
   },
   {
     "path": "tests/test_weapon_probe_2022.py",
-    "sha256": "114bc4e26b40c72c955bb14c763fbaed0c5a6ab8fc31ce7711a2b37533f13c28"
+    "sha256": "a703b9a8de0cd5a6d90e10ead4896f2e8c45bcbe64e6bd8bbdf059a7828e7a04"
   },
   {
     "path": "tests/test_windows_kit.py",
-    "sha256": "1a2f0b5ac3ed2088ee8d3c7b128c6c1a1742b337d9d5076ba466d75108a246f8"
+    "sha256": "5f5b687aa1ee3125e7973fc5d83bd6bab7dc0d600700871bfe09c53edd3b4e09"
   },
   {
     "path": "tests/test_winter_selection_2022.py",
@@ -793,7 +873,7 @@
   },
   {
     "path": "tools/bootstrap.ps1",
-    "sha256": "69163da2d8d45c70fad473080b8b2fb6cd8ea877b0b37e854af636bd13f8685a"
+    "sha256": "5170461b0b4b7c549dab90090f728f76a61de7d07a0eca05ad7c2deb642a73ff"
   },
   {
     "path": "tools/climb_practice_2022.py",
@@ -817,7 +897,7 @@
   },
   {
     "path": "tools/export_test_report_2022.py",
-    "sha256": "19add2f5636f86a6cbfbd53e5d2f4f360d59419ac28421377bb30de0230cbff3"
+    "sha256": "7c807b7066ba459475438c10619cba981737dfaab3fc70fb19fae54c8a3082f4"
   },
   {
     "path": "tools/generate_winter_breakables_2022.py",
@@ -917,7 +997,7 @@
   },
   {
     "path": "tools/scene_action_2022.py",
-    "sha256": "89157080167b2eda5aa091857bd727323d7e43e7143525e8805ac2240c16082d"
+    "sha256": "30ea63a096c8d3fa7006e54f0a2b69b149db3a43dc1572196185601ea57b8220"
   },
   {
     "path": "tools/select_client.ps1",
@@ -937,6 +1017,6 @@
   },
   {
     "path": "tools/windows_launch.py",
-    "sha256": "933a11edaa41d42ee3061df2dfb282b9acd9d20b00165f65896dc2fb5ddc8788"
+    "sha256": "799a70c914619d3a6626500cc48b707f09d9a67d8f38ac387e224d4b97439753"
   }
 ]

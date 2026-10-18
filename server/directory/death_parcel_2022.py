@@ -21,7 +21,9 @@ def target_inventory(actor, weapon_fixture):
     equipment = (fixture.armor_definition,) if fixture.armor_definition else ()
     state = WeaponState(replace(weapon_fixture, gun_on_start=bool(fixture.equipment),
                                reserve=fixture.death_loot_reserve,
-                               starting_equipment=equipment), fixture.uid)
+                               starting_equipment=equipment, starter_items=(),
+                               winter_starter_inventory=False,
+                               cosmetics_config_file=None), fixture.uid)
     if fixture.equipment:
         # EQUIP_CHANGE_TOALL: actorQ/countI, definitionI/instanceQ.
         state.guns[1].uid = struct.unpack_from('>Q', fixture.equipment, 16)[0]

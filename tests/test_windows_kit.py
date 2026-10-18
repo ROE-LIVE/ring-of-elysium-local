@@ -20,6 +20,28 @@ from environment_probe_2022 import EnvironmentFixture
 
 
 class WindowsKitTests(unittest.TestCase):
+    def test_passive_target_roster_has_ten_unique_native_uids_and_ground_points(self):
+        from target_roster_2022 import load_actor_fixtures
+        with tempfile.TemporaryDirectory() as folder:
+            configs = launcher.materialize(Path(folder), 'glider', practice_targets=10)
+            for kind in ('plain', 'armored'):
+                fixtures = load_actor_fixtures(configs['target-' + kind])
+                self.assertEqual(len(fixtures), 10)
+                self.assertEqual(len({f.uid for f in fixtures}), 10)
+                self.assertTrue(all(not f.attack and f.speed == 0 for f in fixtures))
+                self.assertTrue(all(366300 <= f.position[0] <= 366700 for f in fixtures))
+                self.assertTrue(all(258900 <= f.position[2] <= 259200 for f in fixtures))
+
+    def test_target_roster_default_preserves_single_target_and_rejects_bad_counts(self):
+        from target_roster_2022 import load_actor_fixtures
+        with tempfile.TemporaryDirectory() as folder:
+            configs = launcher.materialize(Path(folder), 'glider')
+            fixtures = load_actor_fixtures(configs['target-armored'])
+            self.assertEqual((len(fixtures), fixtures[0].position), (1, (366650, 544149, 259077)))
+        for count in (True, 0, 11, 1.5):
+            with tempfile.TemporaryDirectory() as folder, self.assertRaises(ValueError):
+                launcher.materialize(Path(folder), 'glider', practice_targets=count)
+
     def test_cycle_pacing_materializes_one_calendar_and_disables_training_hazard(self):
         with tempfile.TemporaryDirectory() as folder:
             configs = launcher.materialize(Path(folder), 'glider', cycle_scale=3)

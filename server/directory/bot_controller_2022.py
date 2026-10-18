@@ -19,7 +19,9 @@ class BotController:
         self.graph = actor.fixture.ground_route
         self.points = dict(self.graph.nodes)
         self.inventory = WeaponState(replace(player_weapon.fixture,gun_on_start=False,
-                                    reserve=0,starting_equipment=()),actor.fixture.uid)
+                                    reserve=0,starting_equipment=(),starter_items=(),
+                                    winter_starter_inventory=False,
+                                    cosmetics_config_file=None),actor.fixture.uid)
         self.phase = 'waiting'
         self.started = None
         self.goal = None

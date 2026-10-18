@@ -6,6 +6,17 @@
 
 ## English
 
+### Update — 18 October 2026
+
+`-PracticeTargets 10` enables ten passive targets with separate health, armor and death bags. Proton verified two genuine gun kills and separate loot pickups; a second control verified ten administrative deaths, reconnects and evacuation without adding fake gun kills. NPC loot no longer inherits the player's starter ammunition or bandages. The full-magazine capacity fix has passed Proton tests; Windows validation of this revision is pending.
+
+```powershell
+git pull --ff-only
+.\play.cmd -Client "G:\REsearch\Ring of Elysium-2022" -PracticeTargets 10 -LiveControl
+```
+
+Use Training and keep the default spawn cell for this fixed practice layout. The launcher already supplies the smoke loot catalog, armored target and cycle settings; do not repeat those options. Use [WINDOWS-TESTS-W19.csv](WINDOWS-TESTS-W19.csv), then `export-report.cmd`. Targets are passive; this does not restore original AI. [Technical results](docs/SESSION-RESULT-20261018.md).
+
 ### Demo use and disclaimer
 
 - **This is an experimental demo intended only for personal home use and research.** It is not an official ROE service or a production-ready game server.
@@ -37,13 +48,13 @@ The game can write its normal settings and cache into the selected folder. With 
 
 Wait for the launcher to report readiness, then enter through **Training**. Keep the **DEFAULT** spawn cell for your first test to start near the fixed test loot. The scenario provides movement, inventory, three weapon slots, firing and reloading, a target, region closures, an airdrop, and evacuation. `play.cmd` sets an accelerated cycle of about 9.5 minutes; the 1,500-second process limit also includes login and preparation.
 
-Direct ground-to-weapon attachment dragging and native hit markers have now been checked under Proton, including body, head, armor, and lethal hits. Windows run 20261016T134206-fafd00 with the legacy launcher also confirmed audible body/head/kill feedback and AK attachment handling. Full-magazine R still plays a reload animation/sound without changing ammunition; follow-up cases in WINDOWS-TESTS-W18.csv await a fix. See [W17](WINDOWS-TESTS-W17.md) and [research notes](docs/HIT-FEEDBACK-20261016.md).
+Direct ground-to-weapon attachment dragging and native hit markers have now been checked under Proton, including body, head, armor, and lethal hits. Windows run 20261016T134206-fafd00 with the legacy launcher also confirmed audible body/head/kill feedback and AK attachment handling. The older W17 revision played a reload animation/sound on full R. The capacity fix has now passed Proton; Windows follow-up is in WINDOWS-TESTS-W19.csv. See [W17](WINDOWS-TESTS-W17.md) and [research notes](docs/HIT-FEEDBACK-20261016.md).
 
 ## Verified behavior and remaining work
 
 The previous Windows build was tested for pickups, three weapon slots, firing, reloading, the target, zones, and a Kill 1 / Rescued 1 result. The new profile disables the invisible training hazard near the evacuation rope and extends the schedule. It has been tested under Proton, but **this public package has not yet been tested by launching the game on Windows**. See the [Windows log review](docs/WINDOWS-RAW-REVIEW-20261015.md).
 
-Start with the [smoke test](SMOKE-TEST.md), then use the [full W16 checklist](WINDOWS-TESTS.md) if needed. Reloading a full magazine may still play an animation. Original balance, AI, loot distribution, and a complete multiplayer match remain unfinished. The current preset has three reductions of the safe area across six timed phases.
+Start with the [smoke test](SMOKE-TEST.md), then use the [full W16 checklist](WINDOWS-TESTS.md) if needed. The corrected full-magazine R gate awaits Windows W19 validation. Original balance, AI, loot distribution, and a complete multiplayer match remain unfinished. The current preset has three reductions of the safe area across six timed phases.
 
 After closing the game, run `export-report.cmd`. It creates a compact report under `reports/`, excluding keys and raw packets. Share that folder with a description of your actions; do not publish the full `runs` folder. Supporting documentation is currently mainly in Russian.
 
@@ -82,6 +93,17 @@ Research, build identities, protocol notes, and the recovery plan are in [ring-o
 
 ## Русский
 
+### Обновление — 18 октября 2026
+
+`-PracticeTargets 10` включает десять пассивных мишеней с отдельными HP/бронёй/сумками. В Proton проверены два настоящих убийства и раздельный лут; в отдельном контроле — десять административных смертей, обрывы связи и эвакуация без ложного начисления убийств. NPC не копируют начальные патроны/бинты игрока. Исправленная ёмкость полного магазина проверена в Proton; Windows новой ревизии ожидается.
+
+```powershell
+git pull --ff-only
+.\play.cmd -Client "G:\REsearch\Ring of Elysium-2022" -PracticeTargets 10 -LiveControl
+```
+
+Training, клетку для фиксированного стенда не менять. Каталог лута, armored и cycle уже заданы в play.cmd — повторять эти параметры не нужно. Проверки — [WINDOWS-TESTS-W19.csv](WINDOWS-TESTS-W19.csv), затем `export-report.cmd`. Мишени пассивные, исходный AI не восстановлен. [Технический итог](docs/SESSION-RESULT-20261018.md).
+
 ### Демонстрационное использование и отказ от ответственности
 
 - **Это экспериментальный демонстрационный проект только для личного домашнего использования и исследований.** Он не является официальным сервисом ROE или готовым сервером для эксплуатации.
@@ -112,7 +134,7 @@ Bootstrap устанавливает Python и .NET8 SDK локально в `.t
 
 Дождитесь сообщения launcher о готовности, войдите через **Training**. Для первого теста оставьте клетку **DEFAULT**, чтобы оказаться рядом с фиксированным тестовым лутом. Доступны обычное движение, инвентарь, три оружейных слота, стрельба/перезарядка, мишень, закрытие областей, дроп и эвакуация. `play.cmd` задаёт ускоренный цикл≈9.5мин;1500с — общий лимит процесса с учётом входа.
 
-Прямой перенос совместимого модуля с земли на оружие и штатные отметки попаданий теперь проверены в Proton: тело, голова, броня и добивание. Windows-прогон20261016T134206-fafd00 через прежний launcher подтвердил слышимый body/head/kill feedback и модулиAK. При полном магазине R ещё запускает анимацию/звук без изменения патронов; CSV WINDOWS-TESTS-W18.csv ожидает исправления. Отдельный [чек-лист W17](WINDOWS-TESTS-W17.md), [результаты исследования](docs/HIT-FEEDBACK-20261016.md).
+Прямой перенос совместимого модуля с земли на оружие и штатные отметки попаданий теперь проверены в Proton: тело, голова, броня и добивание. Windows-прогон20261016T134206-fafd00 через прежний launcher подтвердил слышимый body/head/kill feedback и модулиAK. В старой W17 при полном магазине R запускала анимацию/звук. Исправление ёмкости прошло Proton; Windows-проверка в WINDOWS-TESTS-W19.csv. Отдельный [чек-лист W17](WINDOWS-TESTS-W17.md), [результаты исследования](docs/HIT-FEEDBACK-20261016.md).
 
 ## Что проверено и что проверить
 

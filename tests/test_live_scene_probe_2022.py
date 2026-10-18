@@ -8,9 +8,33 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server/directory'))
 from live_scene_probe_2022 import LiveSceneCommands
+from game_endpoint_probe_2022 import Endpoint
+from types import SimpleNamespace
 
 
 class LiveCommandsTests(unittest.TestCase):
+    def test_acknowledged_ids_survive_new_match_for_same_actor_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'commands.json'
+            first = {'id': 'first', 'action': 'damage_npc', 'damage': 100}
+            path.write_text(json.dumps([first]))
+            endpoint = Endpoint(SimpleNamespace(record=lambda *args, **kw: None),
+                                live_commands=path)
+            old = dict(actor_uid=123)
+            control = endpoint.live_control_for(old)
+            self.assertEqual([r[0] for r in control.poll(123, 1, 1)], ['first'])
+            control.acknowledge('first')
+            endpoint.finish_gameplay(old, ('127.0.0.1', 1), 'test')
+            self.assertNotIn('live_control', old)
+            new = dict(actor_uid=123)
+            current = endpoint.live_control_for(new)
+            self.assertIsNot(current, control)
+            self.assertEqual(current.poll(123, 2, 2), [])
+            path.write_text(json.dumps([first, dict(first, id='second')]))
+            self.assertEqual([r[0] for r in current.poll(123, 3, 3)], ['second'])
+            other = endpoint.live_control_for(dict(actor_uid=321))
+            self.assertEqual([r[0] for r in other.poll(321, 4, 4)], ['first', 'second'])
+
     def test_targeted_camera_command_does_not_affect_other_connection(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'commands.json'

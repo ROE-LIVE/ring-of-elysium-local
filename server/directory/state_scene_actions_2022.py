@@ -13,6 +13,7 @@ def validate_state_action(row):
         raise ValueError('Неизвестное state action')
     allowed = {'id','action','recipient_actor_uid',parameter}
     if action == 'give_ammo':allowed.add('definition')
+    if action == 'damage_npc':allowed.add('npc_uid')
     if set(row)-allowed:
         raise ValueError('State action не принимает wire payload/неизвестные поля')
     value = row.get(parameter)
@@ -20,6 +21,14 @@ def validate_state_action(row):
     if type(value) is not int or not 1 <= value <= maximum:
         raise ValueError('State action: неверный '+parameter)
     result = dict(action=action,**{parameter:value})
+    if 'npc_uid' in row:
+        try:
+            npc_uid = int(str(row['npc_uid']), 0)
+        except (ValueError, TypeError):
+            raise ValueError('npc_uid требует ненулевой U64') from None
+        if not 0 < npc_uid < 2**64:
+            raise ValueError('npc_uid требует ненулевой U64')
+        result['npc_uid'] = npc_uid
     if action == 'give_ammo':
         definition = row.get('definition')
         if type(definition) is not int or definition not in (30004,30001,30002,30005):
@@ -51,7 +60,12 @@ def apply_state_action(state, request, reserved_indexes=()):
         packets = [staged.ammunition_slot_sync(definition),*staged.magazine_syncs(),staged.capacity_sync()]
         weapon.set_ammunition_quantity(definition,before+quantity)
         return packets,dict(event,accepted=True,definition=definition,before=before,quantity=before+quantity)
-    actor = state.get('target_actor')
+    roster = state.get('target_roster')
+    requested_uid = request.get('npc_uid')
+    actor = (roster.actors.get(requested_uid) if roster is not None and requested_uid is not None
+             else state.get('target_actor'))
+    if requested_uid is not None and (actor is None or actor.fixture.uid != requested_uid):
+        return [],dict(event,reason='npc_uid_not_found')
     if actor is None or not actor.started or actor.hp <= 0:
         return [],dict(event,reason='active_npc_required')
     staged_actor = deepcopy(actor)
@@ -59,7 +73,8 @@ def apply_state_action(state, request, reserved_indexes=()):
     # Пакет смерти готовится до commitHP и inventory; malformed fixture
     # не оставляет NPC мёртвым с невыданными предметами.
     corpse_event = None
-    inventory = state.get('target_inventory')
+    inventory = (roster.inventories.get(actor.fixture.uid) if roster is not None
+                 else state.get('target_inventory'))
     if staged_actor.hp == 0 and inventory is not None:
         staged_inventory = deepcopy(inventory)
         if staged_actor.fixture.armor_definition:

@@ -14,6 +14,14 @@ from attachment_probe_2022 import AttachmentInstance
 
 
 class WeaponStateTests(unittest.TestCase):
+    def test_gameplay_delta_keeps_native_own_inventory_branch(self):
+        from inventory_codec_2022 import decode_delta
+        state = WeaponState(WeaponFixture(bytes(82), bytes(60), reserve=6), 42)
+        code, body = state.item_delta(2, 13, state.ammunition_record(30004))
+        decoded = decode_delta(body)
+        self.assertEqual(code, 0x3e82)
+        self.assertEqual((decoded.own, decoded.actor_uid), (1, 42))
+
     def test_each_gun_inventory_advertises_its_capacity_independently_of_clip(self):
         state = WeaponState(WeaponFixture(bytes(82), bytes(60), weapon_slots=3), 42)
         for definition, (_, capacity) in GUN_PROFILES.items():

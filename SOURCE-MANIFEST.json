@@ -17,11 +17,11 @@
   },
   {
     "path": "PROVENANCE.json",
-    "sha256": "7b9564c1eb75792ef20ec3917e2cb43ab11538cfd7cdef590d69d115dbc8de5e"
+    "sha256": "1a560cd81b2c79523ac4b220c479d04a6c0d9577bb7ea3bed81ec7f0688e70f7"
   },
   {
     "path": "README.md",
-    "sha256": "b1ceefcfcceae75663326e7975d54d797c7f31ab6d6702e4dfb7349e91a87523"
+    "sha256": "73e5082521b839792aa0b6565ffc589e8c63599488aa064f8bd806c902c68f9c"
   },
   {
     "path": "RIGHTS.md",
@@ -168,6 +168,10 @@
     "sha256": "1c4957407005d55b8b2354e409be71d62b188b59f922a0d5064a8ea50db1dfdd"
   },
   {
+    "path": "docs/CITORI-CAPACITY-HANDOFF-20261018.md",
+    "sha256": "ef2e5c98eba55e2ae61d35d6e83ac020ed2eb0d3ae90fd683a9b8769eced1b82"
+  },
+  {
     "path": "docs/HIT-COLLISION-PRODUCER-20261016.md",
     "sha256": "fd962af361cc547f64d474ad1166432f9941466394107a99f88a288f5a20b6f7"
   },
@@ -186,6 +190,10 @@
   {
     "path": "docs/INVENTORY-BRANCH-CONTROL-20261018.md",
     "sha256": "3920321a144fb72de44dcebfd7dab2a356bceabed8fd07f9c673c58b8a9d1e03"
+  },
+  {
+    "path": "docs/INVENTORY-NOTIFY-CONTROL-20261018.md",
+    "sha256": "c90707e065087ad4a4744e9b28ae3fde3d7765f09b0aa023e93ebaae05bf9b89"
   },
   {
     "path": "docs/LIVE-COMMAND-LIFETIME-20261018.md",
@@ -236,6 +244,10 @@
     "sha256": "b8a59f28d7128e27258169489026729500187356aaf7fe65a55d61093ac9521e"
   },
   {
+    "path": "docs/SESSION-RESULT-20261018-PM.md",
+    "sha256": "0af2b7f55a80c9e406ebcdc6e8794dc02794dfb990d8c1430c57bd6faf718e8b"
+  },
+  {
     "path": "docs/SESSION-RESULT-20261018.md",
     "sha256": "2844142e64952b256736595b5a9e264036c5c3da626524945b65016d9aa13b76"
   },
@@ -246,6 +258,10 @@
   {
     "path": "docs/TERRAIN-HEIGHTFIELD-20261016.md",
     "sha256": "046bbffc4d3ab38af041a9c03353f8eb08b158ccfc3272337505e7404a609b48"
+  },
+  {
+    "path": "docs/TERRAIN-LOS-20261018.md",
+    "sha256": "fd40d5ff3baed6a4bb951cf140ba633e2243377782b35ff1d32e7472dcd31d52"
   },
   {
     "path": "docs/WINDOWS-150144-REVIEW-20261016.md",
@@ -268,24 +284,32 @@
     "sha256": "dbe242fde8d30e88d06d0bef48c810874f5f0abde45d0352d3a22e0981d60137"
   },
   {
+    "path": "docs/recovery/AGENT-START.md",
+    "sha256": "10aaacc73a8b2a32a754baa6400f6f3b4c272a94def9a0db4afe9251417c3c76"
+  },
+  {
+    "path": "docs/recovery/RUNBOOK.md",
+    "sha256": "7f7d9f6977f95e239f27ad2fdfbc21d93ae9590bd7d5fa4bc834652411007fac"
+  },
+  {
     "path": "docs/recovery/execution-history.csv",
     "sha256": "4482baa0a60910c90418373de7df3e0bbb5905f9d0afc666d9e960cef6116c05"
   },
   {
     "path": "docs/recovery/history.csv",
-    "sha256": "9755e91d0162dd9bce04b4a87a76eb5becb14f12c4a148e79367cfbde81ff6da"
+    "sha256": "afc6c7d76100c92aed86d0c64dcb90d0d67c885c4ce6edc1cac7dda344bd5da5"
   },
   {
     "path": "docs/recovery/mechanics-2022.csv",
-    "sha256": "51a6273857d1f067fc30dfaa8abb97afa7a2644cc0a6e6fc10e524d70983ca20"
+    "sha256": "27c00689a7edaf855fd0f95afb8995f7fbd72c2a3e37646090999c29d714fd6a"
   },
   {
     "path": "docs/recovery/status.md",
-    "sha256": "eeddea795e664deaf0ec10329bef97d3f9765628fa1c2052179b3e448a42f22f"
+    "sha256": "ab1df2f681d3219ac5ebeb0628627b997681c1c03d439593d8cd609848fd10d9"
   },
   {
     "path": "docs/recovery/updates.csv",
-    "sha256": "844ee536187fc7aae3c5276354e470f38b051ef3cd646fafd3029461bd4cb533"
+    "sha256": "58e4e1ba4665130e4842b3c3c58ec1f487b95276c24c53963543ace40ba9a4b7"
   },
   {
     "path": "docs/recovery/windows-tests-20261018-w19.csv",
@@ -293,7 +317,7 @@
   },
   {
     "path": "docs/signals-2022.csv",
-    "sha256": "851f21177fe9c1df2934069792b6a01a75eb607fb5e54f29a057edb0452a8da9"
+    "sha256": "d990cacc52a50514c54db7a28ef435554b8fafd84ca11b7287182406ad14b9db"
   },
   {
     "path": "export-report.cmd",
@@ -353,7 +377,7 @@
   },
   {
     "path": "server/directory/actor_probe_2022.py",
-    "sha256": "649b17867fd8e2ab37a610c7f37ba51074cde3bbaa62df3d6decb12402a07e27"
+    "sha256": "1887e7aaa36e0f7569ac2c8b9b3701a2d07c99a222b3cf1ebc5f458ac1499086"
   },
   {
     "path": "server/directory/attachment_probe_2022.py",
@@ -557,7 +581,7 @@
   },
   {
     "path": "tests/test_actor_raycast_2022.py",
-    "sha256": "e277cfc206a862eee15e9f7b32a5b55c21a314bd6a4ad52adcdc937ef7414f7e"
+    "sha256": "9f4bdf3cc7333b993e09dceadcb283e99814f9967f0216ff70adfccd5230b95e"
   },
   {
     "path": "tests/test_airdrop_fixture_2022.py",
@@ -617,7 +641,7 @@
   },
   {
     "path": "tests/test_export_test_report_2022.py",
-    "sha256": "46324839929d673e06722abac0f4af497f61e233dc78fb1c090be19b7a9464af"
+    "sha256": "798b3460d1fc1e50298c18e0a22c9c1890003eba2ea935b3e9077ed794c0586d"
   },
   {
     "path": "tests/test_game_endpoint_probe_2022.py",
@@ -641,7 +665,7 @@
   },
   {
     "path": "tests/test_iceland_heightfield_2022.py",
-    "sha256": "8cdc9414090ba03f9741550af15b5f47078afdc2621c274715ad159db53961f0"
+    "sha256": "6b1cfb4b845dfa10950848a8f7fe7217919bb6ea264871630be0a751ba436e31"
   },
   {
     "path": "tests/test_inventory_codec_2022.py",
@@ -897,7 +921,7 @@
   },
   {
     "path": "tools/export_test_report_2022.py",
-    "sha256": "7c807b7066ba459475438c10619cba981737dfaab3fc70fb19fae54c8a3082f4"
+    "sha256": "22f6a5842299506ccb25d809b4e3c06534bba9a1eb0d7a32f1e96cf71b8c1cf7"
   },
   {
     "path": "tools/generate_winter_breakables_2022.py",
@@ -949,7 +973,7 @@
   },
   {
     "path": "tools/probe_iceland_heightfield_2022.py",
-    "sha256": "7d35c6971c1e82888dbd921d8d713c5ecd954a10f0e8a6eded4a8a28c35f0eb8"
+    "sha256": "a5b3ea4b25b9330179031f7361b3a8d557dbbc881aa8868a0ae43a1fd9a8d390"
   },
   {
     "path": "tools/remote_peer_2022.py",
@@ -1017,6 +1041,6 @@
   },
   {
     "path": "tools/windows_launch.py",
-    "sha256": "799a70c914619d3a6626500cc48b707f09d9a67d8f38ac387e224d4b97439753"
+    "sha256": "c4347b57d48b845f4cedaead475a3915309116ea40b64b5f5f6601867bf0215b"
   }
 ]

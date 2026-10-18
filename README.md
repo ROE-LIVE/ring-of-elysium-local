@@ -6,6 +6,10 @@
 
 ## English
 
+### Research follow-up — 18 October 2026
+
+Optional terrain LOS now uses an extracted Iceland heightfield. Proton verified open hits, reconnects, two kills, evacuation and a fresh Training session. This option requires your own extracted PXBIN and is disabled in the standard launcher; it does not provide complete map collision or original damage rules. The intermittent inventory image delay was not reproduced or fixed. Existing Windows W19 tests remain current. [Technical follow-up](docs/SESSION-RESULT-20261018-PM.md).
+
 ### Update — 18 October 2026
 
 `-PracticeTargets 10` enables ten passive targets with separate health, armor and death bags. Proton verified two genuine gun kills and separate loot pickups; a second control verified ten administrative deaths, reconnects and evacuation without adding fake gun kills. NPC loot no longer inherits the player's starter ammunition or bandages. The full-magazine capacity fix has passed Proton tests; Windows validation of this revision is pending.
@@ -92,6 +96,10 @@ Research, build identities, protocol notes, and the recovery plan are in [ring-o
 <a id="russian"></a>
 
 ## Русский
+
+### Продолжение исследований — 18 октября 2026
+
+Добавлен opt-in terrain LOS по исходному рельефу Iceland. Proton подтвердил попадания, переподключение, два убийства, эвакуацию и новый Training. Нужен собственный извлечённый PXBIN; стандартный launcher не включает эту опцию. Полная коллизия и исходный урон не восстановлены. Задержка изображений инвентаря не воспроизведена/не исправлена. Действуют прежние Windows W19 тесты. [Подробности](docs/SESSION-RESULT-20261018-PM.md).
 
 ### Обновление — 18 октября 2026
 

@@ -68,6 +68,8 @@ class ActorFixture:
     collision_triangles: tuple | None = None
     collision_meshes: tuple = ()
     material_penetration: bool = False
+    # Только явно извлечённый и проверенный ресурс Iceland2022; по умолчанию нет.
+    collision_heightfield: object | None = None
 
     @classmethod
     def load(cls, path):
@@ -178,8 +180,16 @@ class ActorFixture:
         if (type(penetration) is not bool
                 or penetration and (len(meshes) != 1 or meshes[0].material_id != 305)):
             raise ValueError('material_penetration требует bool и один выбранный Rock305 mesh')
+        terrain = None
+        if 'collision_heightfield_file' in c:
+            if not isinstance(c['collision_heightfield_file'],str) or not c['collision_heightfield_file'].strip():
+                raise ValueError('collision_heightfield_file требует путь извлечённого PXBIN')
+            if attack or behavior or speed:
+                raise ValueError('collision_heightfield_file пока только для пассивной неподвижной мишени')
+            from probe_iceland_heightfield_2022 import HeightField
+            terrain = HeightField.load(path.parent/c['collision_heightfield_file'])
         return cls(uid, bytes(a), bytes(b), bytes(m), points[0], points, speed, hp, damage, equipment, attack,
-                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles, meshes, penetration)
+                   armor_definition, armor_durability, armor_absorb, boxes, death_loot_reserve, ammunition, ground_route, animation, pause, behavior, triangles, meshes, penetration, terrain)
 
 
 class ActorState:
@@ -320,7 +330,7 @@ class ActorState:
         elif sum((a-b)**2 for a, b in zip(origin, self.position)) > 10000**2:
             reason = 'range'
         elif (self.fixture.collision_boxes is not None or self.fixture.collision_triangles is not None
-              or self.fixture.collision_meshes):
+              or self.fixture.collision_meshes or self.fixture.collision_heightfield is not None):
             reason, geometry = self.validate_ray(payload, shot, accepted[1])
         if reason:
             return [], {'action': 'hit_rejected', 'reason': reason, 'target': hex(target), 'counter': counter, 'tick': tick, 'pellet': pellet, **fields, **geometry}
@@ -373,7 +383,8 @@ class ActorState:
         origin, aim = shot[:3], shot[3:]
         reported_origin = struct.unpack_from('>3f', payload, 25)
         impact = struct.unpack_from('>3f', payload, 50)
-        validation = ('diagnostic_ray_mesh' if self.fixture.collision_meshes
+        validation = ('diagnostic_ray_terrain' if self.fixture.collision_heightfield is not None
+                      else 'diagnostic_ray_mesh' if self.fixture.collision_meshes
                       else 'diagnostic_ray_triangles' if self.fixture.collision_triangles is not None
                       else 'diagnostic_ray_aabb')
         info = {'validation': validation, 'origin': origin,
@@ -396,6 +407,23 @@ class ActorState:
         if (ray_sq < 1 or along <= 0
                 or along*along < ray_sq*hit_sq*math.cos(math.radians(10))**2):
             return 'shot_direction', info
+        if self.fixture.collision_heightfield is not None:
+            try:
+                origin_floor = self.fixture.collision_heightfield.height_at(origin[0],origin[1])
+                terrain_hit = self.fixture.collision_heightfield.intersect_segment(origin,impact)
+            except (OSError,ValueError):
+                # Неизвестная/недоступная геометрия не означает свободный LOS.
+                return 'terrain_geometry_unavailable', info
+            info['terrain_checked'] = True
+            if origin[2] < origin_floor['terrain_z']-5:
+                # Отрезок целиком под землёй может не пересечь поверхность.
+                # Только политика этого opt-in стенда, без поддержки туннелей.
+                return 'terrain_origin_below_surface', info
+            if terrain_hit is not None:
+                # Собственная допускаемая погрешность5см у поверхности цели;
+                # это не установленный баланс или tolerance исходного сервера.
+                if (1-terrain_hit['fraction'])*math.sqrt(hit_sq)>5:
+                    return 'line_of_sight', {**info,'blocking_terrain':terrain_hit}
         for index, (lower, upper) in enumerate(self.fixture.collision_boxes or ()):
             if segment_box_entry(origin, impact, lower, upper) is not None:
                 return 'line_of_sight', {**info, 'blocking_box': index}

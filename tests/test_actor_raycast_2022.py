@@ -7,6 +7,7 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'server/directory'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from actor_probe_2022 import ActorFixture, ActorState
 
 class RaycastTests(unittest.TestCase):
@@ -116,6 +117,58 @@ class RaycastTests(unittest.TestCase):
             config['collision_boxes'] = []
             path.write_text(json.dumps(config))
             self.assertEqual(ActorFixture.load(path).collision_boxes, ())
+
+
+    def test_opt_in_terrain_blocks_forged_below_surface_hit_without_mutation(self):
+        from dataclasses import replace
+        import tempfile
+        from probe_iceland_heightfield_2022 import HeightField
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'analytic-plane'
+            path.write_bytes(struct.pack('<hBB',0,2,2)*4)
+            # Аналитическая преграда между originZ245 и impactZ155;
+            # это тестовая поверхность, не извлечённая карта игры.
+            terrain=HeightField(path,2,2,0,365000,543000,259200,2000,1)
+            actor=ActorState(replace(self.fixture,collision_heightfield=terrain,
+                                    armor_definition=201001,armor_durability=30))
+            actor.begin(100);actor.note_fire(self.fire,{'action':'fire'})
+            packets,event=actor.hit(self.hit)
+            self.assertEqual((packets,event['reason']),([], 'line_of_sight'))
+            self.assertTrue(event['terrain_checked'])
+            self.assertEqual(event['blocking_terrain']['position'][2],259200)
+            self.assertEqual((actor.hp,actor.armor_durability,actor.hits),(1000,30,set()))
+            # Исходный профиль без опции принимает тот же packet.
+            self.assertEqual(self.actor().hit(self.hit)[1]['action'],'hit_damage')
+
+    def test_terrain_clear_and_missing_resource_do_not_silently_share_a_result(self):
+        from dataclasses import replace
+        import tempfile
+        from probe_iceland_heightfield_2022 import HeightField
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'analytic-plane';path.write_bytes(struct.pack('<hBB',0,2,2)*4)
+            terrain=HeightField(path,2,2,0,365000,543000,258000,2000,1)
+            actor=ActorState(replace(self.fixture,collision_heightfield=terrain))
+            actor.begin(100);actor.note_fire(self.fire,{'action':'fire'})
+            self.assertEqual(actor.hit(self.hit)[1]['action'],'hit_damage')
+            path.unlink()
+            other=ActorState(replace(self.fixture,collision_heightfield=terrain))
+            other.begin(100);other.note_fire(self.fire,{'action':'fire'})
+            packets,event=other.hit(self.hit)
+            self.assertEqual((packets,event['reason'],other.hp),([], 'terrain_geometry_unavailable',1000))
+
+
+    def test_segment_wholly_below_terrain_does_not_count_as_clear_los(self):
+        from dataclasses import replace
+        import tempfile
+        from probe_iceland_heightfield_2022 import HeightField
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'analytic-plane';path.write_bytes(struct.pack('<hBB',0,2,2)*4)
+            terrain=HeightField(path,2,2,0,365000,543000,260000,2000,1)
+            actor=ActorState(replace(self.fixture,collision_heightfield=terrain))
+            actor.begin(100);actor.note_fire(self.fire,{'action':'fire'})
+            packets,event=actor.hit(self.hit)
+            self.assertEqual((packets,event['reason'],actor.hp,actor.hits),
+                             ([], 'terrain_origin_below_surface',1000,set()))
 
 
 if __name__ == '__main__': unittest.main()

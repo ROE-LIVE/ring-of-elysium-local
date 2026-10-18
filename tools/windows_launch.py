@@ -506,7 +506,7 @@ def write_launch_summary(run, args):
                    spawn_selection_supported=True, kit_selection_in_game_supported=True,
                    spawn_height_basis="team_l_estimates_native_selected_cells",
                    original_starter_inventory=False)
-    summary.update(launcher_revision='20261018-target-roster-v1-inplace', client_mode='in_place', weapon_slots=3,
+    summary.update(launcher_revision='20261018-terrain-los-v1-inplace', client_mode='in_place', weapon_slots=3,
                    starter_item_source='INITITEM.XML/map16010/stage1',
                    starter_magazine_policy='full_capacity_local',
                    source_hashes={name:digest(ROOT/name) for name in (
@@ -516,6 +516,7 @@ def write_launch_summary(run, args):
                        'server/directory/death_parcel_2022.py', 'server/directory/game_endpoint_probe_2022.py',
                        'server/directory/bot_controller_2022.py', 'server/directory/state_scene_actions_2022.py',
                        'server/directory/live_scene_probe_2022.py', 'tools/export_test_report_2022.py',
+                       'tools/probe_iceland_heightfield_2022.py',
                        'config/practice-target-points.json', 'tools/match_pacing_2022.py', 'SOURCE-MANIFEST.json')})
     from local_account_2022 import local_account
     account = local_account(ROOT/'runtime', getattr(args, 'profile', 'default'))

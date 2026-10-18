@@ -22,7 +22,7 @@ SUMMARY = frozenset(('build', 'map', 'mode', 'kit', 'weapon_profile', 'target', 
                      'starter_item_source', 'starter_magazine_policy', 'debug_console',
                      'start_hour', 'temperature_raw', 'native_airdrop', 'native_evacuation',
                      'diagnostic_departure', 'original_account_authentication',
-                     'original_starter_inventory', 'local_session_id', 'launcher_platform', 'client_mode'))
+                     'original_starter_inventory', 'local_session_id', 'launcher_platform'))
 EVENT = frozenset(('sequence', 'timestamp', 'kind', 'action', 'reason', 'synthetic',
                    'experimental', 'failed_checks', 'slot', 'source', 'destination',
                    'source_slot', 'target_slot', 'requested_slot', 'gun_definition',
@@ -62,8 +62,13 @@ EVENT = EVENT | frozenset(('count', 'radius_cm', 'spawned', 'removed', 'visible'
 EVENT = EVENT | frozenset(('penetration', 'mesh_id', 'source_faces', 'original_server_policy',
                             'energy_initial', 'energy_after', 'penetration_power',
                             'thickness_cm', 'entry', 'exit'))
+# Раздельные контейнеры группы NPC и результат typed action без raw/identity.
 EVENT = EVENT | frozenset(('id', 'accepted', 'administrative', 'corpse', 'owner',
                             'parcel_id', 'items', 'parts', 'durability', 'skin_id'))
+# Числовой результат opt-in terrain LOS; исходный файл/массив не экспортируется.
+EVENT = EVENT | frozenset(('terrain_checked', 'blocking_terrain', 'fraction',
+                            'normal', 'row', 'column', 'face_index', 'material_index',
+                            'visited_cells', 'terrain_only'))
 NUMERIC = frozenset(('snapshot', 'qs_current_map_id_unclassified', 'magazine_slot1',
                      'magazine_slot2', 'magazine_slot3', 'reserve_citori', 'reserve_m4',
                      'reserve_ak47', 'reserve_glock', 'reserve_de', 'bandages',
@@ -110,6 +115,7 @@ def export_report(run, destination):
                                          'server/directory/death_parcel_2022.py', 'server/directory/game_endpoint_probe_2022.py',
                                          'server/directory/bot_controller_2022.py', 'server/directory/state_scene_actions_2022.py',
                                          'server/directory/live_scene_probe_2022.py', 'tools/export_test_report_2022.py',
+                                         'tools/probe_iceland_heightfield_2022.py',
                                          'config/practice-target-points.json', 'tools/match_pacing_2022.py', 'SOURCE-MANIFEST.json')
                                 and isinstance(v, str) and re.fullmatch('[0-9a-fA-F]{64}', v)}
     destination.mkdir(parents=True)

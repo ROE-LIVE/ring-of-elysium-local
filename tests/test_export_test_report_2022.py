@@ -10,6 +10,25 @@ from export_test_report_2022 import export_report
 
 
 class ExportReportTests(unittest.TestCase):
+    def test_terrain_los_export_keeps_numeric_evidence_without_resource_or_auth(self):
+        with tempfile.TemporaryDirectory() as folder:
+            run=Path(folder)/'run';(run/'scene').mkdir(parents=True)
+            (run/'launch-summary.json').write_text(json.dumps(dict(build='2022-test',source_hashes={
+                'tools/probe_iceland_heightfield_2022.py':'a'*64})))
+            row=dict(kind='actor_probe',action='hit_rejected',reason='line_of_sight',terrain_checked=True,
+                     blocking_terrain=dict(fraction=.5,position=[1,2,3],normal=[0,0,1],
+                     face_index=123,material_index=42,visited_cells=3,terrain_only=True,
+                     source_file='must-not-copy',samples='must-not-copy',auth='must-not-copy'))
+            (run/'scene/events.jsonl').write_text(json.dumps(row)+'\n')
+            out=Path(folder)/'report';export_report(run,out)
+            text=(out/'scene/events.jsonl').read_text();actual=json.loads(text)
+            self.assertEqual(actual['blocking_terrain']['face_index'],123)
+            self.assertEqual(actual['blocking_terrain']['position'],[1,2,3])
+            self.assertTrue(actual['terrain_checked'])
+            self.assertNotIn('must-not-copy',text)
+            summary=json.loads((out/'launch-summary.json').read_text())
+            self.assertEqual(summary['source_hashes'],{'tools/probe_iceland_heightfield_2022.py':'a'*64})
+
     def test_death_owners_and_typed_action_are_exported_without_nested_secrets(self):
         with tempfile.TemporaryDirectory() as folder:
             run = Path(folder) / 'run'

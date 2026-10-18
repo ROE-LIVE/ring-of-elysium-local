@@ -17,7 +17,7 @@
   },
   {
     "path": "PROVENANCE.json",
-    "sha256": "a250134130b6c73daf04717899f30116c3500de693418435479943765ef4ba54"
+    "sha256": "7b9564c1eb75792ef20ec3917e2cb43ab11538cfd7cdef590d69d115dbc8de5e"
   },
   {
     "path": "README.md",
@@ -37,7 +37,7 @@
   },
   {
     "path": "VALIDATION.md",
-    "sha256": "492287bb433db3f76f278e37e0388940ee571400831a38cef43c6289dd0d9e18"
+    "sha256": "15ed19065e660196d06f6b7d046171dff1295719deac46b2b34c49805ea4e361"
   },
   {
     "path": "WINDOWS-TESTS-W17.md",
@@ -209,7 +209,7 @@
   },
   {
     "path": "docs/NET06-CAPACITY-HANDOFF-20261018.md",
-    "sha256": "a0acf4b386f9a397537a41663d936fdda663e76934df82fff388ed041c99c229"
+    "sha256": "a6a5ffe8ff36b04490aea30183078b4adab9be16c9aecff8dd367b868b445a9d"
   },
   {
     "path": "docs/PASSIVE-TARGETS-20261018.md",
@@ -237,7 +237,7 @@
   },
   {
     "path": "docs/SESSION-RESULT-20261018.md",
-    "sha256": "51e897f404688b7b36923793747c142cfd2d865b44aad33da3a1e1e022f775df"
+    "sha256": "2844142e64952b256736595b5a9e264036c5c3da626524945b65016d9aa13b76"
   },
   {
     "path": "docs/SOURCE-COLLISION-20261016.md",
@@ -273,19 +273,19 @@
   },
   {
     "path": "docs/recovery/history.csv",
-    "sha256": "d32936074c9bff0b9567da7a21892ec001897c1e6e83355971a7815a7f896ea8"
+    "sha256": "9755e91d0162dd9bce04b4a87a76eb5becb14f12c4a148e79367cfbde81ff6da"
   },
   {
     "path": "docs/recovery/mechanics-2022.csv",
-    "sha256": "719abfceadb5b5b446189768749753904173d2a2eebcf737c4c34478cc0090c6"
+    "sha256": "51a6273857d1f067fc30dfaa8abb97afa7a2644cc0a6e6fc10e524d70983ca20"
   },
   {
     "path": "docs/recovery/status.md",
-    "sha256": "055e76e7e95128afb1e104a9a97ec9eeaa2ec679d1cfb54ee7f47a350aa4691f"
+    "sha256": "eeddea795e664deaf0ec10329bef97d3f9765628fa1c2052179b3e448a42f22f"
   },
   {
     "path": "docs/recovery/updates.csv",
-    "sha256": "264e0765e178e76164d64708fdcc5b56137ffd689dfb58716958b93d1b9f68e5"
+    "sha256": "844ee536187fc7aae3c5276354e470f38b051ef3cd646fafd3029461bd4cb533"
   },
   {
     "path": "docs/recovery/windows-tests-20261018-w19.csv",
@@ -293,7 +293,7 @@
   },
   {
     "path": "docs/signals-2022.csv",
-    "sha256": "f781d74a26761244ff1bf0c35068bc73abedb8862328f40cb1f57c5254342420"
+    "sha256": "851f21177fe9c1df2934069792b6a01a75eb607fb5e54f29a057edb0452a8da9"
   },
   {
     "path": "export-report.cmd",

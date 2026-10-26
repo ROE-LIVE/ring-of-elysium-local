@@ -37,6 +37,7 @@
     [int]$MapId = 16010,
     [string]$MapAnchor = '',
     [string]$MapSpawnCells = '',
+    [switch]$SharedRoom,
     [string]$MapZoneProfile = '',
     [string]$MapZoneIndex = '',
     [int]$MapZoneSeed = -1,
@@ -143,6 +144,7 @@ try {
     if ($LootCatalog) { $arguments += @('--loot-catalog',$LootCatalog) }
     if ($MapId -ne 16010) { $arguments += @('--map-id',"$MapId") }
     if ($MapSpawnCells) { $arguments += @('--map-spawn-cells',$MapSpawnCells) }
+    if ($SharedRoom) { $arguments += '--shared-room' }
     if ($MapZoneProfile) { $arguments += @('--map-zone-profile',$MapZoneProfile,'--map-zone-index',$MapZoneIndex) }
     if ($MapZoneSeed -ge 0) { $arguments += @('--map-zone-seed',"$MapZoneSeed") }
     if ($MapAnchor) {

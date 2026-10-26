@@ -233,6 +233,34 @@ def build_zone(world, profile, index_target, seed):
     return final, landing
 
 
+def shared_room_uids(account):
+    """UID по порядку соединений лобби: свой профиль + lan2..lan4 (та же формула профилей)."""
+    from local_account_2022 import local_account
+    return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in (2, 3, 4)]
+
+
+def shared_room_endpoint(command, configs):
+    """Комната: убирает несовместимые входы (каталог лута, посылки, двери, окна) и включает
+    общие аватары/лут/HP/часы зоны/машины/эвакуацию/наблюдение. Опыт, не оригинальный сервер."""
+    # Общая эвакуация требует итог сессии без одиночных правил смерти/таймаута.
+    evacuation = json.loads(configs['evacuation'].read_text())
+    for key in ('singleplayer_result_on_death', 'singleplayer_timeout_seconds'):
+        evacuation.pop(key, None)
+    configs['evacuation'].write_text(json.dumps(evacuation, ensure_ascii=False, indent=2), encoding='utf-8')
+    drop = {'--loot-catalog', '--parcel-config', '--door-config', '--breakable-config'}
+    result, skip = [], False
+    for item in command:
+        if skip:
+            skip = False
+            continue
+        if item in drop:
+            skip = True
+            continue
+        result.append(item)
+    return result + ['--peer-avatar-config', str(configs['actor']), '--shared-ground-loot', '--shared-world-clock',
+                     '--shared-peer-health', '--shared-vehicles', '--shared-evacuation', '--peer-spectator']
+
+
 def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=False, anchor=None, spawn_cells=None,
                        zone_profile=None, zone_index=None, zone_seed=None):
     """Локальный опыт: меняет только объявленную карту (JOIN unknown_28 и room m644).
@@ -745,6 +773,7 @@ def write_launch_summary(run, args):
                    profile_isolation_scope='durable_cosmetics_only')
     summary['debug_console'] = bool(getattr(args, 'debug_console', False))
     summary['remote_peer'] = getattr(args, 'remote_peer', None)
+    summary['shared_room'] = bool(getattr(args, 'shared_room', False))
     summary['server_only'] = bool(getattr(args, 'services_only', False))
     summary['lan_udp_tunnel'] = bool(getattr(args, 'lan_tunnel', False) or summary['remote_peer'])
     summary['original_network_transport'] = not summary['lan_udp_tunnel']
@@ -833,6 +862,8 @@ def main():
                         help='Число пассивных мишеней1..10; требует Target')
     parser.add_argument('--map-id',type=int,default=16010,
                         help='Опытная смена объявленной карты (JOIN/room); позиция через teleport')
+    parser.add_argument('--shared-room',action='store_true',
+                        help='Локальный опыт комнаты на несколько клиентов (через relay_lan): аватары, общий лут/HP/зона/машины/эвакуация')
     parser.add_argument('--map-zone-profile',type=Path,help='Профиль зоны карты (generate_zone_profile.py)')
     parser.add_argument('--map-zone-index',type=Path,help='AREAINDEX той же карты')
     parser.add_argument('--map-zone-seed',type=int,help='Seed финального региона; по умолчанию случайный')
@@ -858,6 +889,8 @@ def main():
     except ValueError as error:
         parser.error(str(error))
     args.profile = account['name']
+    if args.shared_room and (args.mode != 'cycle' or args.remote_peer or args.lan_tunnel or args.bots or args.target != 'none'):
+        parser.error('SharedRoom требует Mode cycle, без RemotePeer/LanTunnel/Bots/Target')
     if args.remote_peer and args.winter_windows:
         parser.error('WinterWindows пока требует одиночный local peer')
     if args.remote_peer and args.winter_doors:
@@ -1003,7 +1036,8 @@ def main():
             proxy,log=start('proxy',[sys.executable,'-X','utf8','-B','-u',str(ROOT/'tools/run_service.py'),'proxy',
                 '--session-key-file',str(args.key_file),'--local-server-clock','--reply','--team-reply','--match-reply','--novice-state','1',
                 '--training-reply','--match-found-delay','5','--join-instance-config',str(configs['join']),
-                '--local-cosmetics-config',str(configs['cosmetics']),'--actor-uid',str(account['actor_uid']),'--duration',str(args.duration+30),'--output',str(run/'lobby')])
+                '--local-cosmetics-config',str(configs['cosmetics']),'--actor-uid',str(account['actor_uid']),'--duration',str(args.duration+30),'--output',str(run/'lobby')]
+                +(['--actor-uid-pool',','.join(hex(u) for u in shared_room_uids(account))] if args.shared_room else []))
             wait_ready(proxy,log,'"kind": "ready"')
             room=json.loads(configs['room'].read_text())['room_file']
             command=[sys.executable,'-X','utf8','-B','-u',str(ROOT/'tools/run_service.py'),'endpoint','--handshake','--ident','--grant','--auth',
@@ -1026,6 +1060,8 @@ def main():
             if args.live_control:command+=['--live-commands',str(run/'live-commands.json')]
             if args.bots:command+=['--actor-config',str(configs['actor'])]
             elif args.target != 'none':command+=['--actor-config',str(configs['target-'+args.target])]
+            if args.shared_room:
+                command = shared_room_endpoint(command, configs)
             peer,log=start('endpoint',command);wait_ready(peer,log,'"kind": "ready"')
             print(f'Сервисы готовы. Режим: {args.mode}; оружие: {args.weapon_profile}; комплект: {args.kit}. Журнал: {run}',flush=True)
             if 'custom-loot-catalog' in configs:

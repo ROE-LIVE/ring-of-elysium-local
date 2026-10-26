@@ -97,7 +97,13 @@ async def serve(args, ready=None, stop=None):
         connection = uuid.uuid4().hex[:12]
         info = {'connection': connection}
         clock_stream = LobbyClockStream(key) if getattr(args,'local_server_clock',False) else None
-        actor_stream = LobbyActorUIDStream(key,args.actor_uid) if getattr(args,'actor_uid',None) is not None else None
+        # Комната на несколько клиентов: каждое новое соединение получает следующий UID пула
+        # (один клиент держит одно соединение лобби за сессию); иначе — прежний один UID.
+        pool = getattr(args, 'actor_uid_pool', None) or ([args.actor_uid] if getattr(args, 'actor_uid', None) is not None else [])
+        actor_uid = pool[totals['connections'] % len(pool)] if pool else None
+        actor_stream = LobbyActorUIDStream(key, actor_uid) if actor_uid is not None else None
+        if pool and len(pool) > 1:
+            info['assigned_actor_uid'] = hex(actor_uid)
         totals['connections'] += 1
         capture.record('connect', **info, remote=writer.get_extra_info('peername'))
         status()
@@ -433,6 +439,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--local-cosmetics-config', type=Path, help='Локальный каталог владения скинами оружия2022')
     parser.add_argument('--actor-uid',type=lambda value:int(value,0),help='Явный UID одного локального клиента в ENTER_GAME32B; не multiplayer/профиль аккаунта')
+    parser.add_argument('--actor-uid-pool', type=lambda value: [int(v, 0) for v in value.split(',')],
+                        help='Локальный опыт комнаты: UID по порядку соединений (через запятую)')
     parser.add_argument('--local-server-clock', action='store_true', help='Заменить архивный UNIX timestamp первого lobby1f5f текущим временем')
     parser.add_argument('--session-key-file', required=True, type=Path)
     parser.add_argument('--reply', action='store_true', help='Добавлять экспериментальные ответы 0x1f75')

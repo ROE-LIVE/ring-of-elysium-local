@@ -63,7 +63,17 @@ async def serve(args, ready=None, stop=None):
     if match_enabled and not team_enabled:
         raise ValueError('Для match-reply нужен team-reply')
     cosmetic_path = getattr(args, 'local_cosmetics_config', None)
-    cosmetics = LocalCosmetics(cosmetic_path) if cosmetic_path else None
+    base_cosmetics = LocalCosmetics(cosmetic_path) if cosmetic_path else None
+    account_cosmetics = {}
+
+    def cosmetics_for(actor_uid, pool):
+        # Комната: первый UID пула — профиль этого PC; остальные хранят внешность отдельно,
+        # иначе выбор второго PC перезаписывает сохранённый выбор хоста.
+        if base_cosmetics is None or not pool or len(pool) < 2 or actor_uid == pool[0]:
+            return base_cosmetics
+        if actor_uid not in account_cosmetics:
+            account_cosmetics[actor_uid] = LocalCosmetics(cosmetic_path, state_file=f'cosmetics-{actor_uid:x}.json')
+        return account_cosmetics[actor_uid]
     join = load_join_experiment(getattr(args, 'join_instance_config', None))
     if join is not None and (not training_enabled or found_delay is None):
         raise ValueError('JOIN_INSTANCE требует training-reply и match-found-delay')
@@ -106,6 +116,7 @@ async def serve(args, ready=None, stop=None):
         pool = getattr(args, 'actor_uid_pool', None) or ([args.actor_uid] if getattr(args, 'actor_uid', None) is not None else [])
         actor_uid = pool[totals['connections'] % len(pool)] if pool else None
         actor_stream = LobbyActorUIDStream(key, actor_uid) if actor_uid is not None else None
+        cosmetics = cosmetics_for(actor_uid, pool)
         if pool and len(pool) > 1:
             info['assigned_actor_uid'] = hex(actor_uid)
         totals['connections'] += 1

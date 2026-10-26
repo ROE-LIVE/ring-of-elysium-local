@@ -48,7 +48,7 @@ def clothing_inventory(ids, uid, container=2):
 
 
 class LocalCosmetics:
-    def __init__(self,path):
+    def __init__(self,path,state_file=None):
         catalog_path = Path(path)
         if catalog_path.stat().st_size > 262144:
             raise ValueError('Слишком большой каталог внешности')
@@ -72,6 +72,9 @@ class LocalCosmetics:
         self.state_path = Path(value['state_file']) if value.get('state_file') else None
         if self.state_path and not self.state_path.is_absolute():
             self.state_path = catalog_path.parent / self.state_path
+        # Отдельный сохранённый выбор (второй участник комнаты), рядом с основным файлом.
+        if state_file is not None and self.state_path is not None:
+            self.state_path = self.state_path.with_name(state_file)
         self.avatar = bytes(20)
         self.avatar_applied = False
         # Адресный opt-in для проверки холодного default wardrobe.

@@ -7,7 +7,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server/directory'))
 from winter_selection_2022 import choose_cell
 from types import SimpleNamespace
-from game_endpoint_probe_2022 import Endpoint
+from game_endpoint_probe_2022 import Endpoint, shared_selection_deadline
 
 POINTS = ((10, 10, 100, 100, 50), (11, 10, 200, 100, 50), (20, 20, 900, 900, 50))
 
@@ -44,6 +44,13 @@ class RoomBornCellTests(unittest.TestCase):
         solo = SimpleNamespace(shared_loot=None, room_born_cells={})
         solo.born_cells = lambda state: Endpoint.born_cells(solo, state)
         self.assertEqual(Endpoint.born_snapshot(solo, dict(room_uid=1, actor_uid=7)), struct.pack('>II', 0, 2))
+
+    def test_room_selection_countdown_is_shared(self):
+        table = {}
+        self.assertEqual(shared_selection_deadline(table, (1, 1), 100, 47), (147, 47))
+        self.assertEqual(shared_selection_deadline(table, (1, 1), 114, 47), (147, 33))
+        self.assertEqual(shared_selection_deadline(table, (1, 1), 143, 47), (190, 47))
+        self.assertEqual(shared_selection_deadline(table, (2, 1), 114, 47), (161, 47))
 
 
 if __name__ == '__main__':

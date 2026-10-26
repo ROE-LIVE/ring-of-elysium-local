@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import json
 from itertools import groupby
+import math
 import os
 from pathlib import Path
 import signal
@@ -112,6 +113,16 @@ def load_scene_rules(path):
     return rules
 
 
+def shared_selection_deadline(table, key, now, seconds):
+    """Общий отсчёт выбора комнаты: опоздавший получает остаток (не меньше 5 с);
+    после дедлайна — новый отсчёт для позднего входа. Возвращает (дедлайн, секунды)."""
+    shared = table.get(key)
+    if shared is not None and shared - now >= 5:
+        return shared, max(5, math.ceil(shared - now))
+    table[key] = now + seconds
+    return now + seconds, seconds
+
+
 class Endpoint(asyncio.DatagramProtocol):
     def __init__(self, capture, handshake=False, ident=False, grant=False, auth=False, room_template=None, scene_rules=None, scene_clock=False, selection_seconds=None, weapon_fixture=None, live_commands=None, world_fixture=None, actor_fixture=None, evacuation_delay=None, parcel_fixture=None, evacuation_result_fixture=None, loot_catalog=None, environment_fixture=None, reliable_udp=False, idle_handoff=False, diagnostic_vehicle_pellet_damage=None, peer_avatar_fixture=None, shared_ground_loot=False, shared_world_clock=False, shared_peer_health=False, peer_avatar_trajectories=False, peer_spectator=False, shared_evacuation=False, shared_vehicles=False, peer_equipment=False, peer_pellet_damage=None, shared_death_loot=False, door_fixture=None, breakable_fixture=None, spawn_points_file=None):
         self.capture = capture
@@ -153,6 +164,8 @@ class Endpoint(asyncio.DatagramProtocol):
         self.shared_parcels = {}
         # Комната: (room_uid, эпоха) → {actor_uid: (cx, cy)} занятых клеток рождения.
         self.room_born_cells = {}
+        # Комната: (room_uid, эпоха) → общий дедлайн выбора (секунды от started).
+        self.room_selection_deadlines = {}
         if shared_death_loot and not shared_peer_health:
             raise ValueError('shared-death-loot требует shared-peer-health')
         if shared_death_loot and actor_fixture:
@@ -476,11 +489,18 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.capture.record('clock_configuration',synthetic=True,remote=remote)
                                     self.send_clock(d,remote,state)
                                     if self.selection_seconds is not None:
-                                        state['selection_deadline']=time.monotonic()-self.started+self.selection_seconds
+                                        now_rel=time.monotonic()-self.started
+                                        seconds=self.selection_seconds
+                                        deadline=now_rel+seconds
+                                        if self.shared_loot and 'room_uid' in state:
+                                            key=(state['room_uid'],self.shared_loot.epochs.get(state['room_uid'],1))
+                                            deadline,seconds=shared_selection_deadline(
+                                                self.room_selection_deadlines,key,now_rel,seconds)
+                                        state['selection_deadline']=deadline
                                         self.send_application(d,remote,state,0x486,struct.pack('>II',1,1))
                                         self.send_application(d,remote,state,0x47a,struct.pack('>I',1))
-                                        self.send_application(d,remote,state,0x482,struct.pack('>I',self.selection_seconds))
-                                        self.capture.record('selection_started',synthetic=True,seconds=self.selection_seconds,remote=remote)
+                                        self.send_application(d,remote,state,0x482,struct.pack('>I',seconds))
+                                        self.capture.record('selection_started',synthetic=True,seconds=seconds,remote=remote)
                                         choice = default_choice(self.weapon_fixture)
                                         if choice is not None and self.staged_loadout:
                                             loadout = state.setdefault('staged_loadout', dict(STAGED_DEFAULTS[self.room_map]))

@@ -9,7 +9,12 @@ from pathlib import Path
 import struct
 
 from parcel_probe_2022 import ParcelFixture, ParcelState
-from weapon_probe_2022 import AMMUNITION_WEIGHTS, EQUIPMENT_SLOTS, LootFixture
+from weapon_probe_2022 import AMMUNITION_WEIGHTS, EQUIPMENT_SLOTS, GUN_PROFILES, MEDICAL_PROFILES, LootFixture
+from attachment_probe_2022 import SUPPORTED_ATTACHMENTS
+
+# Аирдроп по строкам A71 «空投»: оружие, броня, аптечки, обвесы. Стопки — патроны и аптечки.
+CONTAINER_DEFINITIONS = (*AMMUNITION_WEIGHTS, *EQUIPMENT_SLOTS, *GUN_PROFILES, *MEDICAL_PROFILES, *SUPPORTED_ATTACHMENTS)
+STACKABLE = (*AMMUNITION_WEIGHTS, *MEDICAL_PROFILES)
 
 
 @dataclass(frozen=True)
@@ -66,9 +71,9 @@ class ParcelCatalog:
                 if (type(item_index) is not int or not 1 <= item_index <= 0xffffffff
                         or item_index in indexes or item_index in container_ids
                         or type(item_definition) is not int
-                        or item_definition not in (*AMMUNITION_WEIGHTS,*EQUIPMENT_SLOTS)
+                        or item_definition not in CONTAINER_DEFINITIONS
                         or type(quantity) is not int or not 1 <= quantity <= 100
-                        or (item_definition not in AMMUNITION_WEIGHTS and quantity != 1)):
+                        or (item_definition not in STACKABLE and quantity != 1)):
                     raise ValueError('Неверный или повторный предмет контейнера')
                 # Виртуальный ground-item используется только как авторитетный
                 # учёт inventory; его 821 не отправляется клиенту.
@@ -93,7 +98,8 @@ class ContainerState:
         self.spawned = self.linked = self.opened = False
         self.position = fixture.position
         self.motion_tick = None
-        self.registered = False
+        # id(weapon): общий контейнер комнаты регистрирует предметы у каждого участника отдельно.
+        self.registered = set()
         self.remaining = {x.index:x.quantity for x in fixture.items}
 
     def register(self, command, body):
@@ -135,7 +141,7 @@ class ContainerState:
             if sum((a-b)**2 for a,b in zip(position,self.position)) > allowance**2:
                 return dict(event, reason='speed')
         self.position, self.motion_tick = position, tick
-        if self.registered:
+        if id(weapon) in self.registered:
             for item in self.fixture.items:
                 old = weapon.loot_registry.get(item.index)
                 if old is not None:
@@ -170,13 +176,25 @@ class ContainerState:
                 or parcel != self.fixture.index or target or byte or short
                 or flag != 1 or tail or distance >= 750**2):
             return [], dict(action='parcel_pick_rejected',parcel_id=self.fixture.index)
-        if not self.registered:
+        if id(weapon) not in self.registered:
             if any(v.index in weapon.loot_registry for v in self.fixture.items):
                 raise ValueError('Индекс контейнера занят текущим inventory')
             for v in self.fixture.items:
-                weapon.loot_registry[v.index] = self.at_position(v)
-                weapon.available_loot.add(v.entity_uid)
-            self.registered = True
+                # Остаток контейнера мог уже уменьшить другой участник комнаты.
+                left = self.remaining[v.index]
+                weapon.loot_registry[v.index] = replace(self.at_position(v), quantity=left or v.quantity)
+                if left:
+                    weapon.available_loot.add(v.entity_uid)
+            self.registered.add(id(weapon))
+        # Общий остаток важнее локальной копии участника, зарегистрированного раньше.
+        # Свой повторный подбор остаётся duplicate_pickup инвентаря; чужой — отказ.
+        if not self.remaining[index] and index not in weapon.picked_loot:
+            weapon.available_loot.discard(item.entity_uid)
+            return [(0x3b61,self.contents())], dict(action='parcel_pick_rejected',parcel_id=self.fixture.index,
+                                                     reason='container_item_taken')
+        current = weapon.loot_registry.get(index)
+        if self.remaining[index] and current is not None and current.quantity != self.remaining[index]:
+            weapon.loot_registry[index] = replace(current, quantity=self.remaining[index])
         converted = struct.pack('>IIQBHB3iB',index,0,target,byte,short,flag,x,y,z,tail)
         packets,event = weapon.handle(0x3b63,converted)
         if event['action'] not in ('pickup','equipment_pickup','duplicate_pickup'):

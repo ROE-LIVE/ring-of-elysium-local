@@ -239,6 +239,32 @@ def shared_room_uids(account):
     return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in (2, 3, 4)]
 
 
+def apply_airdrop_table(configs, run, table_path, seed=None):
+    """Аирдроп по таблице «空投» (generate_airdrop_table.py): оружие по весу iCount, вариант патронов
+    по весу extra-строки, броня/шлем4 и аптечка. Состав — наша гипотеза, не исходный генератор."""
+    if table_path is None:
+        return None
+    import random
+    table = json.loads(Path(table_path).read_text(encoding='utf-8'))
+    rng = random.Random(seed)
+    gun = rng.choices(table['guns'], weights=[g['weight'] for g in table['guns']])[0]
+    ammo = rng.choices(gun['ammo_variants'], weights=[v['weight'] for v in gun['ammo_variants']])[0]
+    contents = [(gun['item'], 1)] + [(ammo['item'], ammo['stack'])] * ammo['stacks'] + [(g['item'], 1) for g in table['gear']]
+    parcel = json.loads(configs['parcel'].read_text())
+    if 'parcels' not in parcel:
+        parcel = dict(parcels=[dict(entity_file=parcel['entity_file'], parcel_id=parcel['parcel_id'],
+                                    items=[dict(item_index=parcel['item_index'], definition=30004, quantity=parcel['quantity'])])])
+    container = parcel['parcels'][0]
+    base = container['items'][0]['item_index']
+    container['items'] = [dict(item_index=base + n, definition=definition, quantity=quantity)
+                          for n, (definition, quantity) in enumerate(contents)]
+    configs['parcel'].write_text(json.dumps(parcel, ensure_ascii=False, indent=2), encoding='utf-8')
+    choice = dict(gun=gun['item'], ammo=ammo['item'], ammo_stacks=ammo['stacks'], ammo_stack=ammo['stack'],
+                  gear=[g['item'] for g in table['gear']], seed=seed, source=table.get('source'))
+    (run/'airdrop-choice.json').write_text(json.dumps(choice, ensure_ascii=False, indent=2), encoding='utf-8')
+    return choice
+
+
 def strip_start_area(scene):
     """Убирает из правил сцены стартовый Jeep102/164 и наземный лут 821/100 (тип2)."""
     def body(response):
@@ -277,7 +303,10 @@ def shared_room_endpoint(command, configs, pvp_damage=None):
         if path is not None and Path(path).exists():
             path.write_text(json.dumps(strip_start_area(json.loads(path.read_text())), ensure_ascii=False, indent=2),
                             encoding='utf-8')
-    drop = {'--parcel-config', '--door-config', '--breakable-config'}
+    drop = {'--door-config', '--breakable-config'}
+    # Аирдроп в формате parcels (--airdrop-table) общий на комнату; одиночная fixture — нет.
+    if 'parcels' not in json.loads(configs['parcel'].read_text()):
+        drop.add('--parcel-config')
     result, skip = [], False
     for item in command:
         if skip:
@@ -901,6 +930,8 @@ def main():
                         help='Опытная смена объявленной карты (JOIN/room); позиция через teleport')
     parser.add_argument('--shared-room',action='store_true',
                         help='Локальный опыт комнаты на несколько клиентов (через relay_lan): аватары, общий лут/HP/зона/машины/эвакуация')
+    parser.add_argument('--airdrop-table',type=Path,help='Состав аирдропа по таблице «空投» (generate_airdrop_table.py)')
+    parser.add_argument('--airdrop-seed',type=int,help='Seed выбора аирдропа; без него — случайный')
     parser.add_argument('--shared-pvp',type=int,choices=range(1,101),metavar='1..100',
                         help='Комната: учебный урон между игроками (процент); требует --shared-room и --death-on-zero')
     parser.add_argument('--map-zone-profile',type=Path,help='Профиль зоны карты (generate_zone_profile.py)')
@@ -1009,6 +1040,7 @@ def main():
         apply_map_override(configs, run, args.map_id, args.winter_doors, args.winter_windows,
                        tuple(args.map_anchor) if args.map_anchor else None, args.map_spawn_cells,
                        args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
+        apply_airdrop_table(configs, run, args.airdrop_table, args.airdrop_seed)
         from actor_probe_2022 import ActorFixture
         if args.bots:ActorFixture.load(configs['actor'])
         if args.target != 'none':
@@ -1043,6 +1075,7 @@ def main():
     apply_map_override(configs, run, args.map_id, args.winter_doors, args.winter_windows,
                        tuple(args.map_anchor) if args.map_anchor else None, args.map_spawn_cells,
                        args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
+    apply_airdrop_table(configs, run, args.airdrop_table, args.airdrop_seed)
     if args.remote_peer:
         check_ports([(8001,socket.SOCK_STREAM),(19001,socket.SOCK_STREAM),(18001,socket.SOCK_DGRAM)])
     elif args.lan_tunnel:

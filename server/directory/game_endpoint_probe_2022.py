@@ -41,7 +41,7 @@ from bot_controller_2022 import BotController
 from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
-from parcel_catalog_2022 import load_parcel_fixture, make_parcel_state
+from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
 from environment_probe_2022 import EnvironmentFixture
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
@@ -147,8 +147,10 @@ class Endpoint(asyncio.DatagramProtocol):
             raise ValueError('Общий транспорт требует shared-peer-health')
         self.shared_vehicles = SharedVehicleRooms() if shared_vehicles else None
         self.peer_timer = None
-        if shared_ground_loot and (not weapon_fixture or parcel_fixture):
-            raise ValueError('Общий наземный лут требует weapon-config без parcel-config')
+        # Комнате подходит только каталог контейнеров (аирдроп): его остаток общий на комнату.
+        if shared_ground_loot and (not weapon_fixture or (parcel_fixture and not isinstance(parcel_fixture, ParcelCatalog))):
+            raise ValueError('Общий наземный лут требует weapon-config и parcel-config только в формате parcels')
+        self.shared_parcels = {}
         if shared_death_loot and not shared_peer_health:
             raise ValueError('shared-death-loot требует shared-peer-health')
         if shared_death_loot and actor_fixture:
@@ -1623,7 +1625,12 @@ class Endpoint(asyncio.DatagramProtocol):
             self.shared_vehicles.register(state,command,payload)
         if self.parcel_fixture:
             if 'parcels' not in state:
-                state['parcels'] = make_parcel_state(self.parcel_fixture)
+                if getattr(self, 'shared_loot', None) and 'room_uid' in state:
+                    # Один аирдроп на комнату и эпоху: открытие/подбор видят все участники.
+                    key = (state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1))
+                    state['parcels'] = self.shared_parcels.setdefault(key, make_parcel_state(self.parcel_fixture))
+                else:
+                    state['parcels'] = make_parcel_state(self.parcel_fixture)
             state['parcels'].register(command, payload)
         if command != 0x821 or self.weapon_fixture is None or len(payload) < 12:
             return
@@ -1804,8 +1811,8 @@ if __name__=='__main__':
         p.error('shared-peer-health требует peer-avatar-config/world-config/shared-ground-loot')
     if args.shared_world_clock and (not args.shared_ground_loot or not args.world_config):
         p.error('shared-world-clock требует shared-ground-loot и world-config')
-    if args.shared_ground_loot and (not args.weapon_config or args.parcel_config):
-        p.error('shared-ground-loot требует weapon-config без parcel-config')
+    if args.shared_ground_loot and not args.weapon_config:
+        p.error('shared-ground-loot требует weapon-config')
     if ((args.ident and not args.handshake) or (args.grant and not args.ident)
             or (args.auth and not args.grant) or (args.room_template and not args.auth)
             or ((args.scene_rules or args.scene_clock or args.live_commands) and not args.room_template)):

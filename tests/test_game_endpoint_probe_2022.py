@@ -836,7 +836,8 @@ class GameplayHandoffTests(unittest.TestCase):
         messages=[m for f in frames for m in parse_applications(f,decrypt(f.body,new['key']),'server')]
         self.assertEqual([m.command for m in messages[:2]],[0x7083,0x27])
         self.assertEqual([m.command for m in messages[2:]],
-                         [0x3e82] * 15 + [0x4a0, 0x6f5, 0x1069, 0x481, 0x481])
+                         # 17: две новые ячейки патронов аирдропа (30007/30008) тоже сверяются.
+                         [0x3e82] * 17 + [0x4a0, 0x6f5, 0x1069, 0x481, 0x481])
         self.assertEqual(struct.unpack_from('>I', messages[-1].payload, 8)[0], 24)
         self.assertEqual(struct.unpack_from('>I', next(m.payload for m in messages if m.command==0x1069), 11)[0], 650)
         self.assertEqual(messages[0].payload,b'fixture')

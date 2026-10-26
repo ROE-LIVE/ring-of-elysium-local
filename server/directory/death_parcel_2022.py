@@ -172,7 +172,7 @@ class DeathParcelState:
             staged_container.remaining = dict(container.remaining)
             # registered у singleton относился к одному WeaponState. Для общей
             # комнаты каждому получателю ставим актуальный остаток отдельно.
-            staged_container.registered = True
+            staged_container.registered = {id(staged)}
             for item in container.fixture.items:
                 quantity = container.remaining[item.index]
                 staged.loot_registry[item.index] = replace(container.at_position(item),quantity=quantity)

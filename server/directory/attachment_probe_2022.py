@@ -66,6 +66,8 @@ EXTENDED_CAPACITIES.update({10104: 20,
  10601: 100,
  10605: 1,
  20003: 10})
+# A89 nMaxAmmoExtended оружия аирдропа; обвесы для них не разрешены (нет TypeCanUse).
+EXTENDED_CAPACITIES.update({10108: 7, 10207: 42, 10602: 100, 10106: 10, 10307: 50})
 ATTACHMENT_BAG_SLOTS = range(20, 64)
 
 

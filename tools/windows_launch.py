@@ -319,7 +319,8 @@ def shared_room_endpoint(command, configs, pvp_damage=None):
         if path is not None and Path(path).exists():
             path.write_text(json.dumps(strip_start_area(json.loads(path.read_text())), ensure_ascii=False, indent=2),
                             encoding='utf-8')
-    drop = {'--door-config', '--breakable-config'}
+    # Двери и окна общие на комнату (shared_world_object в сервере сцены).
+    drop = set()
     # Аирдроп в формате parcels (--airdrop-table) общий на комнату; одиночная fixture — нет.
     if 'parcels' not in json.loads(configs['parcel'].read_text()):
         drop.add('--parcel-config')

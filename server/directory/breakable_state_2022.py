@@ -87,11 +87,17 @@ def encode_broken(identifier, remaining, context):
 
 
 class BreakableState:
-    def __init__(self, fixture, actor_uid):
+    def __init__(self, fixture, actor_uid, shared=None):
         self.fixture, self.actor_uid = fixture, actor_uid
-        self.remaining = {identifier: list(value[1]) for identifier,value in fixture.entities.items()}
-        self.contexts = {}
-        self.visible = set()
+        # Комната: общие остаток прочности и контексты (shared), видимость — своя у каждого.
+        if shared is None:
+            shared = {}
+        if not shared:
+            shared.update(remaining={identifier: list(value[1]) for identifier,value in fixture.entities.items()},
+                          contexts={})
+        self.remaining, self.contexts = shared['remaining'], shared['contexts']
+        # entity → последний отправленный остаток (повторная отправка при изменении другим игроком).
+        self.visible = {}
 
     def handle(self, payload, position, extra_anchor=None):
         try:
@@ -127,7 +133,7 @@ class BreakableState:
             self.contexts[identifier] = context
         # Повтор не расходует прочность ниже0 и не заменяет сохранённый контекст.
         response_context = self.contexts.get(identifier, context)
-        self.visible.add(identifier)
+        self.visible[identifier] = tuple(current)
         return [(0x6f56, encode_broken(identifier,current,response_context))], dict(
             action='breakable_damage', previous=previous, remaining=current, changed=changed,
             distance_cm=distance, learned=not known, **event)
@@ -143,9 +149,10 @@ class BreakableState:
             anchor = self.fixture.entities.get(identifier, (None, ()))[0]
             if anchor is None:
                 continue
-            if identifier not in self.visible and math.dist(position,anchor) <= 6000:
+            current = tuple(self.remaining[identifier])
+            if self.visible.get(identifier) != current and math.dist(position,anchor) <= 6000:
                 messages.append((0x6f56,encode_broken(identifier,self.remaining[identifier],context)))
-                self.visible.add(identifier)
+                self.visible[identifier] = current
                 if len(messages) >= 16:
                     break
         return messages

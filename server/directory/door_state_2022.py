@@ -62,9 +62,14 @@ class DoorFixture:
 
 
 class DoorState:
-    def __init__(self, fixture):
+    def __init__(self, fixture, status=None):
         self.fixture = fixture
-        self.status = {identifier: value[1] for identifier, value in fixture.doors.items()}
+        # Комната: общий словарь статусов (передаётся снаружи); видимость — своя у каждого.
+        if status is None:
+            status = {}
+        if not status:
+            status.update({identifier: value[1] for identifier, value in fixture.doors.items()})
+        self.status = status
         self.visible = {}
 
     @staticmethod

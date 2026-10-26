@@ -127,11 +127,9 @@ class Endpoint(asyncio.DatagramProtocol):
     def __init__(self, capture, handshake=False, ident=False, grant=False, auth=False, room_template=None, scene_rules=None, scene_clock=False, selection_seconds=None, weapon_fixture=None, live_commands=None, world_fixture=None, actor_fixture=None, evacuation_delay=None, parcel_fixture=None, evacuation_result_fixture=None, loot_catalog=None, environment_fixture=None, reliable_udp=False, idle_handoff=False, diagnostic_vehicle_pellet_damage=None, peer_avatar_fixture=None, shared_ground_loot=False, shared_world_clock=False, shared_peer_health=False, peer_avatar_trajectories=False, peer_spectator=False, shared_evacuation=False, shared_vehicles=False, peer_equipment=False, peer_pellet_damage=None, shared_death_loot=False, door_fixture=None, breakable_fixture=None, spawn_points_file=None):
         self.capture = capture
         self.breakable_fixture = breakable_fixture
-        if breakable_fixture and (peer_avatar_fixture or shared_ground_loot):
-            raise ValueError('breakable-config пока требует одиночный профиль')
         self.door_fixture = door_fixture
-        if door_fixture and (peer_avatar_fixture or shared_ground_loot):
-            raise ValueError('Текущие двери требуют одиночный профиль; общий реестр ещё не реализован')
+        # Комната: двери и окна общие на (комнату, эпоху); см. shared_world_objects.
+        self.shared_world_objects = {}
         self.sessions = {}
         if shared_peer_health and (not peer_avatar_fixture or not world_fixture or not shared_ground_loot):
             raise ValueError('ОбщиеHP требуют peer-avatar-config/world-config/shared-ground-loot')
@@ -665,7 +663,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                         original_temperature_algorithm=False)
                                 if self.breakable_fixture and 'weapon' in state and state.get('room_sent'):
                                     if 'breakables' not in state:
-                                        state['breakables'] = BreakableState(self.breakable_fixture, state['actor_uid'])
+                                        state['breakables'] = BreakableState(self.breakable_fixture, state['actor_uid'],
+                                                                             self.shared_world_object(state, 'breakables'))
                                     breakables = state['breakables']
                                     position = state.get('last_movement_position', state.get('scene_position'))
                                     if message.command == 0x6f59:
@@ -679,7 +678,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.capture.record('breakable_snapshot', synthetic=True, remote=remote, messages=len(responses))
                                 if self.door_fixture and 'weapon' in state and state.get('room_sent'):
                                     if 'doors' not in state:
-                                        state['doors'] = DoorState(self.door_fixture)
+                                        state['doors'] = DoorState(self.door_fixture, self.shared_world_object(state, 'doors'))
                                     doors = state['doors']
                                     position = state.get('last_movement_position', state.get('scene_position'))
                                     if message.command == 0x6f57:
@@ -1685,6 +1684,13 @@ class Endpoint(asyncio.DatagramProtocol):
         if 'weapon' in state:
             state['weapon'].loot_available = state['loot_spawned']
             state['weapon'].available_loot.add(uid)
+
+    def shared_world_object(self, state, kind):
+        """Общий словарь состояния дверей/окон комнаты; вне комнаты — None (своё состояние)."""
+        if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
+            return None
+        key = (state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1), kind)
+        return self.shared_world_objects.setdefault(key, {})
 
     def born_cells(self, state):
         if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:

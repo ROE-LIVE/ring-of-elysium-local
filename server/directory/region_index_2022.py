@@ -16,6 +16,9 @@ ICELAND_INDEX_SHA256 = '9dfca77d76f801485ffb31f7c3154bdc094e0d60807d1626f350e763
 KNOWN_INDEXES = {
     ICELAND_INDEX_SHA256: (8192, 204800),
     '0e8e2bf3797d8a5a89cce2f76b158d846c95c083b980870dbc427f5ce83e6bb8': (4864, 288000),
+    # KillZone: World_EU_KILLZONE_4096 #16343, 10240 строк; origin153600 — гипотеза (сетка
+    # 16009 211200+12800c центрирована: 204800 − 4·12800); все 904 свободные клетки в регионах.
+    'e65e37d45edc210ba445c9b3c402ee13e74a554017112708f0ef4182b3bfdf06': (10240, 153600),
 }
 
 
@@ -33,7 +36,7 @@ class FastRegionIndex:
 
     @classmethod
     def from_bytes(cls, data, row_count=8192):
-        if type(row_count) is not int or not 1 <= row_count <= 8192:
+        if type(row_count) is not int or not 1 <= row_count <= 16384:
             raise ValueError('Неверное число строк индексов')
         data = bytes(data)
         if len(data) > 16 * 1024 * 1024:
@@ -44,12 +47,12 @@ class FastRegionIndex:
                 raise ValueError('Укороченный count строки')
             count = struct.unpack_from('<H', data, offset)[0]
             offset += 2
-            if not 1 <= count <= 8192 or offset+4*count > len(data):
+            if not 1 <= count <= 16384 or offset+4*count > len(data):
                 raise ValueError('Неверная длина строки индексов')
             row = data[offset:offset+4*count]
             last = -1
             for region, end in struct.iter_unpack('<HH', row):
-                if region > 64 or not last < end < 8192:
+                if region > 64 or not last < end < 16384:
                     raise ValueError('Неверный регион/порядок run ends')
                 last = end
             rows.append(row)

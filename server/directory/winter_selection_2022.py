@@ -117,14 +117,18 @@ def choose(command, payload, now, deadline, inventory_started):
 # 3 BMX200902, 4 Grappling200903; этап2 тактика (70020…70026, 20006); этап3 оружие.
 # Peer знает только зимние комплекты, поэтому передвижение заменяется поддержанным:
 # Glider/Motor/BMX → планер200907, Grappling → скалолазный200904. Тактика не выдаётся.
-STAGED_MAPS = (16021,)
 DESERT_TRAVERSAL = {1: (200908, 200907), 2: (200901, 200907), 3: (200902, 200907), 4: (200903, 200904)}
+# InitItem map16007: 1 Glider200901, 2 BMX200902, 3 Grappling200903 (без мотоцикла).
+KILLZONE_TRAVERSAL = {1: (200901, 200907), 2: (200902, 200907), 3: (200903, 200904)}
+TRAVERSAL_BY_MAP = {16021: DESERT_TRAVERSAL, 16007: KILLZONE_TRAVERSAL}
+STAGED_MAPS = tuple(TRAVERSAL_BY_MAP)
 DESERT_WEAPONS = {
     1: ((20002, 1), (30003, 30), (70001, 5)),
     2: ((20003, 1), (30006, 10), (70001, 5)),
     3: ((10402, 1), (30004, 6), (70001, 5)),
 }
 DESERT_DEFAULT = {1: 2, 3: 1}
+STAGED_DEFAULTS = {16021: DESERT_DEFAULT, 16007: {1: 1, 3: 1}}
 # Индекс RAW_ATTR этапа по живому клиенту16021 (сессии20261026T015031/015748):
 # передвижение1, тактика20 (значения1/3/7 есть только в тактике), оружие31 (клик Citori=3
 # во время выбора). 18 приходит до начала выбора со значением1 — принимается как оружие,
@@ -133,18 +137,19 @@ STAGE_BY_ATTR = {1: 1, 20: 2, 31: 3, 18: 3}
 ATTR_BY_STAGE = {1: 1, 2: 20, 3: 31}
 
 
-def staged_fixture(fixture, loadout):
+def staged_fixture(fixture, loadout, map_id=16021):
     """Стартовый набор многоэтапной карты: оружие этапа3 + заменённое передвижение этапа1."""
     if fixture is None or not fixture.winter_starter_inventory:
         return fixture
-    traversal, weapon = loadout.get(1, DESERT_DEFAULT[1]), loadout.get(3, DESERT_DEFAULT[3])
-    kit = DESERT_TRAVERSAL.get(traversal, DESERT_TRAVERSAL[DESERT_DEFAULT[1]])[1]
+    table, defaults = TRAVERSAL_BY_MAP[map_id], STAGED_DEFAULTS[map_id]
+    traversal, weapon = loadout.get(1, defaults[1]), loadout.get(3, defaults[3])
+    kit = table.get(traversal, table[defaults[1]])[1]
     items = DESERT_WEAPONS.get(weapon, DESERT_WEAPONS[DESERT_DEFAULT[3]]) + ((kit, 1),)
     reserve = dict(items).get(30004, 0) if weapon == 3 else 0
     return replace(fixture, starting_equipment=(kit,), gun_on_start=True, reserve=reserve, starter_items=items)
 
 
-def choose_staged(command, payload, now, deadline, inventory_started):
+def choose_staged(command, payload, now, deadline, inventory_started, map_id=16021):
     """RAW_ATTR_SET_REQ этапов1..3 карты16021; ответ тем же индексом этапа."""
     if command != 0x10cc:
         return None
@@ -152,7 +157,7 @@ def choose_staged(command, payload, now, deadline, inventory_started):
         raise ValueError('RAW_ATTR_SET_REQ ожидает8байт')
     attr, value = struct.unpack('>II', payload)
     stage = STAGE_BY_ATTR.get(attr)
-    valid = {1: DESERT_TRAVERSAL, 3: DESERT_WEAPONS}.get(stage)
+    valid = {1: TRAVERSAL_BY_MAP[map_id], 3: DESERT_WEAPONS}.get(stage)
     known = valid is not None and value in valid or stage == 2 and 1 <= value <= 8
     accepted = known and deadline is not None and now < deadline and not inventory_started
     replies = [(0x10d0, struct.pack('>II', attr, value))] if accepted else []
@@ -161,6 +166,6 @@ def choose_staged(command, payload, now, deadline, inventory_started):
              'stage': stage, 'attr_index': attr, 'choice': value, 'inventory_started': inventory_started,
              'reason': None if accepted else ('choice' if not known else 'closed'),
              'supported': stage != 2, 'original_starter_inventory': False}
-    if stage == 1 and value in DESERT_TRAVERSAL:
-        event.update(original_item=DESERT_TRAVERSAL[value][0], substitute_item=DESERT_TRAVERSAL[value][1])
+    if stage == 1 and value in TRAVERSAL_BY_MAP[map_id]:
+        event.update(original_item=TRAVERSAL_BY_MAP[map_id][value][0], substitute_item=TRAVERSAL_BY_MAP[map_id][value][1])
     return (stage, value) if accepted else None, replies, event

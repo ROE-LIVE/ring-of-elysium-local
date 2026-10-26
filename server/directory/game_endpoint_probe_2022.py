@@ -47,7 +47,7 @@ from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
 from reliable_udp_2022 import ReliableSender, ReliableReceiver, FrameStream
 from movement_validation_2022 import MovementState
-from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, DESERT_DEFAULT, staged_fixture, choose_staged, ATTR_BY_STAGE
+from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, STAGED_DEFAULTS, staged_fixture, choose_staged, ATTR_BY_STAGE
 
 
 def encode_datagram(source, destination, sequence, acknowledgement, flags, clock, echoed, data=b''):
@@ -206,10 +206,11 @@ class Endpoint(asyncio.DatagramProtocol):
                              else None)
         # Desert: выбор в три этапа (InitItem); остальные карты — прежний один этап16010.
         self.staged_loadout = room_map in STAGED_MAPS
+        self.room_map = room_map
 
     def loadout_fixture(self, state):
         if self.staged_loadout:
-            return staged_fixture(self.weapon_fixture, state.get('staged_loadout', {}))
+            return staged_fixture(self.weapon_fixture, state.get('staged_loadout', {}), self.room_map)
         return selected_fixture(self.weapon_fixture, state.get('winter_choice'))
 
     def connection_made(self, transport):
@@ -475,7 +476,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.capture.record('selection_started',synthetic=True,seconds=self.selection_seconds,remote=remote)
                                         choice = default_choice(self.weapon_fixture)
                                         if choice is not None and self.staged_loadout:
-                                            loadout = state.setdefault('staged_loadout', dict(DESERT_DEFAULT))
+                                            loadout = state.setdefault('staged_loadout', dict(STAGED_DEFAULTS[self.room_map]))
                                             self.send_application_batch(d, remote, state, [
                                                 (0x11e0, struct.pack('>II', 0, 2)),
                                                 (0x11e2, struct.pack('>III', 2, 0, 0)),
@@ -490,11 +491,11 @@ class Endpoint(asyncio.DatagramProtocol):
                                             ])
                                 if self.staged_loadout and default_choice(self.weapon_fixture) is not None and message.command == 0x10cc:
                                     result = choose_staged(message.command, message.payload,
-                                        time.monotonic()-self.started, state.get('selection_deadline'), 'weapon' in state)
+                                        time.monotonic()-self.started, state.get('selection_deadline'), 'weapon' in state, self.room_map)
                                     if result is not None:
                                         choice, replies, event = result
                                         if choice is not None:
-                                            state.setdefault('staged_loadout', dict(DESERT_DEFAULT))[choice[0]] = choice[1]
+                                            state.setdefault('staged_loadout', dict(STAGED_DEFAULTS[self.room_map]))[choice[0]] = choice[1]
                                         self.send_application_batch(d, remote, state, replies)
                                         self.capture.record('winter_selection', synthetic=True, **event)
                                 elif default_choice(self.weapon_fixture) is not None and message.command in (0x10cc, 0xbfc):
@@ -587,7 +588,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 self.capture.record('winter_kit_initialized', synthetic=True,
                                                                     definition=state['weapon'].equipment.get(11),
                                                                     starter_items=list(state['weapon'].fixture.starter_items),
-                                                                    starter_item_source=('INITITEM map16021 stages1+3 (substituted traversal)' if self.staged_loadout and state['weapon'].fixture.starter_items else
+                                                                    starter_item_source=('INITITEM map%d stages1+3 (substituted traversal)' % self.room_map if self.staged_loadout and state['weapon'].fixture.starter_items else
                                                                         'INITITEM.XML/map16010/stage1'
                                                                         if state['weapon'].fixture.starter_items else 'diagnostic_fixture'),
                                                                     starter_magazine_policy='full_capacity_local',

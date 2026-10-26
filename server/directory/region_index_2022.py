@@ -16,7 +16,7 @@ ICELAND_INDEX_SHA256 = '9dfca77d76f801485ffb31f7c3154bdc094e0d60807d1626f350e763
 KNOWN_INDEXES = {
     ICELAND_INDEX_SHA256: (8192, 204800),
     '0e8e2bf3797d8a5a89cce2f76b158d846c95c083b980870dbc427f5ce83e6bb8': (4864, 288000),
-    # KillZone: World_EU_KILLZONE_4096 #16343, 10240 строк; origin153600 — гипотеза (сетка
+    # KillZone: World_EU_KILLZONE_4096 #16343, 10240 строк; origin153600 подтверждён в игре (сетка
     # 16009 211200+12800c центрирована: 204800 − 4·12800); все 904 свободные клетки в регионах.
     'e65e37d45edc210ba445c9b3c402ee13e74a554017112708f0ef4182b3bfdf06': (10240, 153600),
 }

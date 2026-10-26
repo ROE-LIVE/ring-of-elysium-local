@@ -8,11 +8,16 @@ import struct
 
 
 class SharedEvacuationRooms:
-    def __init__(self, delay_seconds):
+    def __init__(self, delay_seconds, depart_after=60):
         if (type(delay_seconds) not in (int, float)
                 or not math.isfinite(delay_seconds) or not 2 <= delay_seconds <= 60):
             raise ValueError('Ожидание общей эвакуации: 2..60 секунд')
+        if type(depart_after) not in (int, float) or not 10 <= depart_after <= 600:
+            raise ValueError('Отлёт после первой посадки: 10..600 секунд')
         self.delay = delay_seconds
+        # Вертолёт не ждёт всех: через depart_after после первой посадки улетает,
+        # матч заканчивается для всей комнаты (оставшиеся — не спасены, со статистикой).
+        self.depart_after = depart_after
         self.rooms = {}
 
     def sync(self, avatars):
@@ -26,7 +31,7 @@ class SharedEvacuationRooms:
                 del self.rooms[room_uid]
         for room_uid, members in grouped.items():
             room = self.rooms.setdefault(room_uid, dict(members={}, seats={},
-                 helicopter=None, due=None, reason=None, finished=False))
+                 helicopter=None, due=None, reason=None, finished=False, boarded_at=None))
             room['members'] = members
             for account_uid in list(room['seats']):
                 state = members.get(account_uid)
@@ -62,6 +67,8 @@ class SharedEvacuationRooms:
         if event['action'] == 'geton':
             room['helicopter'] = uid
             room['seats'][account] = seat
+            if room.get('boarded_at') is None:
+                room['boarded_at'] = now
             event = dict(event, action='shared_evacuation_geton', requested_seat=requested,
                          occupied=len(room['seats']))
         return packets, event
@@ -82,9 +89,12 @@ class SharedEvacuationRooms:
                 continue
             alive = {uid for uid,state in members.items() if not state['world'].dead}
             seated = set(room['seats'])
+            if not seated:
+                room['boarded_at'] = None
             reason = ('no_survivors' if not alive else
                       'four_seats' if len(seated) == 4 else
-                      'all_boarded' if seated and alive <= seated else None)
+                      'all_boarded' if seated and alive <= seated else
+                      'departure' if seated and room.get('boarded_at') is not None else None)
             if reason is None:
                 if room['due'] is not None:
                     events.append(dict(action='shared_evacuation_wait_cancelled',room_uid=hex(room_uid)))
@@ -92,7 +102,8 @@ class SharedEvacuationRooms:
                 continue
             if room['due'] is None or room['reason'] != reason:
                 room['reason'] = reason
-                room['due'] = now if reason == 'no_survivors' else now+self.delay
+                room['due'] = (now if reason == 'no_survivors' else
+                               room['boarded_at']+self.depart_after if reason == 'departure' else now+self.delay)
                 events.append(dict(action='shared_evacuation_wait', room_uid=hex(room_uid),
                                    reason=reason, alive=len(alive), occupied=len(seated)))
             if now < room['due']:

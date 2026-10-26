@@ -8,7 +8,7 @@ import struct
 from world_probe_2022 import encode_health
 from peer_motion_2022 import encode_peer_trajectory, encode_peer_stop
 from peer_equipment_2022 import encode_peer_equipment
-from death_parcel_2022 import fixed_name
+from death_parcel_2022 import replace_name
 
 
 class PeerAvatarRooms:
@@ -27,19 +27,21 @@ class PeerAvatarRooms:
         struct.pack_into('>3i',listing,1,*position)
         struct.pack_into('>Q',listing,14,uid)
         struct.pack_into('>Q',profile,8,uid)
-        struct.pack_into('>3i',profile,1051,*position)
-        struct.pack_into('>I',profile,1064,tick)
+        # Имя над моделью: строка +16 (U32 длина + UTF-8 + NUL); остальные поля сдвигаются.
+        shift = 0
+        name = member['state'].get('actor_display_name')
+        if name and len(profile) > 33 and struct.unpack_from('>I',profile,16)[0] == 13:
+            profile, shift = replace_name(profile, 16, name)
+        struct.pack_into('>3i',profile,1051+shift,*position)
+        struct.pack_into('>I',profile,1064+shift,tick)
         # Опыт: в проверенном шаблоне BE7 по +1240 лежит аватар 5×U32 (2201 — модель мишени),
         # по +1260 — флаг применения, как в хвосте ENTER_ROOM. Подставляем внешность участника.
         appearance = member['state'].get('appearance')
-        if (appearance and appearance[0] != bytes(20) and len(profile) > 1260
-                and struct.unpack_from('>5I',profile,1240) == (2201,0,0,0,0)):
-            profile[1240:1260] = appearance[0]
-            profile[1260] = appearance[1]
-        # Имя над моделью: поле +16 шаблона (U32 13 + 12 байт + NUL), длина сохраняется.
-        name = member['state'].get('actor_display_name')
-        if name and len(profile) > 33 and struct.unpack_from('>I',profile,16)[0] == 13:
-            profile[20:33] = fixed_name(name)
+        at = 1240+shift
+        if (appearance and appearance[0] != bytes(20) and len(profile) > at+20
+                and struct.unpack_from('>5I',profile,at) == (2201,0,0,0,0)):
+            profile[at:at+20] = appearance[0]
+            profile[at+20] = appearance[1]
         packets = [(0x565,bytes(listing)),(0xbe7,bytes(profile))]
         world = member['state'].get('world')
         if self.replicate_equipment and 'weapon' in member['state']:

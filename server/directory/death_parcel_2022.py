@@ -32,16 +32,25 @@ def target_inventory(actor, weapon_fixture):
     return state
 
 
-def fixed_name(name, size=12):
-    """Имя в поле фиксированной длины (U32 13 + 12 байт UTF-8 + NUL в 821 и BE7):
-    обрезка по границе символа, остаток — NUL, чтобы не сдвигать следующие поля."""
+def name_field(name, limit=12):
+    """Строка имени как в 821/BE7: U32 длина с NUL + UTF-8 + NUL (длина реальная, без
+    дополнения нулями — клиент не принял BE7 с именем, добитым NUL до 13 байт).
+    Обрезка по границе символа до limit байт."""
     data = b''
     for char in str(name):
         encoded = char.encode('utf-8')
-        if len(data) + len(encoded) > size:
+        if len(data) + len(encoded) > limit:
             break
         data += encoded
-    return data.ljust(size, b'\0') + b'\0'
+    return struct.pack('>I', len(data) + 1) + data + b'\0'
+
+
+def replace_name(body, offset, name):
+    """Заменить строку имени по offset (U32 длина + байты) и вернуть (тело, сдвиг)."""
+    old = struct.unpack_from('>I', body, offset)[0]
+    field = name_field(name)
+    end = offset + 4 + old
+    return bytearray(body[:offset]) + field + bytearray(body[end:]), len(field) - 4 - old
 
 
 class DeathParcelState:
@@ -114,7 +123,7 @@ class DeathParcelState:
         struct.pack_into('>III', body, 63, 0, 0, parcel_id)
         # Подпись «<имя>'s item»: имя хозяина вместо имени сущности «掉落包裹».
         if owner_name and struct.unpack_from('>I', body, 12)[0] == 13:
-            body[16:29] = fixed_name(owner_name)
+            body, _ = replace_name(body, 12, owner_name)
         # Commit после полной проверки/кодирования: источник больше не владеет
         # вещами. История ground pickup остаётся для защиты от повторной выдачи.
         owner.guns.clear()

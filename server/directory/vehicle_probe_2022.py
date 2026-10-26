@@ -12,6 +12,13 @@ import struct
 import time
 from match_result_2022 import MatchEndPolicy
 
+# EuVehicleTable_car (TableBin #0x444): nInitHp и число мест машин с тем же 164-байтным
+# BC_ENTER и 6 частями. 102/109 проверены; остальные модели — локальный опыт.
+CAR_MODELS = {101: (28800, 4), 102: (21600, 2), 104: (14000, 2), 105: (28800, 4), 106: (18000, 4),
+              107: (21600, 4), 109: (21600, 2), 110: (30000, 4), 111: (28800, 2), 112: (22500, 2),
+              114: (28800, 4), 115: (21600, 4), 119: (28800, 4), 120: (28800, 4)}
+RIDEABLE = (*CAR_MODELS, 203)
+
 _DEPARTURE_MOVE = bytes.fromhex('00050400000084fa00007d55000007d0160008009f000401030044866000c46f8000000000000000000000000000000000000000000000000000000000bf6999673ed1736500042392')
 
 def diagnostic_departure_move(uid, origin, seconds, tick):
@@ -199,7 +206,8 @@ class VehicleState:
             # Native/SWIG STATUS_BC: UID,+8 iCur_hp,+12 iCur_st.
             uid, hp, status = struct.unpack('>QII', payload)
             vehicle = self.vehicles.get(uid)
-            maximum = {102: 21600, 109: 21600, 203: 24000}.get(vehicle['configuration']) if vehicle else None
+            maximum = ({**{k: v[0] for k, v in CAR_MODELS.items()}, 203: 24000}.get(vehicle['configuration'])
+                       if vehicle else None)
             if maximum is not None and hp <= maximum and status in (1, 2, 3):
                 vehicle.update(hp=hp, status=status)
             return
@@ -230,7 +238,8 @@ class VehicleState:
         if command != 0x654b or len(payload) not in (79, 104, 164):
             return
         uid, configuration, status, hp = struct.unpack_from('>QIII', payload)
-        if (configuration, len(payload)) not in ((102, 164), (109, 164), (203, 79), (6, 104)) or not uid:
+        if not (configuration in CAR_MODELS and len(payload) == 164
+                or (configuration, len(payload)) in ((203, 79), (6, 104))) or not uid:
             return
         self.vehicles[uid] = {'configuration': configuration, 'hp': hp, 'status': status,
                               'position': struct.unpack_from('>iii', payload, 20)}
@@ -260,7 +269,7 @@ class VehicleState:
         identity = (*key, hit['pellet'])
         accepted = self.shots.get(key)
         reason = None
-        if vehicle is None or vehicle['configuration'] not in (102, 109) or not vehicle['hp']:
+        if vehicle is None or vehicle['configuration'] not in CAR_MODELS or not vehicle['hp']:
             reason = 'unknown_or_dead_ground_vehicle'
         elif self.seated is not None:
             reason = 'shooter_seated'
@@ -321,10 +330,11 @@ class VehicleState:
             uid, seat = struct.unpack('>QI', payload)
             vehicle = self.vehicles.get(uid)
             seats = (range(1, 5) if vehicle and vehicle['configuration'] == 6 else
-                     (range(1, 3) if vehicle and vehicle['configuration'] in (102, 109) else (1,)))
+                     (range(1, CAR_MODELS[vehicle['configuration']][1] + 1)
+                      if vehicle and vehicle['configuration'] in CAR_MODELS else (1,)))
             if (vehicle is None or seat not in seats or self.seated is not None
                     or vehicle.get('flight_phase', 2) != 2
-                    or vehicle['configuration'] in (102, 109, 203) and (not vehicle['hp'] or (vehicle['status'] & 3) == 3)):
+                    or vehicle['configuration'] in RIDEABLE and (not vehicle['hp'] or (vehicle['status'] & 3) == 3)):
                 return [], {'action': 'geton_rejected', 'uid': hex(uid), 'seat': seat}
             self.seated = uid
             self.seat = seat
@@ -341,9 +351,10 @@ class VehicleState:
                 raise ValueError('SWITCH_SEAT_REQ ожидает4байта')
             destination = struct.unpack('>I', payload)[0]
             vehicle = self.vehicles.get(self.seated)
-            # Проверены102/109, два места. Другие модели не включать по имени.
-            if (vehicle is None or vehicle['configuration'] not in (102, 109)
-                    or destination not in (1, 2) or not vehicle['hp'] or vehicle['status'] == 3):
+            # Проверены102/109 (два места); остальные модели CAR_MODELS — опыт по числу мест таблицы.
+            if (vehicle is None or vehicle['configuration'] not in CAR_MODELS
+                    or not 1 <= destination <= CAR_MODELS[vehicle['configuration']][1]
+                    or not vehicle['hp'] or vehicle['status'] == 3):
                 return [], {'action': 'seat_switch_rejected', 'destination': destination}
             previous = self.seat
             if destination == previous:
@@ -356,7 +367,7 @@ class VehicleState:
             if len(payload) != 73:
                 raise ValueError('MOVE_REQ наземного транспорта ожидает73байта')
             uid = struct.unpack_from('>Q', payload)[0]
-            if uid != self.seated or self.vehicles[uid]['configuration'] not in (102, 109, 203):
+            if uid != self.seated or self.vehicles[uid]['configuration'] not in RIDEABLE:
                 return [], {'action': 'move_rejected', 'uid': hex(uid)}
             if self.seat != 1:
                 return [], {'action': 'move_rejected', 'uid': hex(uid), 'reason': 'passenger_cannot_drive'}
@@ -389,7 +400,7 @@ class VehicleState:
                 boat_exit_fallback = True
             # Собственная диагностическая граница10м для Jeep: отказ не
             # меняет место/позицию и не разрешает удалённый выход-телепорт.
-            if vehicle['configuration'] in (102,109,203) and math.dist(position,vehicle['position'])>1000:
+            if vehicle['configuration'] in RIDEABLE and math.dist(position,vehicle['position'])>1000:
                 return [],dict(action='getoff_rejected',uid=hex(uid),
                     reason='outside_diagnostic_exit_radius',experimental=True)
             # В двух первичных GETOFF_SYNC (72958/95008) первый POS13

@@ -115,11 +115,11 @@ def choose(command, payload, now, deadline, inventory_started):
 
 # InitItem map16021 (TableBin #0x96c): этап1 передвижение 1 Motor200908, 2 Glider200901,
 # 3 BMX200902, 4 Grappling200903; этап2 тактика (70020…70026, 20006); этап3 оружие.
-# Peer знает только зимние комплекты, поэтому передвижение заменяется поддержанным:
-# Glider/Motor/BMX → планер200907, Grappling → скалолазный200904. Тактика не выдаётся.
-DESERT_TRAVERSAL = {1: (200908, 200907), 2: (200901, 200907), 3: (200902, 200907), 4: (200903, 200904)}
+# Peer знает только зимние комплекты, поэтому передвижение заменяется планером200907
+# (скалолазный200904 вне Iceland не работает — проверено в Desert). Тактика не выдаётся.
+DESERT_TRAVERSAL = {1: (200908, 200907), 2: (200901, 200907), 3: (200902, 200907), 4: (200903, 200907)}
 # InitItem map16007: 1 Glider200901, 2 BMX200902, 3 Grappling200903 (без мотоцикла).
-KILLZONE_TRAVERSAL = {1: (200901, 200907), 2: (200902, 200907), 3: (200903, 200904)}
+KILLZONE_TRAVERSAL = {1: (200901, 200907), 2: (200902, 200907), 3: (200903, 200907)}
 TRAVERSAL_BY_MAP = {16021: DESERT_TRAVERSAL, 16007: KILLZONE_TRAVERSAL}
 STAGED_MAPS = tuple(TRAVERSAL_BY_MAP)
 DESERT_WEAPONS = {

@@ -1036,7 +1036,7 @@ def main():
             proxy,log=start('proxy',[sys.executable,'-X','utf8','-B','-u',str(ROOT/'tools/run_service.py'),'proxy',
                 '--session-key-file',str(args.key_file),'--local-server-clock','--reply','--team-reply','--match-reply','--novice-state','1',
                 '--training-reply','--match-found-delay','5','--join-instance-config',str(configs['join']),
-                '--local-cosmetics-config',str(configs['cosmetics']),'--actor-uid',str(account['actor_uid']),'--duration',str(args.duration+30),'--output',str(run/'lobby')]
+                '--local-cosmetics-config',str(configs['cosmetics']),'--actor-uid',str(account['actor_uid']),'--duration',str(args.duration+30),'--output',str(run/'lobby'),'--log-message-codes']
                 +(['--actor-uid-pool',','.join(hex(u) for u in shared_room_uids(account))] if args.shared_room else []))
             wait_ready(proxy,log,'"kind": "ready"')
             room=json.loads(configs['room'].read_text())['room_file']

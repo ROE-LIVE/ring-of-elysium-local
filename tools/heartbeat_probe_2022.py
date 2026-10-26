@@ -185,6 +185,20 @@ async def serve(args, ready=None, stop=None):
                         continue
                     try:
                         for frame in frames[direction].feed(data):
+                            if getattr(args, 'log_message_codes', False):
+                                # Только opcode/длина/направление прикладного DT для карты UI; без тела/UID.
+                                try:
+                                    if direction == 'client_to_server':
+                                        decoded = client_message(frame, key)
+                                        code, size = (decoded[0], len(decoded[2])) if decoded else (None, 0)
+                                    else:
+                                        plain = dt_plain(frame, key)
+                                        code, size = ((struct.unpack_from('>H', plain, 4)[0], len(plain))
+                                                      if plain and len(plain) >= 6 else (None, 0))
+                                    if code is not None:
+                                        capture.record('message_code', direction=direction, code=hex(code), length=size, **info)
+                                except (ValueError, struct.error):
+                                    pass
                             if direction == 'server_to_client':
                                 stamp = server_stamp(frame, key)
                                 if stamp is not None:
@@ -439,6 +453,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--local-cosmetics-config', type=Path, help='Локальный каталог владения скинами оружия2022')
     parser.add_argument('--actor-uid',type=lambda value:int(value,0),help='Явный UID одного локального клиента в ENTER_GAME32B; не multiplayer/профиль аккаунта')
+    parser.add_argument('--log-message-codes', action='store_true', help='Журнал opcode/длины каждого прикладного DT обоих направлений')
     parser.add_argument('--actor-uid-pool', type=lambda value: [int(v, 0) for v in value.split(',')],
                         help='Локальный опыт комнаты: UID по порядку соединений (через запятую)')
     parser.add_argument('--local-server-clock', action='store_true', help='Заменить архивный UNIX timestamp первого lobby1f5f текущим временем')

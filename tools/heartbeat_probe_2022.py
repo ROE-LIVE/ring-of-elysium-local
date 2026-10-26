@@ -124,7 +124,11 @@ async def serve(args, ready=None, stop=None):
                 await writer.drain()
             team['searching'] = False
             totals['match_found_notifications'] += 1
-            capture.record('match_found', code='0x6e2d', **info)
+            capture.record('match_found', code='0x6e2d',
+                           team_body_present=team['body'] is not None,
+                           training_inferred=team['training'],
+                           join_notification_eligible=bool(join is not None and team['training']),
+                           **info)
             status()
             if join is not None and team['training'] and not join_state['sent']:
                 await asyncio.sleep(join[3])
@@ -262,6 +266,8 @@ async def serve(args, ready=None, stop=None):
                                 message = client_message(frame, key)
                                 if message and message[0] in (0x6e29, 0x6e2b):
                                     code, uid, body = message
+                                    match_start_fields = (list(struct.unpack('>5I', body))
+                                                          if code == 0x6e29 and len(body) == 20 else None)
                                     reason = None
                                     if not team['uid'] or uid != team['uid']:
                                         reason = 'UID не совпал с ENTER_GAME_RSP'
@@ -277,7 +283,11 @@ async def serve(args, ready=None, stop=None):
                                     elif code == 0x6e2b and not team['searching']:
                                         reason = 'Подбор ещё не запущен'
                                     if reason:
-                                        capture.record('match_skipped', code=hex(code), reason=reason, **info)
+                                        capture.record('match_skipped', code=hex(code), reason=reason,
+                                                       match_start_fields=match_start_fields,
+                                                       team_body_present=team['body'] is not None,
+                                                       training_inferred=team['training'],
+                                                       searching=team['searching'], **info)
                                     else:
                                         # Официальный 6e2a: type/result/estimate-seconds, 6e2c: result.
                                         if code == 0x6e29:
@@ -304,7 +314,11 @@ async def serve(args, ready=None, stop=None):
                                         if code == 0x6e29 and found_delay is not None:
                                             pumps.append(asyncio.create_task(notify_found(team['generation'])))
                                         totals['match_replies'] += 1
-                                        capture.record('match_reply', request_code=hex(code), code=hex(reply_code), payload_length=len(payload), **info)
+                                        capture.record('match_reply', request_code=hex(code), code=hex(reply_code),
+                                                       payload_length=len(payload),
+                                                       match_start_fields=match_start_fields,
+                                                       team_body_present=team['body'] is not None,
+                                                       training_inferred=team['training'], **info)
                                     status()
                             if join is not None:
                                 message = client_message(frame, key)

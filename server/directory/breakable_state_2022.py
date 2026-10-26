@@ -10,6 +10,9 @@ import struct
 class BreakableFixture:
     entities: dict
     interaction_radius_cm: int = 750
+    # Каталог другой карты без проверенных координат: id и число частей берём
+    # из запроса клиента, дистанцию проверяем только когда позиция известна.
+    accept_unknown: bool = False
 
     @classmethod
     def load(cls, path):
@@ -17,19 +20,33 @@ class BreakableFixture:
         if path.stat().st_size > 4 * 1024 * 1024:
             raise ValueError('Каталог разрушения превышает4МиБ')
         data = json.loads(path.read_text(encoding='utf-8'))
-        if data.get('map') != 16010:
+        allow_extra = {'accept_unknown'}
+        if not isinstance(data, dict) or set(data) - {'map', 'entities', 'interaction_radius_cm', 'provenance'} - allow_extra:
+            raise ValueError('Неизвестные поля каталога разрушения')
+        accept_unknown = data.get('accept_unknown', False)
+        if type(accept_unknown) is not bool:
+            raise ValueError('accept_unknown должен быть bool')
+        if data.get('map') != 16010 and not accept_unknown:
             raise ValueError('Разрушение проверяется только на карте16010')
         radius = data.get('interaction_radius_cm', 750)
         if type(radius) is not int or not 100 <= radius <= 1000:
             raise ValueError('Нужен радиус100..1000см')
         entities = {}
         rows = data.get('entities')
-        if not isinstance(rows, list) or not 1 <= len(rows) <= 16384:
+        minimum = 0 if accept_unknown else 1
+        if not isinstance(rows, list) or not minimum <= len(rows) <= 16384:
             raise ValueError('Нужно1..16384 сущностей')
         for row in rows:
             identifier, xyz, hp = row.get('id'), row.get('position_cm'), row.get('parts')
             if type(identifier) is not int or not 0 < identifier < 2**32 or identifier in entities:
                 raise ValueError('Неверный/повторныйID')
+            if xyz is None:
+                if not accept_unknown:
+                    raise ValueError('Нужны конечныеXYZ')
+                if not isinstance(hp, list) or not 1 <= len(hp) <= 8 or any(type(v) is not int or v < 1 for v in hp):
+                    raise ValueError('Нужен список частей1..8 с прочностью>=1')
+                entities[identifier] = (None, tuple(hp))
+                continue
             if not isinstance(xyz, list) or len(xyz) != 3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in xyz):
                 raise ValueError('Нужны конечныеXYZ')
             # Native379 подтверждает одну часть с threshold/status1; не расширяем
@@ -37,7 +54,7 @@ class BreakableFixture:
             if hp != [1] or any(type(v) is not int for v in hp):
                 raise ValueError('Проверенный профиль: одна часть с прочностью1')
             entities[identifier] = (tuple(xyz), tuple(hp))
-        return cls(entities, radius)
+        return cls(entities, radius, accept_unknown)
 
 
 def decode_damage(payload):
@@ -76,21 +93,32 @@ class BreakableState:
         self.contexts = {}
         self.visible = set()
 
-    def handle(self, payload, position):
+    def handle(self, payload, position, extra_anchor=None):
         try:
             identifier, damage, context, actor, part = decode_damage(payload)
         except ValueError as error:
             return [], dict(action='breakable_rejected', reason=str(error))
         event = dict(entity_id=identifier, part=part, damage=list(damage), original_server_physics=False)
-        if identifier not in self.fixture.entities or len(damage) != len(self.remaining[identifier]):
+        known = identifier in self.fixture.entities
+        # Дверь Dione не входит в таблицу IRREVERSIBLE/NONE, но её позиция
+        # известна из каталога дверей: разрушение разрешаем по этой привязке.
+        if not known and not self.fixture.accept_unknown and extra_anchor is None:
             return [], dict(action='breakable_rejected', reason='unknown_entity_or_parts', **event)
+        if known and len(damage) != len(self.remaining[identifier]):
+            return [], dict(action='breakable_rejected', reason='unknown_entity_or_parts', **event)
+        if not known:
+            # Число частей и прочность по умолчанию берём из первого запроса.
+            self.remaining[identifier] = [1] * len(damage)
         if actor != self.actor_uid:
             return [], dict(action='breakable_rejected', reason='foreign_actor', **event)
         if not isinstance(position, (list,tuple)) or len(position) != 3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in position):
             return [], dict(action='breakable_rejected', reason='position', **event)
-        distance = math.dist(position, self.fixture.entities[identifier][0])
-        if distance > self.fixture.interaction_radius_cm:
-            return [], dict(action='breakable_rejected', reason='distance', distance_cm=distance, **event)
+        anchor = self.fixture.entities[identifier][0] if known else extra_anchor
+        distance = None
+        if anchor is not None:
+            distance = math.dist(position, anchor)
+            if distance > self.fixture.interaction_radius_cm:
+                return [], dict(action='breakable_rejected', reason='distance', distance_cm=distance, **event)
         previous = self.remaining[identifier][:]
         current = [max(0,hp-value) for hp,value in zip(previous,damage)]
         self.remaining[identifier] = current
@@ -102,7 +130,7 @@ class BreakableState:
         self.visible.add(identifier)
         return [(0x6f56, encode_broken(identifier,current,response_context))], dict(
             action='breakable_damage', previous=previous, remaining=current, changed=changed,
-            distance_cm=distance, **event)
+            distance_cm=distance, learned=not known, **event)
 
     def resume(self):
         self.visible.clear()
@@ -112,7 +140,10 @@ class BreakableState:
             return []
         messages = []
         for identifier,context in self.contexts.items():
-            if identifier not in self.visible and math.dist(position,self.fixture.entities[identifier][0]) <= 6000:
+            anchor = self.fixture.entities.get(identifier, (None, ()))[0]
+            if anchor is None:
+                continue
+            if identifier not in self.visible and math.dist(position,anchor) <= 6000:
                 messages.append((0x6f56,encode_broken(identifier,self.remaining[identifier],context)))
                 self.visible.add(identifier)
                 if len(messages) >= 16:

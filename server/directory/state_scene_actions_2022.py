@@ -8,6 +8,15 @@ from death_parcel_2022 import DeathParcelState
 
 def validate_state_action(row):
     action = row.get('action')
+    if action == 'teleport':
+        # Локальный перенос своего actor через server27; не исходная команда ROE.
+        if set(row)-{'id','action','recipient_actor_uid','position'}:
+            raise ValueError('State action не принимает wire payload/неизвестные поля')
+        position = row.get('position')
+        if (not isinstance(position, list) or len(position) != 3
+                or any(type(n) is not int or not 0 < n < 1000000 for n in position)):
+            raise ValueError('teleport: position требует три целых см в пределах карты')
+        return dict(action=action,position=list(position))
     parameter = {'set_own_health':'hp','give_ammo':'quantity','damage_npc':'damage'}.get(action)
     if parameter is None:
         raise ValueError('Неизвестное state action')
@@ -37,12 +46,25 @@ def validate_state_action(row):
     return result
 
 
-def apply_state_action(state, request, reserved_indexes=()):
+def apply_state_action(state, request, reserved_indexes=(), tick=0):
     action = request['action']
     event = dict(action=action,accepted=False,administrative=True,experimental=True)
     world,weapon = state.get('world'),state.get('weapon')
     if world is None or weapon is None or getattr(world,'dead',False):
         return [],dict(event,reason='active_alive_world_required')
+    if action == 'teleport':
+        # Тот же шаблон27, что restore_resume_position; вызывающий регистрирует
+        # пакет как новый anchor. Принятие большого скачка клиентом не проверено.
+        template = state.get('scene_position_sync')
+        if not isinstance(template, bytes) or len(template) != 40:
+            return [],dict(event,reason='scene_position_sync_missing')
+        body = bytearray(template)
+        struct.pack_into('>Q3i', body, 0, state['actor_uid'], *request['position'])
+        struct.pack_into('>I', body, 31, tick & 0xffffffff)
+        before = state.get('last_movement_position', state.get('scene_position'))
+        return [(0x27,bytes(body))],dict(event,accepted=True,
+                                        before=list(before) if before else None,
+                                        position=list(request['position']))
     if action == 'set_own_health':
         hp = request['hp']
         if not 1 <= hp <= world.fixture.hp:

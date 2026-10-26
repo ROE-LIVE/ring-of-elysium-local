@@ -47,7 +47,7 @@ from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
 from reliable_udp_2022 import ReliableSender, ReliableReceiver, FrameStream
 from movement_validation_2022 import MovementState
-from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell
+from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, DESERT_DEFAULT, staged_fixture, choose_staged, ATTR_BY_STAGE
 
 
 def encode_datagram(source, destination, sequence, acknowledgement, flags, clock, echoed, data=b''):
@@ -113,7 +113,7 @@ def load_scene_rules(path):
 
 
 class Endpoint(asyncio.DatagramProtocol):
-    def __init__(self, capture, handshake=False, ident=False, grant=False, auth=False, room_template=None, scene_rules=None, scene_clock=False, selection_seconds=None, weapon_fixture=None, live_commands=None, world_fixture=None, actor_fixture=None, evacuation_delay=None, parcel_fixture=None, evacuation_result_fixture=None, loot_catalog=None, environment_fixture=None, reliable_udp=False, idle_handoff=False, diagnostic_vehicle_pellet_damage=None, peer_avatar_fixture=None, shared_ground_loot=False, shared_world_clock=False, shared_peer_health=False, peer_avatar_trajectories=False, peer_spectator=False, shared_evacuation=False, shared_vehicles=False, peer_equipment=False, peer_pellet_damage=None, shared_death_loot=False, door_fixture=None, breakable_fixture=None):
+    def __init__(self, capture, handshake=False, ident=False, grant=False, auth=False, room_template=None, scene_rules=None, scene_clock=False, selection_seconds=None, weapon_fixture=None, live_commands=None, world_fixture=None, actor_fixture=None, evacuation_delay=None, parcel_fixture=None, evacuation_result_fixture=None, loot_catalog=None, environment_fixture=None, reliable_udp=False, idle_handoff=False, diagnostic_vehicle_pellet_damage=None, peer_avatar_fixture=None, shared_ground_loot=False, shared_world_clock=False, shared_peer_health=False, peer_avatar_trajectories=False, peer_spectator=False, shared_evacuation=False, shared_vehicles=False, peer_equipment=False, peer_pellet_damage=None, shared_death_loot=False, door_fixture=None, breakable_fixture=None, spawn_points_file=None):
         self.capture = capture
         self.breakable_fixture = breakable_fixture
         if breakable_fixture and (peer_avatar_fixture or shared_ground_loot):
@@ -200,8 +200,17 @@ class Endpoint(asyncio.DatagramProtocol):
         nickname = self.room_fields.get('profile.base.m014') if self.room_fields else None
         self.room_display_name = (nickname['value'][:-1].decode('utf-8') if nickname else '') or 'LOCAL'
         map_field = self.room_fields.get('profile.base.m644') if self.room_fields else None
-        self.spawn_points = (load_spawn_points() if map_field and
-            struct.unpack_from('>I', self.room_template, map_field['offset'])[0] == 16010 else None)
+        room_map = struct.unpack_from('>I', self.room_template, map_field['offset'])[0] if map_field else None
+        # Другая карта получает выбор клетки только из явного опытного каталога той же карты.
+        self.spawn_points = (load_spawn_points(spawn_points_file, room_map) if room_map and (spawn_points_file or room_map == 16010)
+                             else None)
+        # Desert: выбор в три этапа (InitItem); остальные карты — прежний один этап16010.
+        self.staged_loadout = room_map in STAGED_MAPS
+
+    def loadout_fixture(self, state):
+        if self.staged_loadout:
+            return staged_fixture(self.weapon_fixture, state.get('staged_loadout', {}))
+        return selected_fixture(self.weapon_fixture, state.get('winter_choice'))
 
     def connection_made(self, transport):
         self.transport = transport
@@ -435,10 +444,15 @@ class Endpoint(asyncio.DatagramProtocol):
                                                     packets,event = [],dict(action=payload['action'],accepted=False,reason='solo_action_only')
                                                 else:
                                                     try:
-                                                        packets,event = apply_state_action(state,payload,self.death_reserved_indexes(state))
+                                                        packets,event = apply_state_action(state,payload,self.death_reserved_indexes(state),
+                                                                                           int(elapsed*25))
                                                     except ValueError as error:
                                                         packets,event = [],dict(action=payload['action'],accepted=False,reason=str(error))
                                                 self.send_application_batch(d,remote,state,packets)
+                                                for code27,body27 in packets:
+                                                    # Разрешённый teleport: новый anchor guard/лута/мира.
+                                                    if code27 == 0x27:
+                                                        self.register_fixture_entity(state,code27,body27)
                                                 control.acknowledge(name)
                                                 self.capture.record('live_state_action',id=name,recipient_actor_uid=hex(state['actor_uid']),synthetic=True,**event)
                                                 continue
@@ -460,14 +474,30 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.send_application(d,remote,state,0x482,struct.pack('>I',self.selection_seconds))
                                         self.capture.record('selection_started',synthetic=True,seconds=self.selection_seconds,remote=remote)
                                         choice = default_choice(self.weapon_fixture)
-                                        if choice is not None:
+                                        if choice is not None and self.staged_loadout:
+                                            loadout = state.setdefault('staged_loadout', dict(DESERT_DEFAULT))
+                                            self.send_application_batch(d, remote, state, [
+                                                (0x11e0, struct.pack('>II', 0, 2)),
+                                                (0x11e2, struct.pack('>III', 2, 0, 0)),
+                                                *[(0x10d0, struct.pack('>II', ATTR_BY_STAGE[stage], value)) for stage, value in sorted(loadout.items())],
+                                            ])
+                                        elif choice is not None:
                                             state.setdefault('winter_choice', choice)
                                             self.send_application_batch(d, remote, state, [
                                                 (0x11e0, struct.pack('>II', 0, 2)),
                                                 (0x11e2, struct.pack('>III', 2, 0, 0)),
                                                 (0x10d0, struct.pack('>II', 1, state['winter_choice'])),
                                             ])
-                                if default_choice(self.weapon_fixture) is not None and message.command in (0x10cc, 0xbfc):
+                                if self.staged_loadout and default_choice(self.weapon_fixture) is not None and message.command == 0x10cc:
+                                    result = choose_staged(message.command, message.payload,
+                                        time.monotonic()-self.started, state.get('selection_deadline'), 'weapon' in state)
+                                    if result is not None:
+                                        choice, replies, event = result
+                                        if choice is not None:
+                                            state.setdefault('staged_loadout', dict(DESERT_DEFAULT))[choice[0]] = choice[1]
+                                        self.send_application_batch(d, remote, state, replies)
+                                        self.capture.record('winter_selection', synthetic=True, **event)
+                                elif default_choice(self.weapon_fixture) is not None and message.command in (0x10cc, 0xbfc):
                                     result = choose_winter_kit(message.command, message.payload,
                                         time.monotonic()-self.started, state.get('selection_deadline'), 'weapon' in state)
                                     if result is not None:
@@ -521,7 +551,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 struct.pack_into('>I',patched,at,tick)
                                             payload=bytes(patched)
                                         if command == 0x5fb and self.weapon_fixture:
-                                            weapon = state.setdefault('weapon', WeaponState(selected_fixture(self.weapon_fixture, state.get('winter_choice')), state['actor_uid']))
+                                            weapon = state.setdefault('weapon', WeaponState(self.loadout_fixture(state), state['actor_uid']))
                                             weapon.available_loot.update(state.get('loot_spawned_uids', set()))
                                             weapon.loot_available = state.get('loot_spawned', False)
                                             if state.get('scene_position'):
@@ -557,7 +587,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 self.capture.record('winter_kit_initialized', synthetic=True,
                                                                     definition=state['weapon'].equipment.get(11),
                                                                     starter_items=list(state['weapon'].fixture.starter_items),
-                                                                    starter_item_source=('INITITEM.XML/map16010/stage1'
+                                                                    starter_item_source=('INITITEM map16021 stages1+3 (substituted traversal)' if self.staged_loadout and state['weapon'].fixture.starter_items else
+                                                                        'INITITEM.XML/map16010/stage1'
                                                                         if state['weapon'].fixture.starter_items else 'diagnostic_fixture'),
                                                                     starter_magazine_policy='full_capacity_local',
                                                                     weapon_slots=state['weapon'].fixture.weapon_slots)
@@ -568,7 +599,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             else:
                                                 self.send_application_batch(d, remote, state, magazine_packets)
                                         if command == 0x5fb and self.weapon_fixture and 'weapon' not in state:
-                                            state['weapon'] = WeaponState(selected_fixture(self.weapon_fixture, state.get('winter_choice')), state['actor_uid'])
+                                            state['weapon'] = WeaponState(self.loadout_fixture(state), state['actor_uid'])
                                             state['weapon'].loot_available = state.get('loot_spawned', False)
                                             state['weapon'].available_loot.update(state.get('loot_spawned_uids', set()))
                                         self.capture.record('scene_rule_response', synthetic=True,
@@ -1700,7 +1731,7 @@ async def main(args):
     environment_path=getattr(args,'environment_config',None)
     environment_fixture=EnvironmentFixture.load(environment_path) if environment_path else None
     peer_avatar_fixture = ActorFixture.load(args.peer_avatar_config) if getattr(args,'peer_avatar_config',None) else None
-    transport, endpoint = await loop.create_datagram_endpoint(lambda:Endpoint(capture,args.handshake,args.ident,args.grant,args.auth,args.room_template,rules,args.scene_clock,args.selection_seconds,weapon_fixture,getattr(args,'live_commands',None),world_fixture,actor_fixture,getattr(args,'evacuation_delay_seconds',None),parcel_fixture,result_fixture,loot_catalog,environment_fixture,getattr(args,'reliable_udp',False),getattr(args,'idle_handoff',False),getattr(args,'diagnostic_vehicle_pellet_damage',None),peer_avatar_fixture,getattr(args,'shared_ground_loot',False),getattr(args,'shared_world_clock',False),getattr(args,'shared_peer_health',False),getattr(args,'peer_avatar_trajectories',False),getattr(args,'peer_spectator',False),getattr(args,'shared_evacuation',False),getattr(args,'shared_vehicles',False),getattr(args,'peer_equipment',False),getattr(args,'peer_pellet_damage',None),getattr(args,'shared_death_loot',False),door_fixture=DoorFixture.load(args.door_config) if getattr(args,'door_config',None) else None,breakable_fixture=BreakableFixture.load(args.breakable_config) if getattr(args,'breakable_config',None) else None), local_addr=('127.0.0.1',args.port))
+    transport, endpoint = await loop.create_datagram_endpoint(lambda:Endpoint(capture,args.handshake,args.ident,args.grant,args.auth,args.room_template,rules,args.scene_clock,args.selection_seconds,weapon_fixture,getattr(args,'live_commands',None),world_fixture,actor_fixture,getattr(args,'evacuation_delay_seconds',None),parcel_fixture,result_fixture,loot_catalog,environment_fixture,getattr(args,'reliable_udp',False),getattr(args,'idle_handoff',False),getattr(args,'diagnostic_vehicle_pellet_damage',None),peer_avatar_fixture,getattr(args,'shared_ground_loot',False),getattr(args,'shared_world_clock',False),getattr(args,'shared_peer_health',False),getattr(args,'peer_avatar_trajectories',False),getattr(args,'peer_spectator',False),getattr(args,'shared_evacuation',False),getattr(args,'shared_vehicles',False),getattr(args,'peer_equipment',False),getattr(args,'peer_pellet_damage',None),getattr(args,'shared_death_loot',False),door_fixture=DoorFixture.load(args.door_config) if getattr(args,'door_config',None) else None,breakable_fixture=BreakableFixture.load(args.breakable_config) if getattr(args,'breakable_config',None) else None,spawn_points_file=getattr(args,'spawn_points',None)), local_addr=('127.0.0.1',args.port))
     try:
         await asyncio.wait_for(stop.wait(),args.duration)
     except asyncio.TimeoutError:
@@ -1730,6 +1761,7 @@ if __name__=='__main__':
     p.add_argument('--selection-seconds',type=int,help='Экспериментальная готовность 1/1 и таймер выбора; требует scene-clock')
     p.add_argument('--weapon-config',type=Path,help='Экспериментальная Citori, reload и опциональный pickup12ga; JSON с проверенными fixture')
     p.add_argument('--breakable-config', type=Path, help='Разрушение однокомпонентных сущностей16010; учебное подтверждение')
+    p.add_argument('--spawn-points', type=Path, help='Опытный каталог клеток рождения карты из room m644 (формат winter_spawn_points)')
     p.add_argument('--door-config', type=Path, help='Обратимые двери16010; учебный радиус/одиночное состояние')
     p.add_argument('--loot-catalog',type=Path,help='Явный каталог поддержанного лута; собственная выдача по радиусу, требует weapon-config')
     p.add_argument('--live-commands',type=Path,help='Локальный JSON одноразовых команд после AUTH/room; диагностический опыт')

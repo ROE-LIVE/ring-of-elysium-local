@@ -16,6 +16,9 @@ class DoorFixture:
     doors: dict
     interaction_radius_cm: int = 400
     visibility_radius_cm: int = 6000
+    # Каталог другой карты без проверенных координат: id берём у клиента,
+    # состояние подтверждаем, дистанцию проверяем только когда позиция известна.
+    accept_unknown: bool = False
 
     @classmethod
     def load(cls, path):
@@ -23,12 +26,16 @@ class DoorFixture:
         if path.stat().st_size > 4 * 1024 * 1024:
             raise ValueError('Каталог дверей превышает4МиБ')
         data = json.loads(path.read_text(encoding='utf-8'))
-        if not isinstance(data, dict) or set(data) - {'map', 'doors', 'interaction_radius_cm', 'visibility_radius_cm', 'provenance'}:
+        if not isinstance(data, dict) or set(data) - {'map', 'doors', 'interaction_radius_cm', 'visibility_radius_cm', 'provenance', 'accept_unknown'}:
             raise ValueError('Неизвестные поля каталога дверей')
-        if data.get('map') != 16010:
+        accept_unknown = data.get('accept_unknown', False)
+        if type(accept_unknown) is not bool:
+            raise ValueError('accept_unknown должен быть bool')
+        if data.get('map') != 16010 and not accept_unknown:
             raise ValueError('Двери проверены только для зимней карты16010')
         rows = data.get('doors')
-        if not isinstance(rows, list) or not 1 <= len(rows) <= 16384:
+        minimum = 0 if accept_unknown else 1
+        if not isinstance(rows, list) or not minimum <= len(rows) <= 16384:
             raise ValueError('Нужно1..16384 дверей')
         radius = data.get('interaction_radius_cm', 400)
         visibility = data.get('visibility_radius_cm', 6000)
@@ -41,12 +48,17 @@ class DoorFixture:
             identifier, position, status = row.get('id'), row.get('position_cm'), row.get('initial_state', 0)
             if type(identifier) is not int or not 0 < identifier < 2**32 or identifier in doors:
                 raise ValueError('Повторный или неверный ID двери')
+            if position is None:
+                if not accept_unknown:
+                    raise ValueError('Нужны конечные XYZ двери')
+                doors[identifier] = (None, status)
+                continue
             if not isinstance(position, list) or len(position) != 3 or any(type(v) not in (int, float) or not math.isfinite(v) for v in position):
                 raise ValueError('Нужны конечные XYZ двери')
             if type(status) is not int or status not in (0, 1, 2):
                 raise ValueError('Статус двери0/1/2')
             doors[identifier] = (tuple(position), status)
-        return cls(doors, radius, visibility)
+        return cls(doors, radius, visibility, accept_unknown)
 
 
 class DoorState:
@@ -64,26 +76,31 @@ class DoorState:
             return [], dict(action='door_rejected', reason='length')
         identifier, requested = struct.unpack('>II', payload)
         event = dict(entity_id=identifier, requested_state=requested, original_server_physics=False)
-        if identifier not in self.fixture.doors:
+        known = identifier in self.fixture.doors
+        if not known and not self.fixture.accept_unknown:
             return [], dict(action='door_rejected', reason='unknown_entity', **event)
         if requested not in (0, 1, 2):
             return [], dict(action='door_rejected', reason='state', **event)
         if not self.valid_position(position):
             return [], dict(action='door_rejected', reason='position', **event)
-        distance = math.dist(position, self.fixture.doors[identifier][0])
-        if distance > self.fixture.interaction_radius_cm:
-            return [], dict(action='door_rejected', reason='distance', distance_cm=distance, **event)
-        previous = self.status[identifier]
+        distance = None
+        anchor = self.fixture.doors[identifier][0] if known else None
+        if anchor is not None:
+            distance = math.dist(position, anchor)
+            if distance > self.fixture.interaction_radius_cm:
+                return [], dict(action='door_rejected', reason='distance', distance_cm=distance, **event)
+        previous = self.status.get(identifier, 0)
         self.status[identifier] = requested
         self.visible[identifier] = requested
         return [(0x6f55, encode_status(identifier, requested))], dict(action='door_status', previous_state=previous,
-                    state=requested, changed=previous != requested, distance_cm=distance, **event)
+                    state=requested, changed=previous != requested, distance_cm=distance,
+                    learned=not known, **event)
 
     def snapshot(self, position):
         if not self.valid_position(position):
             return []
         nearby = {identifier for identifier, (xyz, _) in self.fixture.doors.items()
-                  if math.dist(position, xyz) <= self.fixture.visibility_radius_cm}
+                  if xyz is not None and math.dist(position, xyz) <= self.fixture.visibility_radius_cm}
         self.visible = {identifier: status for identifier, status in self.visible.items() if identifier in nearby}
         messages = []
         for identifier in sorted(nearby):

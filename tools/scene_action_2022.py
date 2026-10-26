@@ -41,16 +41,18 @@ def main(argv=None):
     parser.add_argument('--run',type=Path,required=True)
     parser.add_argument('--id',default=None)
     parser.add_argument('--recipient',default=None)
-    parser.add_argument('--action',choices=('set_own_health','give_ammo','damage_npc'),required=True)
+    parser.add_argument('--action',choices=('set_own_health','give_ammo','damage_npc','teleport'),required=True)
     parser.add_argument('--hp',type=int);parser.add_argument('--quantity',type=int)
     parser.add_argument('--definition',type=int);parser.add_argument('--damage',type=int)
     parser.add_argument('--npc-uid',help='UID конкретной пассивной мишени; только damage_npc')
+    parser.add_argument('--position',type=int,nargs=3,metavar=('X','Y','Z'),help='см карты; только teleport')
     args=parser.parse_args(argv)
     row=dict(id=args.id or ('admin-'+uuid.uuid4().hex[:12]),action=args.action)
     for name in ('hp','quantity','definition','damage'):
         if getattr(args,name) is not None:row[name]=getattr(args,name)
     if args.recipient is not None:row['recipient_actor_uid']=args.recipient
     if args.npc_uid is not None:row['npc_uid']=args.npc_uid
+    if args.position is not None:row['position']=args.position
     try:added=enqueue(args.run/'live-commands.json',row)
     except (ValueError,OSError) as error:parser.error(str(error))
     print(('Добавлено' if added else 'Уже в очереди')+': '+row['id']+' '+row['action'])

@@ -11,6 +11,12 @@ import struct
 
 ICELAND_INDEX_SIZE = 374732
 ICELAND_INDEX_SHA256 = '9dfca77d76f801485ffb31f7c3154bdc094e0d60807d1626f350e7634a853535'
+# Известные индексы: SHA -> (строки=ширина, origin). Desert: World_EU_DESERT_4096 #979;
+# origin288000 = начало сетки рождения291800 − половина шага7600; 32·7600 = 4864·50.
+KNOWN_INDEXES = {
+    ICELAND_INDEX_SHA256: (8192, 204800),
+    '0e8e2bf3797d8a5a89cce2f76b158d846c95c083b980870dbc427f5ce83e6bb8': (4864, 288000),
+}
 
 
 def _float32(value):
@@ -55,12 +61,15 @@ class FastRegionIndex:
     @classmethod
     def load(cls, path):
         path = Path(path)
-        if path.stat().st_size != ICELAND_INDEX_SIZE:
-            raise ValueError('Нужен winter AREAINDEX.BIN374732байт')
+        if path.stat().st_size > 16 * 1024 * 1024:
+            raise ValueError('Слишком большой ресурс индексов')
         data = path.read_bytes()
-        if hashlib.sha256(data).hexdigest() != ICELAND_INDEX_SHA256:
-            raise ValueError('Не совпал SHA winter AREAINDEX.BIN')
-        return cls.from_bytes(data)
+        known = KNOWN_INDEXES.get(hashlib.sha256(data).hexdigest())
+        if known is None:
+            raise ValueError('Не совпал SHA известного AREAINDEX.BIN')
+        rows, origin = known
+        index = cls.from_bytes(data, row_count=rows)
+        return cls(index.rows, origin, origin, 50, rows)
 
     def region_id(self, position):
         """Индекс0 сохраняется; None означает отказ lookup вне сетки.

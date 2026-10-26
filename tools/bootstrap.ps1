@@ -34,6 +34,12 @@
     [ValidateRange(1,10)][int]$PracticeTargets = 1,
     [ValidateSet('off','open','blocked')][string]$TargetLOS = 'off',
     [string]$LootCatalog = '',
+    [int]$MapId = 16010,
+    [string]$MapAnchor = '',
+    [string]$MapSpawnCells = '',
+    [string]$MapZoneProfile = '',
+    [string]$MapZoneIndex = '',
+    [int]$MapZoneSeed = -1,
     [int]$Duration = 3600,
     [switch]$VerifyOnly
 )
@@ -135,6 +141,15 @@ try {
     $arguments += @('--frag-damage', "$FragDamage")
     if ($ValidateMovement) { $arguments += '--validate-movement' }
     if ($LootCatalog) { $arguments += @('--loot-catalog',$LootCatalog) }
+    if ($MapId -ne 16010) { $arguments += @('--map-id',"$MapId") }
+    if ($MapSpawnCells) { $arguments += @('--map-spawn-cells',$MapSpawnCells) }
+    if ($MapZoneProfile) { $arguments += @('--map-zone-profile',$MapZoneProfile,'--map-zone-index',$MapZoneIndex) }
+    if ($MapZoneSeed -ge 0) { $arguments += @('--map-zone-seed',"$MapZoneSeed") }
+    if ($MapAnchor) {
+        $anchor = @($MapAnchor -split '[,; ]+' | Where-Object { $_ -ne '' })
+        if ($anchor.Count -ne 3) { throw 'MapAnchor: X,Y,Z' }
+        $arguments += @('--map-anchor') + $anchor
+    }
     if ($VerifyOnly) { $arguments += '--verify-only' }
     & $python @arguments
     exit $LASTEXITCODE

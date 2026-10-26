@@ -103,6 +103,226 @@ def extract_region(client, target):
     target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
 
 
+EXPERIMENTAL_MAPS = (16007, 16009, 16011, 16012, 16014, 16017, 16020, 16021, 16022, 16023, 16024, 16030, 16031)
+
+
+ICELAND_SCENE_ANCHOR = (365100, 544000, 259107)  # стартовая 0x27 сценария16010
+
+
+def relocate_scene(configs, anchor):
+    """Переносит фиксированные XYZ стартового участка16010 (игрок, Jeep, лут, airdrop,
+    вертолёт и зона посадки) к anchor другой карты, сохраняя взаимное расположение."""
+    dx, dy = anchor[0]-ICELAND_SCENE_ANCHOR[0], anchor[1]-ICELAND_SCENE_ANCHOR[1]
+    dz = anchor[2]+100-ICELAND_SCENE_ANCHOR[2]
+
+    def shift(body):
+        count = 0
+        for at in range(len(body)-11):
+            x, y, z = struct.unpack_from('>3i', body, at)
+            if (abs(x-ICELAND_SCENE_ANCHOR[0]) < 6000 and abs(y-ICELAND_SCENE_ANCHOR[1]) < 6000
+                    and 250000 < z < 270000):
+                struct.pack_into('>3i', body, at, x+dx, y+dy, z+dz)
+                count += 1
+        return count
+
+    # Wire-копии запуска общие для сценария и WeaponFixture (позиция лута для pickup),
+    # поэтому каждый файл сдвигается один раз на месте.
+    files = set()
+    for name in [n for n in configs if n.startswith('weapon-')]:
+        weapon = json.loads(configs[name].read_text())
+        for item in [weapon.get('loot')] + weapon.get('additional_loot', []):
+            if item:
+                files.add(Path(configs[name].parent/item['entity_file']).resolve())
+    scenes = {}
+    for name in ('scene-walk', 'scene-cycle'):
+        scenes[name] = json.loads(configs[name].read_text())
+        for rule in scenes[name]:
+            for response in rule.get('responses', []):
+                if 'payload_file' in response:
+                    files.add(Path(response['payload_file']).resolve())
+    patched = 0
+    for path in sorted(files):
+        body = bytearray(path.read_bytes())
+        count = shift(body)
+        if count:
+            path.write_bytes(bytes(body))
+            patched += count
+    for name, scene in scenes.items():
+        for rule in scene:
+            for response in rule.get('responses', []):
+                if 'payload_hex' in response:
+                    body = bytearray.fromhex(response['payload_hex'])
+                    count = shift(body)
+                    if count:
+                        response['payload_hex'] = body.hex()
+                        patched += count
+        configs[name].write_text(json.dumps(scene, ensure_ascii=False, indent=2), encoding='utf-8')
+    return patched
+
+
+def relocate_helicopter(configs, target):
+    """Переносит вертолёт эвакуации (654B cfg6/104, трос cfg7/87, 657F, 657C) так, чтобы
+    точка посадки 657C совпала с target; стартовый участок сценария не трогается."""
+    def is_heli(code, body):
+        if code in (0x657f, 0x657c):
+            return True
+        return code == 0x654b and len(body) in (104, 87) and struct.unpack_from('>I', body, 8)[0] in (6, 7)
+
+    scenes = {name: json.loads(configs[name].read_text()) for name in ('scene-walk', 'scene-cycle')}
+    marker = None
+    for scene in scenes.values():
+        for rule in scene:
+            for response in rule.get('responses', []):
+                if int(response['command'], 0) == 0x657c and marker is None:
+                    body = (bytes.fromhex(response['payload_hex']) if 'payload_hex' in response
+                            else Path(response['payload_file']).read_bytes())
+                    marker = struct.unpack_from('>3i', body, 0)
+    if marker is None:
+        raise ValueError('MapZone: точка посадки 657C не найдена')
+    delta = [t-m for t, m in zip(target, marker)]
+    near = lambda x, y: abs(x-marker[0]) < 6000 and abs(y-marker[1]) < 6000
+    patched, done = 0, set()
+    for name, scene in scenes.items():
+        for rule in scene:
+            for response in rule.get('responses', []):
+                code = int(response['command'], 0)
+                if 'payload_file' in response:
+                    path = Path(response['payload_file']).resolve()
+                    body = bytearray(path.read_bytes())
+                else:
+                    path, body = None, bytearray.fromhex(response.get('payload_hex', ''))
+                if not is_heli(code, body) or path in done:
+                    continue
+                for at in range(len(body)-11):
+                    x, y, z = struct.unpack_from('>3i', body, at)
+                    if near(x, y) and abs(z-marker[2]) < 5000:
+                        struct.pack_into('>3i', body, at, x+delta[0], y+delta[1], z+delta[2])
+                        patched += 1
+                if path is not None:
+                    path.write_bytes(bytes(body)); done.add(path)
+                else:
+                    response['payload_hex'] = body.hex()
+        configs[name].write_text(json.dumps(scene, ensure_ascii=False, indent=2), encoding='utf-8')
+    return patched
+
+
+def build_zone(world, profile, index_target, seed):
+    """Фазы закрытия вокруг случайного финального региона (тайминги шаблона16010 сохраняются)."""
+    import random
+    rng = random.Random(seed)
+    regions = {int(k): v for k, v in profile['regions'].items()}
+    final = rng.choice(sorted(int(r) for r in profile['viable_regions']))
+    fx, fy = regions[final]['centroid']
+    order = sorted(regions, key=lambda r: ((regions[r]['centroid'][0]-fx)**2 + (regions[r]['centroid'][1]-fy)**2, r))
+    every = sorted(regions)
+    sets = [every, every, order[:12], order[:4], [final], [final], [final]]
+    stages = world['stages']
+    if len(stages) != 6:
+        raise ValueError('MapZone: шаблон world ожидает6 стадий16010')
+    for i, row in enumerate(stages):
+        row['previous_regions'] = sorted(sets[i])
+        row['future_regions'] = sorted(sets[i+1])
+    world['region_grid'] = dict(file=str(index_target), lookup='native_fast', damage=150, interval_seconds=1,
+                                damage_profile='buff915_resource', zero_region_is_frozen=False,
+                                provenance='AREAINDEX карты %d; финальный регион %d, seed %s; последовательность не оригинальная'
+                                           % (profile['map_id'], final, seed))
+    landing = regions[final]['landing']
+    world['evacuation_refuge'] = dict(region_id=final, position=[landing[0], landing[1], landing[2]+100],
+                                      policy='local_random_final_region',
+                                      provenance='центр финального региона по профилю зоны')
+    return final, landing
+
+
+def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=False, anchor=None, spawn_cells=None,
+                       zone_profile=None, zone_index=None, zone_seed=None):
+    """Локальный опыт: меняет только объявленную карту (JOIN unknown_28 и room m644).
+
+    Точки рождения, двери, окна, маршруты, зоны и рельеф остаются данными16010;
+    anchor переносит стартовый участок сценария на другую карту. Не проверено.
+    """
+    if map_id == 16010:
+        if anchor is not None or spawn_cells is not None:
+            raise ValueError('MapAnchor/MapSpawnCells только вместе с MapId другой карты')
+        return
+    if map_id not in EXPERIMENTAL_MAPS:
+        raise ValueError('MapId: 16010 или опытная карта из EuMapConfig')
+    # IDs дверей/окон другой карты назначаются при загрузке и не закреплены:
+    # пустой каталог accept_unknown подтверждает запрошенное клиентом состояние
+    # (подход MLVP/roe_server_previw, door/breakable_state_2022.py).
+    note = dict(source='accept_unknown for map %d' % map_id,
+                note='ids learned from client requests; distance check only for listed positions')
+    if winter_doors:
+        target = run/('doors-map%d.json' % map_id)
+        target.write_text(json.dumps(dict(map=map_id, accept_unknown=True, interaction_radius_cm=400,
+                                          visibility_radius_cm=6000, provenance=note, doors=[]), indent=2), encoding='utf-8')
+        configs['winter-doors'] = target
+    if winter_windows:
+        target = run/('breakables-map%d.json' % map_id)
+        target.write_text(json.dumps(dict(map=map_id, accept_unknown=True, interaction_radius_cm=750,
+                                          provenance=note, entities=[]), indent=2), encoding='utf-8')
+        configs['winter-breakables'] = target
+    from roe_room_2023 import decode_enter_room_response
+    join = json.loads(configs['join'].read_text())
+    if join['notification']['unknown_28'] != 16010:
+        raise ValueError('JOIN fixture без ожидаемой карты16010')
+    join['notification']['unknown_28'] = map_id
+    configs['join'].write_text(json.dumps(join, ensure_ascii=False, indent=2), encoding='utf-8')
+    room = json.loads(configs['room'].read_text())
+    body = bytearray(Path(room['room_file']).read_bytes())
+    fields = {f['name']: f for f in decode_enter_room_response(bytes(body))['fields']}
+    offset = fields['profile.base.m644']['offset']
+    if struct.unpack_from('>I', body, offset)[0] != 16010:
+        raise ValueError('Room fixture без ожидаемой карты16010')
+    struct.pack_into('>I', body, offset, map_id)
+    target = run/'wire'/('room-map%d.bin' % map_id)
+    target.write_bytes(bytes(body))
+    room['room_file'] = str(target)
+    configs['room'].write_text(json.dumps(room, ensure_ascii=False, indent=2), encoding='utf-8')
+    relocated = relocate_scene(configs, anchor) if anchor is not None else 0
+    # region_grid — AREAINDEX Iceland: на другой карте даёт урон закрытой зоны в
+    # «безопасных» местах. Без него world_probe не наносит урон зоны (стадии остаются).
+    world = json.loads(configs['world'].read_text())
+    zone_disabled = world.pop('region_grid', None) is not None
+    refuge = world.get('evacuation_refuge')
+    if anchor is not None and refuge and refuge.get('position'):
+        # Точка эвакуационного убежища world.json сдвигается вместе со сценарием.
+        delta = [anchor[0]-ICELAND_SCENE_ANCHOR[0], anchor[1]-ICELAND_SCENE_ANCHOR[1], anchor[2]+100-ICELAND_SCENE_ANCHOR[2]]
+        refuge['position'] = [v+d for v, d in zip(refuge['position'], delta)]
+    zone_final = heli_patched = None
+    if zone_profile is not None:
+        profile = json.loads(Path(zone_profile).read_text(encoding='utf-8'))
+        index_bytes = Path(zone_index).read_bytes()
+        if profile.get('map_id') != map_id or hashlib.sha256(index_bytes).hexdigest() != profile['index_sha256']:
+            raise ValueError('MapZone: профиль/индекс не соответствуют карте')
+        index_target = run/('areaindex-map%d.bin' % map_id)
+        index_target.write_bytes(index_bytes)
+        if zone_seed is None:
+            zone_seed = int.from_bytes(os.urandom(4), 'big')
+        zone_final, landing = build_zone(world, profile, index_target, zone_seed)
+        zone_disabled = False
+        heli_patched = relocate_helicopter(configs, landing)
+    configs['world'].write_text(json.dumps(world, ensure_ascii=False, indent=2), encoding='utf-8')
+    if spawn_cells is not None:
+        from winter_selection_2022 import load_spawn_points
+        source = Path(spawn_cells)
+        load_spawn_points(source, map_id)  # тот же валидатор, что у endpoint
+        target = run/'spawn-cells.json'
+        target.write_bytes(source.read_bytes())
+        configs['spawn-cells'] = target
+    summary_path = run/'launch-summary.json'
+    if summary_path.is_file():
+        summary = json.loads(summary_path.read_text(encoding='utf-8-sig'))
+        summary.update(map_override=map_id, map_override_verified=False,
+                       map_anchor=list(anchor) if anchor is not None else None,
+                       map_anchor_relocated_positions=relocated,
+                       map_zone_damage_disabled=zone_disabled,
+                       map_zone_final_region=zone_final, map_zone_seed=zone_seed,
+                       map_zone_helicopter_positions=heli_patched,
+                       map_spawn_cells_sha256=(hashlib.sha256(configs['spawn-cells'].read_bytes()).hexdigest()
+                                               if 'spawn-cells' in configs else None))
+        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
 def materialize(run, kit, client=None, cycle=False, weapon_profile='citori', target_los='off',
                 loot_catalog=None, death_on_zero=False, own_armor_absorb_percent=0, validate_movement=False,
                 frag_damage=100, start_hour=8, temperature_raw=500, native_airdrop=False, native_evacuation=False, diagnostic_departure=False, original_jeeps=False, climb_practice=False, vehicle_profile='jeep', boat_practice=False, bot_ground_route=False, bot_behavior=False, account_profile='default', winter_doors=False, winter_windows=False, cycle_scale=1, diagnostic_hazard=False, practice_targets=1):
@@ -611,6 +831,15 @@ def main():
                         help='Пассивная мишень с учебным HP/уроном; armored добавляет тестовый жилет')
     parser.add_argument('--practice-targets',type=int,choices=range(1,11),default=1,
                         help='Число пассивных мишеней1..10; требует Target')
+    parser.add_argument('--map-id',type=int,default=16010,
+                        help='Опытная смена объявленной карты (JOIN/room); позиция через teleport')
+    parser.add_argument('--map-zone-profile',type=Path,help='Профиль зоны карты (generate_zone_profile.py)')
+    parser.add_argument('--map-zone-index',type=Path,help='AREAINDEX той же карты')
+    parser.add_argument('--map-zone-seed',type=int,help='Seed финального региона; по умолчанию случайный')
+    parser.add_argument('--map-spawn-cells',type=Path,
+                        help='Опытный каталог клеток рождения для MapId (формат winter_spawn_points)')
+    parser.add_argument('--map-anchor',type=int,nargs=3,metavar=('X','Y','Z'),
+                        help='Точка другой карты для стартового участка сценария (см)')
     parser.add_argument('--target-los',choices=('off','open','blocked'),default='off',
                         help='Диагностический контроль луча; blocked задаёт невидимую серверную преграду')
     parser.add_argument('--reliable-udp',action='store_true',help='Экспериментальные ACK/retry и сборка игрового UDP')
@@ -703,6 +932,9 @@ def main():
                             validate_movement=args.validate_movement, frag_damage=args.frag_damage,
                             start_hour=args.start_hour, temperature_raw=args.temperature_raw,
                             native_airdrop=args.native_airdrop, native_evacuation=args.native_evacuation, diagnostic_departure=args.diagnostic_departure, original_jeeps=args.original_jeeps, climb_practice=args.climb_practice, vehicle_profile=args.vehicle_profile, boat_practice=args.boat_practice, bot_ground_route=args.bot_ground_route, bot_behavior=args.bot_behavior, account_profile=args.profile, winter_doors=args.winter_doors, winter_windows=args.winter_windows, cycle_scale=args.cycle_scale, diagnostic_hazard=args.diagnostic_hazard, practice_targets=args.practice_targets)
+        apply_map_override(configs, run, args.map_id, args.winter_doors, args.winter_windows,
+                       tuple(args.map_anchor) if args.map_anchor else None, args.map_spawn_cells,
+                       args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
         from actor_probe_2022 import ActorFixture
         if args.bots:ActorFixture.load(configs['actor'])
         if args.target != 'none':
@@ -734,6 +966,9 @@ def main():
                         validate_movement=args.validate_movement, frag_damage=args.frag_damage,
                         start_hour=args.start_hour, temperature_raw=args.temperature_raw,
                             native_airdrop=args.native_airdrop, native_evacuation=args.native_evacuation, diagnostic_departure=args.diagnostic_departure, original_jeeps=args.original_jeeps, climb_practice=args.climb_practice, vehicle_profile=args.vehicle_profile, boat_practice=args.boat_practice, bot_ground_route=args.bot_ground_route, bot_behavior=args.bot_behavior, account_profile=args.profile, winter_doors=args.winter_doors, winter_windows=args.winter_windows, cycle_scale=args.cycle_scale, diagnostic_hazard=args.diagnostic_hazard, practice_targets=args.practice_targets)
+    apply_map_override(configs, run, args.map_id, args.winter_doors, args.winter_windows,
+                       tuple(args.map_anchor) if args.map_anchor else None, args.map_spawn_cells,
+                       args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
     if args.remote_peer:
         check_ports([(8001,socket.SOCK_STREAM),(19001,socket.SOCK_STREAM),(18001,socket.SOCK_DGRAM)])
     elif args.lan_tunnel:
@@ -785,6 +1020,8 @@ def main():
                 command+=['--door-config',str(configs['winter-doors'])]
             if 'custom-loot-catalog' in configs:
                 command+=['--loot-catalog',str(configs['custom-loot-catalog'])]
+            if 'spawn-cells' in configs:
+                command+=['--spawn-points',str(configs['spawn-cells'])]
             if args.mode=='cycle':command+=['--world-config',str(configs['world']),'--evacuation-delay-seconds','8','--evacuation-result-config',str(configs['evacuation'])]
             if args.live_control:command+=['--live-commands',str(run/'live-commands.json')]
             if args.bots:command+=['--actor-config',str(configs['actor'])]

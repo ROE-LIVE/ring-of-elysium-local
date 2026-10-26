@@ -38,6 +38,7 @@
     [string]$MapAnchor = '',
     [string]$MapSpawnCells = '',
     [switch]$SharedRoom,
+    [ValidateRange(0,100)][int]$SharedPvP = 0,
     [string]$MapZoneProfile = '',
     [string]$MapZoneIndex = '',
     [int]$MapZoneSeed = -1,
@@ -145,6 +146,7 @@ try {
     if ($MapId -ne 16010) { $arguments += @('--map-id',"$MapId") }
     if ($MapSpawnCells) { $arguments += @('--map-spawn-cells',$MapSpawnCells) }
     if ($SharedRoom) { $arguments += '--shared-room' }
+    if ($SharedPvP -gt 0) { $arguments += @('--shared-pvp', "$SharedPvP") }
     if ($MapZoneProfile) { $arguments += @('--map-zone-profile',$MapZoneProfile,'--map-zone-index',$MapZoneIndex) }
     if ($MapZoneSeed -ge 0) { $arguments += @('--map-zone-seed',"$MapZoneSeed") }
     if ($MapAnchor) {

@@ -262,7 +262,7 @@ def strip_start_area(scene):
     return scene
 
 
-def shared_room_endpoint(command, configs):
+def shared_room_endpoint(command, configs, pvp_damage=None):
     """Комната: убирает несовместимые входы (каталог лута, посылки, двери, окна) и включает
     общие аватары/лут/HP/часы зоны/машины/эвакуацию/наблюдение. Опыт, не оригинальный сервер."""
     # Общая эвакуация требует итог сессии без одиночных правил смерти/таймаута.
@@ -287,8 +287,14 @@ def shared_room_endpoint(command, configs):
             skip = True
             continue
         result.append(item)
-    return result + ['--peer-avatar-config', str(configs['actor']), '--shared-ground-loot', '--shared-world-clock',
-                     '--shared-peer-health', '--shared-vehicles', '--shared-evacuation', '--peer-spectator']
+    # Траектории: сервер шлёт позиции ~4 Гц, без сглаживания удалённый аватар движется рывками.
+    result += ['--peer-avatar-config', str(configs['actor']), '--shared-ground-loot', '--shared-world-clock',
+               '--shared-peer-health', '--shared-vehicles', '--shared-evacuation', '--peer-spectator',
+               '--peer-avatar-trajectories', '--peer-equipment']
+    if pvp_damage is not None:
+        # Учебный PvP требует смерти при HP0 (--death-on-zero проверяется в main).
+        result += ['--peer-pellet-damage', str(pvp_damage), '--shared-death-loot']
+    return result
 
 
 def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=False, anchor=None, spawn_cells=None,
@@ -804,6 +810,7 @@ def write_launch_summary(run, args):
     summary['debug_console'] = bool(getattr(args, 'debug_console', False))
     summary['remote_peer'] = getattr(args, 'remote_peer', None)
     summary['shared_room'] = bool(getattr(args, 'shared_room', False))
+    summary['shared_pvp'] = getattr(args, 'shared_pvp', None)
     summary['server_only'] = bool(getattr(args, 'services_only', False))
     summary['lan_udp_tunnel'] = bool(getattr(args, 'lan_tunnel', False) or summary['remote_peer'])
     summary['original_network_transport'] = not summary['lan_udp_tunnel']
@@ -894,6 +901,8 @@ def main():
                         help='Опытная смена объявленной карты (JOIN/room); позиция через teleport')
     parser.add_argument('--shared-room',action='store_true',
                         help='Локальный опыт комнаты на несколько клиентов (через relay_lan): аватары, общий лут/HP/зона/машины/эвакуация')
+    parser.add_argument('--shared-pvp',type=int,choices=range(1,101),metavar='1..100',
+                        help='Комната: учебный урон между игроками (процент); требует --shared-room и --death-on-zero')
     parser.add_argument('--map-zone-profile',type=Path,help='Профиль зоны карты (generate_zone_profile.py)')
     parser.add_argument('--map-zone-index',type=Path,help='AREAINDEX той же карты')
     parser.add_argument('--map-zone-seed',type=int,help='Seed финального региона; по умолчанию случайный')
@@ -963,6 +972,8 @@ def main():
         parser.error('NativeEvacuation пока требует CycleScale1')
     if args.death_on_zero and args.mode != 'cycle':
         parser.error('DeathOnZero требует Mode cycle')
+    if args.shared_pvp is not None and (not args.shared_room or not args.death_on_zero):
+        parser.error('SharedPvP требует SharedRoom и DeathOnZero')
     if args.idle_handoff and not args.reliable_udp:
         parser.error('IdleHandoff требует ReliableUDP')
     if args.bot_behavior and (not args.bots or not args.bot_ground_route or args.mode != 'cycle'):
@@ -1091,7 +1102,7 @@ def main():
             if args.bots:command+=['--actor-config',str(configs['actor'])]
             elif args.target != 'none':command+=['--actor-config',str(configs['target-'+args.target])]
             if args.shared_room:
-                command = shared_room_endpoint(command, configs)
+                command = shared_room_endpoint(command, configs, getattr(args, 'shared_pvp', None))
             peer,log=start('endpoint',command);wait_ready(peer,log,'"kind": "ready"')
             print(f'Сервисы готовы. Режим: {args.mode}; оружие: {args.weapon_profile}; комплект: {args.kit}. Журнал: {run}',flush=True)
             if 'custom-loot-catalog' in configs:

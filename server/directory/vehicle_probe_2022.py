@@ -198,6 +198,8 @@ class VehicleState:
         self.dead = False
         self.departure_origin = None
         self.departure_tick = None
+        # 6580 уже отправлен при посадке в вертолёт (опыт: метка места на силуэте HUD).
+        self.survivor_announced = False
         if survivor_name is not None:
             survivor_event(1, actor_uid, survivor_name, 1)
 
@@ -344,8 +346,15 @@ class VehicleState:
             response = struct.pack('>QIIQIIiiiB', uid, vehicle['configuration'],
                                    0, self.actor_uid, seat, 0,
                                    *vehicle['position'], 0)
-            return [(0x6542, response)], {'action': 'geton', 'uid': hex(uid),
-                                         'seat': seat, 'configuration': vehicle['configuration']}
+            packets = [(0x6542, response)]
+            # Опыт: 6580 сразу после посадки, а не только при завершении, чтобы
+            # силуэт вертолёта в HUD отметил место. Порядок original не подтверждён.
+            if vehicle['configuration'] == 6 and self.survivor_name is not None:
+                packets.append((0x6580, survivor_event(uid, self.actor_uid, self.survivor_name, seat)))
+                self.survivor_announced = True
+            return packets, {'action': 'geton', 'uid': hex(uid), 'seat': seat,
+                             'configuration': vehicle['configuration'],
+                             'survivor_announced': self.survivor_announced}
         if command == 0x6547:
             if len(payload) != 4:
                 raise ValueError('SWITCH_SEAT_REQ ожидает4байта')
@@ -457,7 +466,7 @@ class VehicleState:
                     original_trajectory=False,experimental=True)]
         self.evacuation_finished = True
         statistics = self.statistics.finish(now, rescued=True) if self.statistics else None
-        if self.survivor_name is not None:
+        if self.survivor_name is not None and not self.survivor_announced:
             responses.append((0x6580, survivor_event(self.seated, self.actor_uid,
                                                    self.survivor_name, self.seat)))
         if self.result_fixture is not None:

@@ -137,7 +137,8 @@ class VehicleTests(unittest.TestCase):
         self.assertEqual(state.seated,456)
         self.assertEqual(state.handle(0x6543,struct.pack('>BiiiB',0,500,600,700,0))[1]['action'],'getoff')
         self.assertIsNone(state.seated)
-        struct.pack_into('>I',body,8,110)
+        # 110 теперь модель CAR_MODELS; неизвестная конфигурация по-прежнему игнорируется.
+        struct.pack_into('>I',body,8,999)
         state.register(0x654b,body)
         self.assertEqual(state.vehicles[456]['configuration'],109)
 
@@ -271,10 +272,13 @@ class VehicleTests(unittest.TestCase):
         state.handle(0x6541, struct.pack('>QI', 789, 2), now=100)
         state.handle(0x6543, bytes(14), now=107)
         self.assertEqual(state.poll(108), ([], []))
-        state.handle(0x6541, struct.pack('>QI', 789, 2), now=110)
+        boarding, event = state.handle(0x6541, struct.pack('>QI', 789, 2), now=110)
+        # 6580 уходит при посадке (метка места в HUD) и не повторяется при завершении.
+        self.assertEqual([code for code, _ in boarding], [0x6542, 0x6580])
+        self.assertTrue(event['survivor_announced'])
         responses, events = state.poll(118)
-        self.assertEqual([code for code, _ in responses], [0x6580, 0x6589])
-        body = responses[0][1]
+        self.assertEqual([code for code, _ in responses], [0x6589])
+        body = boarding[1][1]
         self.assertEqual(struct.unpack_from('>Q', body)[0], 789)
         self.assertEqual(struct.unpack_from('>Q', body, 16)[0], 123)
         length = struct.unpack_from('>I', body, 24)[0]
@@ -314,11 +318,12 @@ class VehicleTests(unittest.TestCase):
         struct.pack_into('>QIIIiii', payload, 0, 789, 6, 9, 100, 10, 20, 1300)
         state.register(0x654b, payload)
         self.assertEqual(state.poll(100), ([], []))
-        state.handle(0x6541, struct.pack('>QI', 789, 1), now=100)
+        boarding, _ = state.handle(0x6541, struct.pack('>QI', 789, 1), now=100)
+        self.assertEqual([code for code, _ in boarding], [0x6542, 0x6580])
         response, events = state.poll(108)
-        self.assertEqual([code for code, _ in response], [0x6580, 0x106e, 0xd62, 0x6589])
-        self.assertEqual(struct.unpack_from('>Q', response[1][1])[0], 123)
-        self.assertEqual(struct.unpack_from('>QQ', response[2][1]), (999, 123))
+        self.assertEqual([code for code, _ in response], [0x106e, 0xd62, 0x6589])
+        self.assertEqual(struct.unpack_from('>Q', response[0][1])[0], 123)
+        self.assertEqual(struct.unpack_from('>QQ', response[1][1]), (999, 123))
         self.assertTrue(events[0]['diagnostic_archive_statistics'])
         self.assertEqual(state.poll(109), ([], []))
 

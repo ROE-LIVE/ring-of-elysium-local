@@ -946,7 +946,8 @@ class Endpoint(asyncio.DatagramProtocol):
             translated = []
             for command, payload in packets:
                 body = bytearray(payload)
-                if command == 0x6542:
+                # 6542 и 6580: UID игрока по смещению16 → remote Unit UID.
+                if command in (0x6542, 0x6580):
                     struct.pack_into('>Q', body, 16, member['avatar'])
                 translated.append((command,bytes(body)))
             outputs.append((other['state'], translated))
@@ -968,6 +969,9 @@ class Endpoint(asyncio.DatagramProtocol):
                     packets = []
                     for passenger, seat in seats.items():
                         source = decision['members'][passenger]
+                        # Уже объявлен всем при посадке (см. VehicleProbe.survivor_announced).
+                        if getattr(source.get('vehicles'), 'survivor_announced', False):
+                            continue
                         unit = (passenger if passenger == account else
                                 self.peer_avatars.members[(room_uid,passenger)]['avatar'])
                         packets.append((0x6580,survivor_event(decision['helicopter_uid'],

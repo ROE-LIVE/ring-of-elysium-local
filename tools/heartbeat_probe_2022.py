@@ -109,7 +109,12 @@ async def serve(args, ready=None, stop=None):
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
         temporary.replace(path)
 
-    async def handle(reader, writer):
+    active_guests = set()
+
+    async def handle_guest(reader, writer):
+        await handle(reader, writer, guest=True)
+
+    async def handle(reader, writer, guest=False):
         task = asyncio.current_task()
         tasks.add(task)
         connection = uuid.uuid4().hex[:12]
@@ -118,7 +123,16 @@ async def serve(args, ready=None, stop=None):
         # Комната на несколько клиентов: каждое новое соединение получает следующий UID пула
         # (один клиент держит одно соединение лобби за сессию); иначе — прежний один UID.
         pool = getattr(args, 'actor_uid_pool', None) or ([args.actor_uid] if getattr(args, 'actor_uid', None) is not None else [])
-        actor_uid = pool[totals['connections'] % len(pool)] if pool else None
+        if pool and len(pool) > 1 and getattr(args, 'guest_port', None):
+            # Порт хоста — всегда первый UID пула (переподключение не меняет аккаунт);
+            # гостевой порт (relay_lan) — младший свободный гостевой UID.
+            if guest:
+                actor_uid = next((u for u in pool[1:] if u not in active_guests), pool[-1])
+                active_guests.add(actor_uid)
+            else:
+                actor_uid = pool[0]
+        else:
+            actor_uid = pool[totals['connections'] % len(pool)] if pool else None
         actor_stream = LobbyActorUIDStream(key, actor_uid) if actor_uid is not None else None
         cosmetics = cosmetics_for(actor_uid, pool)
         if pool and len(pool) > 1:
@@ -442,14 +456,19 @@ async def serve(args, ready=None, stop=None):
                     except OSError:
                         pass
             capture.record('disconnect', **info)
+            if guest:
+                active_guests.discard(actor_uid)
             tasks.discard(task)
             status()
 
+    guest_server = None
     try:
         server = await asyncio.start_server(handle, '127.0.0.1', args.port)
+        guest_server = (await asyncio.start_server(handle_guest, '127.0.0.1', args.guest_port)
+                        if getattr(args, 'guest_port', None) else None)
         async with server:
             binding = server.sockets[0].getsockname()
-            capture.record('ready', bindings={'tcp': binding}, upstream=['127.0.0.1', args.upstream_port], reply_enabled=args.reply)
+            capture.record('ready', bindings={'tcp': binding, 'guest_tcp': guest_server.sockets[0].getsockname() if guest_server else None}, upstream=['127.0.0.1', args.upstream_port], reply_enabled=args.reply)
             status()
             if ready:
                 ready.set_result((binding, capture.directory))
@@ -461,6 +480,8 @@ async def serve(args, ready=None, stop=None):
             else:
                 await stop.wait()
     finally:
+        if guest_server is not None:
+            guest_server.close()
         for task in list(tasks):
             task.cancel()
         if tasks:
@@ -493,6 +514,7 @@ def main():
     parser.add_argument('--novice-state', type=int, choices=(0, 1, 2), help='Тестовый MATCH_NOVICE_SYNC после ENTER_GAME; требует team-reply')
     parser.add_argument('--team-nickname', default='Player', help='Имя участника в экспериментальном ответе')
     parser.add_argument('--port', type=int, default=8001)
+    parser.add_argument('--guest-port', type=int, help='Комната: порт для relay_lan; там выдаются гостевые UID пула, а --port всегда отдаёт первый UID')
     parser.add_argument('--upstream-port', type=int, default=9001)
     parser.add_argument('--duration', type=float, default=180)
     parser.add_argument('--output', type=Path, default=ROOT/'captures')

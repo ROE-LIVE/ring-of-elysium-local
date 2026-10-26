@@ -151,6 +151,8 @@ class Endpoint(asyncio.DatagramProtocol):
         if shared_ground_loot and (not weapon_fixture or (parcel_fixture and not isinstance(parcel_fixture, ParcelCatalog))):
             raise ValueError('Общий наземный лут требует weapon-config и parcel-config только в формате parcels')
         self.shared_parcels = {}
+        # Комната: (room_uid, эпоха) → {actor_uid: (cx, cy)} занятых клеток рождения.
+        self.room_born_cells = {}
         if shared_death_loot and not shared_peer_health:
             raise ValueError('shared-death-loot требует shared-peer-health')
         if shared_death_loot and actor_fixture:
@@ -510,11 +512,19 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.send_application_batch(d, remote, state, replies)
                                         self.capture.record('winter_selection', synthetic=True, **event)
                                 if self.spawn_points and message.command == 0x11df:
+                                    cells = None
+                                    if self.shared_loot and 'room_uid' in state:
+                                        key = (state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1))
+                                        cells = self.room_born_cells.setdefault(key, {})
+                                    taken = frozenset(cell for account, cell in (cells or {}).items()
+                                                      if account != state['actor_uid'])
                                     point, replies, event = choose_cell(message.payload, state['actor_uid'],
                                         time.monotonic()-self.started, state.get('selection_deadline'),
-                                        'weapon' in state, self.spawn_points)
+                                        'weapon' in state, self.spawn_points, taken)
                                     if point is not None:
                                         state['born_point'] = point
+                                        if cells is not None:
+                                            cells[state['actor_uid']] = tuple(point[:2])
                                     self.send_application_batch(d, remote, state, replies)
                                     self.capture.record('winter_selection', synthetic=True, **event)
                                 if message.command==0x483 and len(message.payload)==1 and 'selection_deadline' in state:

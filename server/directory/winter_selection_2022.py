@@ -37,7 +37,9 @@ def load_spawn_points(path=None, map_id=16010):
     return tuple(tuple(p) for p in points)
 
 
-def choose_cell(payload, actor_uid, now, deadline, inventory_started, points):
+def choose_cell(payload, actor_uid, now, deadline, inventory_started, points, taken=frozenset()):
+    """taken: клетки, уже занятые другими участниками комнаты (исходный клиент не даёт
+    двоим одну клетку; здесь второй получает ближайшую свободную)."""
     if len(payload) != 24:
         raise ValueError('BORN_POS_REQ ожидает24байта')
     kind, uid, x, y, trailing_flag = struct.unpack('>IQIII', payload)
@@ -52,13 +54,15 @@ def choose_cell(payload, actor_uid, now, deadline, inventory_started, points):
         return None, [(0x11e0, struct.pack('>II', 0, 2)),
                       (0x11e2, struct.pack('>III', 2, 0, 0))], {
             'action': 'born_position_resync', 'reason': 'born_type'}
-    point = min(points, key=lambda p: ((p[0]-x)**2+(p[1]-y)**2, p[0], p[1]))
+    free = [p for p in points if p[:2] not in taken] or list(points)
+    point = min(free, key=lambda p: ((p[0]-x)**2+(p[1]-y)**2, p[0], p[1]))
     response = struct.pack('>IIQIII', 1, 2, actor_uid, point[0], point[1], 0)
     return point, [(0x11e0, response)], {
         'action': 'born_position_selected', 'requested_cell': [x, y],
         'selected_cell': list(point[:2]), 'position': list(point[2:]),
         'request_flag': trailing_flag, 'height_basis': 'team_l_estimate',
         'snapped': point[:2] != (x, y),
+        'occupied_by_other': (x, y) in taken,
     }
 
 

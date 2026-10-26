@@ -239,6 +239,22 @@ def shared_room_uids(account):
     return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in (2, 3, 4)]
 
 
+def apply_zone_damage(configs, damage):
+    """Урон закрытой зоны (сырые HP из1000 в секунду) вместо buff915 (150/с). Исходная фаза
+    температуры не восстановлена; величина — наблюдение по видео (~1%/с), а не таблица."""
+    if damage is None:
+        return None
+    if type(damage) is not int or not 1 <= damage <= 1000:
+        raise ValueError('ZoneDamage: 1..1000')
+    world = json.loads(configs['world'].read_text())
+    grid = world.get('region_grid')
+    if not grid:
+        return None
+    grid.update(damage=damage, damage_profile='diagnostic')
+    configs['world'].write_text(json.dumps(world, ensure_ascii=False, indent=2), encoding='utf-8')
+    return damage
+
+
 def apply_airdrop_table(configs, run, table_path, seed=None):
     """Аирдроп по таблице «空投» (generate_airdrop_table.py): оружие по весу iCount, вариант патронов
     по весу extra-строки, броня/шлем4 и аптечка. Состав — наша гипотеза, не исходный генератор."""
@@ -840,6 +856,7 @@ def write_launch_summary(run, args):
     summary['remote_peer'] = getattr(args, 'remote_peer', None)
     summary['shared_room'] = bool(getattr(args, 'shared_room', False))
     summary['shared_pvp'] = getattr(args, 'shared_pvp', None)
+    summary['zone_damage'] = getattr(args, 'zone_damage', None)
     summary['player_names_configured'] = bool(getattr(args, 'player_name', None) or getattr(args, 'guest_name', None))
     summary['server_only'] = bool(getattr(args, 'services_only', False))
     summary['lan_udp_tunnel'] = bool(getattr(args, 'lan_tunnel', False) or summary['remote_peer'])
@@ -933,6 +950,7 @@ def main():
                         help='Локальный опыт комнаты на несколько клиентов (через relay_lan): аватары, общий лут/HP/зона/машины/эвакуация')
     parser.add_argument('--player-name',help='Имя этого игрока (над моделью у других, пакет смерти, газета); до12 байт видно в игре')
     parser.add_argument('--guest-name',help='Комната: имя игрока второго PC')
+    parser.add_argument('--zone-damage',type=int,help='Урон закрытой зоны, HP из1000 в секунду (без опции — buff915: 150)')
     parser.add_argument('--airdrop-table',type=Path,help='Состав аирдропа по таблице «空投» (generate_airdrop_table.py)')
     parser.add_argument('--airdrop-seed',type=int,help='Seed выбора аирдропа; без него — случайный')
     parser.add_argument('--shared-pvp',type=int,choices=range(1,101),metavar='1..100',
@@ -1044,6 +1062,7 @@ def main():
                        tuple(args.map_anchor) if args.map_anchor else None, args.map_spawn_cells,
                        args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
         apply_airdrop_table(configs, run, args.airdrop_table, args.airdrop_seed)
+        apply_zone_damage(configs, args.zone_damage)
         from actor_probe_2022 import ActorFixture
         if args.bots:ActorFixture.load(configs['actor'])
         if args.target != 'none':
@@ -1079,6 +1098,7 @@ def main():
                        tuple(args.map_anchor) if args.map_anchor else None, args.map_spawn_cells,
                        args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
     apply_airdrop_table(configs, run, args.airdrop_table, args.airdrop_seed)
+    apply_zone_damage(configs, args.zone_damage)
     if args.remote_peer:
         check_ports([(8001,socket.SOCK_STREAM),(19001,socket.SOCK_STREAM),(18001,socket.SOCK_DGRAM)])
     elif args.lan_tunnel:

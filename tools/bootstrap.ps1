@@ -42,6 +42,7 @@
     [string]$AirdropTable = '',
     [string]$PlayerName = '',
     [string]$GuestName = '',
+    [ValidateRange(0,1000)][int]$ZoneDamage = 0,
     [string]$MapZoneProfile = '',
     [string]$MapZoneIndex = '',
     [int]$MapZoneSeed = -1,
@@ -153,6 +154,7 @@ try {
     if ($AirdropTable) { $arguments += @('--airdrop-table', $AirdropTable) }
     if ($PlayerName) { $arguments += @('--player-name', $PlayerName) }
     if ($GuestName) { $arguments += @('--guest-name', $GuestName) }
+    if ($ZoneDamage -gt 0) { $arguments += @('--zone-damage', "$ZoneDamage") }
     if ($MapZoneProfile) { $arguments += @('--map-zone-profile',$MapZoneProfile,'--map-zone-index',$MapZoneIndex) }
     if ($MapZoneSeed -ge 0) { $arguments += @('--map-zone-seed',"$MapZoneSeed") }
     if ($MapAnchor) {

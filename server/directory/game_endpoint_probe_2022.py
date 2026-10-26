@@ -147,13 +147,13 @@ class Endpoint(asyncio.DatagramProtocol):
             raise ValueError('Общий транспорт требует shared-peer-health')
         self.shared_vehicles = SharedVehicleRooms() if shared_vehicles else None
         self.peer_timer = None
-        if shared_ground_loot and (not weapon_fixture or loot_catalog or parcel_fixture):
-            raise ValueError('Общий наземный лут требует weapon-config без loot-catalog/parcel-config')
+        if shared_ground_loot and (not weapon_fixture or parcel_fixture):
+            raise ValueError('Общий наземный лут требует weapon-config без parcel-config')
         if shared_death_loot and not shared_peer_health:
             raise ValueError('shared-death-loot требует shared-peer-health')
         if shared_death_loot and actor_fixture:
             raise ValueError('Общий лут погибших пока не поддерживает отдельную мишень каждого клиента')
-        self.shared_loot = SharedLootRooms(weapon_fixture,shared_death_loot) if shared_ground_loot else None
+        self.shared_loot = SharedLootRooms(weapon_fixture,shared_death_loot,loot_catalog) if shared_ground_loot else None
         if shared_world_clock and (not self.shared_loot or not world_fixture):
             raise ValueError('Общий календарь требует shared-ground-loot и world-config')
         self.shared_world_clock = shared_world_clock
@@ -741,7 +741,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.emit_peer_avatars(outputs,events)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
                                     if 'loot_catalog' not in state:
-                                        state['loot_catalog'] = LootCatalogState(self.loot_catalog, state['weapon'])
+                                        state['loot_catalog'] = LootCatalogState(self.loot_catalog, state['weapon'],
+                                                                                 shared=self.shared_loot is not None)
                                     responses, events = state['loot_catalog'].poll()
                                     self.send_application_batch(d, remote, state, responses)
                                     for event in events:
@@ -1803,8 +1804,8 @@ if __name__=='__main__':
         p.error('shared-peer-health требует peer-avatar-config/world-config/shared-ground-loot')
     if args.shared_world_clock and (not args.shared_ground_loot or not args.world_config):
         p.error('shared-world-clock требует shared-ground-loot и world-config')
-    if args.shared_ground_loot and (not args.weapon_config or args.loot_catalog or args.parcel_config):
-        p.error('shared-ground-loot требует weapon-config без loot-catalog/parcel-config')
+    if args.shared_ground_loot and (not args.weapon_config or args.parcel_config):
+        p.error('shared-ground-loot требует weapon-config без parcel-config')
     if ((args.ident and not args.handshake) or (args.grant and not args.ident)
             or (args.auth and not args.grant) or (args.room_template and not args.auth)
             or ((args.scene_rules or args.scene_clock or args.live_commands) and not args.room_template)):

@@ -91,7 +91,7 @@ class LootCatalog:
 
 
 class LootCatalogState:
-    def __init__(self, catalog, weapon):
+    def __init__(self, catalog, weapon, shared=False):
         catalog.validate_fixture(weapon.fixture)
         self.catalog, self.weapon = catalog, weapon
         self.visible = set()
@@ -99,8 +99,11 @@ class LootCatalogState:
         self.buckets = {}
         for item in catalog.items:
             if item.index in weapon.loot_registry:
-                raise ValueError('Повторный индекс в состоянии оружия')
-            weapon.loot_registry[item.index] = item
+                # Общая комната уже могла записать остаток этой точки (SharedLootRooms.attach).
+                if not shared:
+                    raise ValueError('Повторный индекс в состоянии оружия')
+            else:
+                weapon.loot_registry[item.index] = item
             key = tuple(n // catalog.radius for n in item.position[:2])
             self.buckets.setdefault(key, []).append(item.index)
 

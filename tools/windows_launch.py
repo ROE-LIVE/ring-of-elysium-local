@@ -239,6 +239,29 @@ def shared_room_uids(account):
     return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in (2, 3, 4)]
 
 
+def strip_start_area(scene):
+    """Убирает из правил сцены стартовый Jeep102/164 и наземный лут 821/100 (тип2)."""
+    def body(response):
+        if 'payload_file' in response:
+            return Path(response['payload_file']).read_bytes()
+        return bytes.fromhex(response.get('payload_hex', ''))
+    removed = 0
+    for rule in scene:
+        kept = []
+        for response in rule.get('responses', []):
+            command, data = int(response['command'], 0), body(response)
+            if ((command == 0x654b and len(data) == 164 and struct.unpack_from('>I', data, 8)[0] == 102)
+                    or (command == 0x821 and len(data) == 100 and data[62] == 2)):
+                removed += 1
+                continue
+            kept.append(response)
+        if 'responses' in rule:
+            rule['responses'] = kept
+    if not removed:
+        raise ValueError('SharedRoom: стартовый участок не найден в правилах сцены')
+    return scene
+
+
 def shared_room_endpoint(command, configs):
     """Комната: убирает несовместимые входы (каталог лута, посылки, двери, окна) и включает
     общие аватары/лут/HP/часы зоны/машины/эвакуацию/наблюдение. Опыт, не оригинальный сервер."""
@@ -247,7 +270,14 @@ def shared_room_endpoint(command, configs):
     for key in ('singleplayer_result_on_death', 'singleplayer_timeout_seconds'):
         evacuation.pop(key, None)
     configs['evacuation'].write_text(json.dumps(evacuation, ensure_ascii=False, indent=2), encoding='utf-8')
-    drop = {'--loot-catalog', '--parcel-config', '--door-config', '--breakable-config'}
+    # Стартовый участок16010 (Jeep102 и стартовый лут) не нужен комнате: лут общий из
+    # каталога точек карты, транспорт — из точек карты (auto_veiculos), набор — выбор этапов.
+    for name in ('scene-walk', 'scene-cycle'):
+        path = configs.get(name)
+        if path is not None and Path(path).exists():
+            path.write_text(json.dumps(strip_start_area(json.loads(path.read_text())), ensure_ascii=False, indent=2),
+                            encoding='utf-8')
+    drop = {'--parcel-config', '--door-config', '--breakable-config'}
     result, skip = [], False
     for item in command:
         if skip:

@@ -8,9 +8,16 @@ from death_parcel_2022 import DeathParcelState
 
 
 class SharedLootRooms:
-    def __init__(self, fixture, share_death_parcels=False):
+    def __init__(self, fixture, share_death_parcels=False, catalog=None):
         self.fixture = fixture
         self.share_death_parcels = share_death_parcels
+        # Локальный опыт: точки каталога общие для комнаты. Видимость (AOI) остаётся
+        # у каждого участника (LootCatalogState); комната хранит только остаток/съеденное.
+        self.catalog_indexes = frozenset(item.index for item in catalog.items) if catalog else frozenset()
+        if self.catalog_indexes & {item.index for item in fixture.all_loot}:
+            raise ValueError('Индексы каталога пересекаются с fixture')
+        if any(index >= 0x10000000 for index in self.catalog_indexes):
+            raise ValueError('Индексы каталога пересекаются с общим наземным лутом')
         self.rooms = {}
         self.drop_counter = 0
         self.instance_counter = 0
@@ -74,6 +81,12 @@ class SharedLootRooms:
             weapon.ground_allocator = self.allocate_ground
             for index, item in room['items'].items():
                 weapon.loot_registry[index] = item
+                if index in self.catalog_indexes:
+                    # Показ точки каталога решает LootCatalogState; съеденное скрыто навсегда.
+                    if index in room['consumed']:
+                        weapon.picked_loot.add(index)
+                        weapon.available_loot.discard(item.entity_uid)
+                    continue
                 if index in room['consumed'] or index not in room['active']:
                     weapon.available_loot.discard(item.entity_uid)
                 else:
@@ -155,19 +168,30 @@ class SharedLootRooms:
         pickup = command == 0x3b63 and len(payload) == 33
         index = struct.unpack_from('>I', payload)[0] if pickup else None
         item = room['items'].get(index)
+        catalog_pick = index in self.catalog_indexes
+        if item is None and catalog_pick:
+            item = weapon.loot_registry.get(index)
         if item is not None and index in room['consumed']:
             responses = [(0x82b, struct.pack('>Q', item.entity_uid))]
             responses.extend(weapon.reconcile_inventory())
             return responses, dict(action='rejected', reason='shared_loot_consumed', index=index), []
         responses, event = weapon.handle(command, payload)
         updates = []
+        catalog_outputs = []
         if item is not None and event.get('action') == 'pickup' and event.get('quantity', 0) > 0:
-            updates.append((0x82b, struct.pack('>Q', item.entity_uid)))
-            if event['remaining']:
+            if catalog_pick:
                 room['items'][index] = weapon.loot_registry[index]
-                updates.append((0x821, room['items'][index].entity))
+                if not event['remaining']:
+                    room['consumed'].add(index)
+                catalog_outputs = self.catalog_update(room, state, index, item.entity_uid,
+                                                      bool(event['remaining']))
             else:
-                room['consumed'].add(index)
+                updates.append((0x82b, struct.pack('>Q', item.entity_uid)))
+                if event['remaining']:
+                    room['items'][index] = weapon.loot_registry[index]
+                    updates.append((0x821, room['items'][index].entity))
+                else:
+                    room['consumed'].add(index)
         # Выброшенные предметы и замена занятого слота получают общий index/UID.
         for code, body in responses:
             if code != 0x821 or len(body) != 100:
@@ -181,6 +205,31 @@ class SharedLootRooms:
         outputs = [(other, updates) for other in room['members'].values()
                    if other is not state and updates and not other.get('match_finished')
                    and not other.get('transport_retired')]
-        if updates:
+        outputs.extend(catalog_outputs)
+        if updates or catalog_outputs:
             event = dict(event, shared_ground=True, shared_recipients=len(outputs))
         return responses, event, outputs
+
+    def catalog_update(self, room, state, index, entity_uid, remaining):
+        """Применяет подбор точки каталога к остальным; 82b/821 только тем, у кого она видна."""
+        item = room['items'][index]
+        outputs = []
+        for other in room['members'].values():
+            if other is state or other.get('match_finished') or other.get('transport_retired'):
+                continue
+            weapon = other.get('weapon')
+            if weapon is None:
+                continue
+            weapon.loot_registry[index] = item
+            visibility = other.get('loot_catalog')
+            visible = visibility is not None and index in visibility.visible
+            if remaining:
+                if visible:
+                    outputs.append((other, [(0x82b, struct.pack('>Q', entity_uid)), (0x821, item.entity)]))
+                continue
+            weapon.picked_loot.add(index)
+            weapon.available_loot.discard(entity_uid)
+            if visible:
+                visibility.visible.discard(index)
+                outputs.append((other, [(0x82b, struct.pack('>Q', entity_uid))]))
+        return outputs

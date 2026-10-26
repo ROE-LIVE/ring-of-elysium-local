@@ -72,7 +72,11 @@ async def serve(args, ready=None, stop=None):
         if base_cosmetics is None or not pool or len(pool) < 2 or actor_uid == pool[0]:
             return base_cosmetics
         if actor_uid not in account_cosmetics:
-            account_cosmetics[actor_uid] = LocalCosmetics(cosmetic_path, state_file=f'cosmetics-{actor_uid:x}.json')
+            guest = LocalCosmetics(cosmetic_path, state_file=f'cosmetics-{actor_uid:x}.json')
+            # Файл появляется сразу: сервер сцены по нему отличает участника от хоста.
+            if guest.state_path is not None and not guest.state_path.exists():
+                guest.save()
+            account_cosmetics[actor_uid] = guest
         return account_cosmetics[actor_uid]
     join = load_join_experiment(getattr(args, 'join_instance_config', None))
     if join is not None and (not training_enabled or found_delay is None):

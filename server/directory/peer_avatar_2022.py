@@ -28,6 +28,13 @@ class PeerAvatarRooms:
         struct.pack_into('>Q',profile,8,uid)
         struct.pack_into('>3i',profile,1051,*position)
         struct.pack_into('>I',profile,1064,tick)
+        # Опыт: в проверенном шаблоне BE7 по +1240 лежит аватар 5×U32 (2201 — модель мишени),
+        # по +1260 — флаг применения, как в хвосте ENTER_ROOM. Подставляем внешность участника.
+        appearance = member['state'].get('appearance')
+        if (appearance and appearance[0] != bytes(20) and len(profile) > 1260
+                and struct.unpack_from('>5I',profile,1240) == (2201,0,0,0,0)):
+            profile[1240:1260] = appearance[0]
+            profile[1260] = appearance[1]
         packets = [(0x565,bytes(listing)),(0xbe7,bytes(profile))]
         world = member['state'].get('world')
         if self.replicate_equipment and 'weapon' in member['state']:

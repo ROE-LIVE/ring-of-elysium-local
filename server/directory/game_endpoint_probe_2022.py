@@ -407,7 +407,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                         f=self.room_fields[name]
                                         struct.pack_into('>'+f['type'],data,f['offset'],value)
                                     if self.weapon_fixture and self.weapon_fixture.cosmetics_config_file:
-                                        data, appearance = apply_room_cosmetics(data,self.weapon_fixture.cosmetics_config_file)
+                                        data, appearance = apply_room_cosmetics(data,self.weapon_fixture.cosmetics_config_file,uid)
+                                        # Аватар (5×U32) и флаг для профиля BE7 этого участника у других.
+                                        state['appearance'] = (struct.pack('>5I',*appearance['avatar_ids']),
+                                                               int(appearance['avatar_applied']))
                                         self.capture.record('room_cosmetics_applied',synthetic=True,**appearance)
                                     self.send_application(d,remote,state,0xdcf,bytes(data))
                                     state['room_sent']=True

@@ -32,6 +32,18 @@ def target_inventory(actor, weapon_fixture):
     return state
 
 
+def fixed_name(name, size=12):
+    """Имя в поле фиксированной длины (U32 13 + 12 байт UTF-8 + NUL в 821 и BE7):
+    обрезка по границе символа, остаток — NUL, чтобы не сдвигать следующие поля."""
+    data = b''
+    for char in str(name):
+        encoded = char.encode('utf-8')
+        if len(data) + len(encoded) > size:
+            break
+        data += encoded
+    return data.ljust(size, b'\0') + b'\0'
+
+
 class DeathParcelState:
     def __init__(self, shared=False):
         self.containers = []
@@ -40,7 +52,7 @@ class DeathParcelState:
         self.openers = {}
         self.spawns = []
 
-    def transfer(self, owner, position, reserved_indexes=()):
+    def transfer(self, owner, position, reserved_indexes=(), owner_name=None):
         """Сначала построить весь пакет, затем однократно очистить источник."""
         if owner.actor_uid in self.owners:
             return [], {'action': 'death_inventory_duplicate', 'owner': hex(owner.actor_uid)}
@@ -100,6 +112,9 @@ class DeathParcelState:
         struct.pack_into('>3i', body, 29, *position)
         body[62] = 1
         struct.pack_into('>III', body, 63, 0, 0, parcel_id)
+        # Подпись «<имя>'s item»: имя хозяина вместо имени сущности «掉落包裹».
+        if owner_name and struct.unpack_from('>I', body, 12)[0] == 13:
+            body[16:29] = fixed_name(owner_name)
         # Commit после полной проверки/кодирования: источник больше не владеет
         # вещами. История ground pickup остаётся для защиты от повторной выдачи.
         owner.guns.clear()

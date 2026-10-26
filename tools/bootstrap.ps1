@@ -40,6 +40,8 @@
     [switch]$SharedRoom,
     [ValidateRange(0,100)][int]$SharedPvP = 0,
     [string]$AirdropTable = '',
+    [string]$PlayerName = '',
+    [string]$GuestName = '',
     [string]$MapZoneProfile = '',
     [string]$MapZoneIndex = '',
     [int]$MapZoneSeed = -1,
@@ -149,6 +151,8 @@ try {
     if ($SharedRoom) { $arguments += '--shared-room' }
     if ($SharedPvP -gt 0) { $arguments += @('--shared-pvp', "$SharedPvP") }
     if ($AirdropTable) { $arguments += @('--airdrop-table', $AirdropTable) }
+    if ($PlayerName) { $arguments += @('--player-name', $PlayerName) }
+    if ($GuestName) { $arguments += @('--guest-name', $GuestName) }
     if ($MapZoneProfile) { $arguments += @('--map-zone-profile',$MapZoneProfile,'--map-zone-index',$MapZoneIndex) }
     if ($MapZoneSeed -ge 0) { $arguments += @('--map-zone-seed',"$MapZoneSeed") }
     if ($MapAnchor) {

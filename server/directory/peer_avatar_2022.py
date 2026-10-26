@@ -8,6 +8,7 @@ import struct
 from world_probe_2022 import encode_health
 from peer_motion_2022 import encode_peer_trajectory, encode_peer_stop
 from peer_equipment_2022 import encode_peer_equipment
+from death_parcel_2022 import fixed_name
 
 
 class PeerAvatarRooms:
@@ -35,6 +36,10 @@ class PeerAvatarRooms:
                 and struct.unpack_from('>5I',profile,1240) == (2201,0,0,0,0)):
             profile[1240:1260] = appearance[0]
             profile[1260] = appearance[1]
+        # Имя над моделью: поле +16 шаблона (U32 13 + 12 байт + NUL), длина сохраняется.
+        name = member['state'].get('actor_display_name')
+        if name and len(profile) > 33 and struct.unpack_from('>I',profile,16)[0] == 13:
+            profile[20:33] = fixed_name(name)
         packets = [(0x565,bytes(listing)),(0xbe7,bytes(profile))]
         world = member['state'].get('world')
         if self.replicate_equipment and 'weapon' in member['state']:

@@ -166,6 +166,8 @@ class Endpoint(asyncio.DatagramProtocol):
         self.room_born_cells = {}
         # Комната: (room_uid, эпоха) → общий дедлайн выбора (секунды от started).
         self.room_selection_deadlines = {}
+        # Имена аккаунтов, заданные на хосте (--player-names): hex UID → имя.
+        self.player_names = {}
         if shared_death_loot and not shared_peer_health:
             raise ValueError('shared-death-loot требует shared-peer-health')
         if shared_death_loot and actor_fixture:
@@ -413,7 +415,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     uid=struct.unpack_from('>Q',message.decoded,22)[0]
                                     state['actor_uid']=uid
                                     state['room_uid']=room['second_identifier']
-                                    state['actor_display_name']=self.room_display_name
+                                    state['actor_display_name']=self.player_names.get(hex(uid)) or self.room_display_name
                                     updates={'result':0,'m004':1,'m00c':uid,'m014':1,'m01c':room['second_identifier'],
                                              'profile.base.m000':room['first_identifier'],'profile.base.m00c':uid}
                                     for name,value in updates.items():
@@ -1239,7 +1241,8 @@ class Endpoint(asyncio.DatagramProtocol):
         corpses = state.setdefault('death_parcels', DeathParcelState())
         try:
             packets, event = corpses.transfer(weapon, world.position,
-                                               self.death_reserved_indexes(state))
+                                               self.death_reserved_indexes(state),
+                                               state.get('actor_display_name'))
         except ValueError as error:
             self.capture.record('death_parcel_probe', synthetic=True, remote=remote,
                                 action='own_death_inventory_blocked', reason=str(error))
@@ -1807,6 +1810,12 @@ async def main(args):
     environment_fixture=EnvironmentFixture.load(environment_path) if environment_path else None
     peer_avatar_fixture = ActorFixture.load(args.peer_avatar_config) if getattr(args,'peer_avatar_config',None) else None
     transport, endpoint = await loop.create_datagram_endpoint(lambda:Endpoint(capture,args.handshake,args.ident,args.grant,args.auth,args.room_template,rules,args.scene_clock,args.selection_seconds,weapon_fixture,getattr(args,'live_commands',None),world_fixture,actor_fixture,getattr(args,'evacuation_delay_seconds',None),parcel_fixture,result_fixture,loot_catalog,environment_fixture,getattr(args,'reliable_udp',False),getattr(args,'idle_handoff',False),getattr(args,'diagnostic_vehicle_pellet_damage',None),peer_avatar_fixture,getattr(args,'shared_ground_loot',False),getattr(args,'shared_world_clock',False),getattr(args,'shared_peer_health',False),getattr(args,'peer_avatar_trajectories',False),getattr(args,'peer_spectator',False),getattr(args,'shared_evacuation',False),getattr(args,'shared_vehicles',False),getattr(args,'peer_equipment',False),getattr(args,'peer_pellet_damage',None),getattr(args,'shared_death_loot',False),door_fixture=DoorFixture.load(args.door_config) if getattr(args,'door_config',None) else None,breakable_fixture=BreakableFixture.load(args.breakable_config) if getattr(args,'breakable_config',None) else None,spawn_points_file=getattr(args,'spawn_points',None)), local_addr=('127.0.0.1',args.port))
+    if getattr(args, 'player_names', None):
+        names = json.loads(args.player_names.read_text(encoding='utf-8'))
+        if (not isinstance(names, dict) or len(names) > 8
+                or any(not isinstance(v, str) or not v.strip() or len(v) > 32 for v in names.values())):
+            raise ValueError('player-names: до8 имён, 1..32 символа')
+        endpoint.player_names = {k.lower(): v.strip() for k, v in names.items()}
     try:
         await asyncio.wait_for(stop.wait(),args.duration)
     except asyncio.TimeoutError:
@@ -1836,6 +1845,7 @@ if __name__=='__main__':
     p.add_argument('--selection-seconds',type=int,help='Экспериментальная готовность 1/1 и таймер выбора; требует scene-clock')
     p.add_argument('--weapon-config',type=Path,help='Экспериментальная Citori, reload и опциональный pickup12ga; JSON с проверенными fixture')
     p.add_argument('--breakable-config', type=Path, help='Разрушение однокомпонентных сущностей16010; учебное подтверждение')
+    p.add_argument('--player-names', type=Path, help='JSON {hex UID аккаунта: имя} — имена над моделью, на пакете смерти и в газете')
     p.add_argument('--spawn-points', type=Path, help='Опытный каталог клеток рождения карты из room m644 (формат winter_spawn_points)')
     p.add_argument('--door-config', type=Path, help='Обратимые двери16010; учебный радиус/одиночное состояние')
     p.add_argument('--loot-catalog',type=Path,help='Явный каталог поддержанного лута; собственная выдача по радиусу, требует weapon-config')

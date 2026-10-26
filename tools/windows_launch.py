@@ -840,6 +840,7 @@ def write_launch_summary(run, args):
     summary['remote_peer'] = getattr(args, 'remote_peer', None)
     summary['shared_room'] = bool(getattr(args, 'shared_room', False))
     summary['shared_pvp'] = getattr(args, 'shared_pvp', None)
+    summary['player_names_configured'] = bool(getattr(args, 'player_name', None) or getattr(args, 'guest_name', None))
     summary['server_only'] = bool(getattr(args, 'services_only', False))
     summary['lan_udp_tunnel'] = bool(getattr(args, 'lan_tunnel', False) or summary['remote_peer'])
     summary['original_network_transport'] = not summary['lan_udp_tunnel']
@@ -930,6 +931,8 @@ def main():
                         help='Опытная смена объявленной карты (JOIN/room); позиция через teleport')
     parser.add_argument('--shared-room',action='store_true',
                         help='Локальный опыт комнаты на несколько клиентов (через relay_lan): аватары, общий лут/HP/зона/машины/эвакуация')
+    parser.add_argument('--player-name',help='Имя этого игрока (над моделью у других, пакет смерти, газета); до12 байт видно в игре')
+    parser.add_argument('--guest-name',help='Комната: имя игрока второго PC')
     parser.add_argument('--airdrop-table',type=Path,help='Состав аирдропа по таблице «空投» (generate_airdrop_table.py)')
     parser.add_argument('--airdrop-seed',type=int,help='Seed выбора аирдропа; без него — случайный')
     parser.add_argument('--shared-pvp',type=int,choices=range(1,101),metavar='1..100',
@@ -1136,6 +1139,15 @@ def main():
             elif args.target != 'none':command+=['--actor-config',str(configs['target-'+args.target])]
             if args.shared_room:
                 command = shared_room_endpoint(command, configs, getattr(args, 'shared_pvp', None))
+            names = {}
+            if getattr(args, 'player_name', None):
+                names[hex(account['actor_uid'])] = args.player_name
+            if getattr(args, 'guest_name', None) and args.shared_room:
+                # Один второй PC: имя на все гостевые UID (переподключение может взять следующий).
+                names.update({hex(u): args.guest_name for u in shared_room_uids(account)[1:]})
+            if names:
+                (run/'player-names.json').write_text(json.dumps(names, ensure_ascii=False, indent=2), encoding='utf-8')
+                command += ['--player-names', str(run/'player-names.json')]
             peer,log=start('endpoint',command);wait_ready(peer,log,'"kind": "ready"')
             print(f'Сервисы готовы. Режим: {args.mode}; оружие: {args.weapon_profile}; комплект: {args.kit}. Журнал: {run}',flush=True)
             if 'custom-loot-catalog' in configs:

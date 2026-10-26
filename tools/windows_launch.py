@@ -1035,7 +1035,7 @@ def main():
             lobby,log=start('lobby',[args.dotnet,str(dll)]);wait_ready(lobby,log,'Started on port 9001')
             proxy,log=start('proxy',[sys.executable,'-X','utf8','-B','-u',str(ROOT/'tools/run_service.py'),'proxy',
                 '--session-key-file',str(args.key_file),'--local-server-clock','--reply','--team-reply','--match-reply','--novice-state','1',
-                '--training-reply','--match-found-delay','5','--join-instance-config',str(configs['join']),
+                '--training-reply','--match-found-delay','5','--join-instance-config',str(configs['join']),'--join-any-queue',
                 '--local-cosmetics-config',str(configs['cosmetics']),'--actor-uid',str(account['actor_uid']),'--duration',str(args.duration+30),'--output',str(run/'lobby'),'--log-message-codes']
                 +(['--actor-uid-pool',','.join(hex(u) for u in shared_room_uids(account))] if args.shared_room else []))
             wait_ready(proxy,log,'"kind": "ready"')

@@ -67,6 +67,10 @@ async def serve(args, ready=None, stop=None):
     join = load_join_experiment(getattr(args, 'join_instance_config', None))
     if join is not None and (not training_enabled or found_delay is None):
         raise ValueError('JOIN_INSTANCE требует training-reply и match-found-delay')
+    # Локальный опыт: обычная очередь (Solo/Squad с CREATE) тоже получает JOIN после Match Found.
+    join_any_queue = getattr(args, 'join_any_queue', False)
+    if join_any_queue and join is None:
+        raise ValueError('join-any-queue требует join-instance-config')
     if not 0 <= estimate <= 0xffffffff:
         raise ValueError('Оценка ожидания должна быть U32')
     key = args.session_key_file.read_bytes()
@@ -114,7 +118,8 @@ async def serve(args, ready=None, stop=None):
         frames = {'client_to_server': FrameBuffer(), 'server_to_client': FrameBuffer()}
         enabled = {'client_to_server': True, 'server_to_client': True}
         last_counter = None
-        team = {'uid': None, 'body': None, 'searching': False, 'generation': 0, 'novice_sent': False, 'training': False, 'cosmetics_sent': False}
+        team = {'uid': None, 'body': None, 'searching': False, 'generation': 0, 'novice_sent': False, 'training': False, 'cosmetics_sent': False,
+                'found_unjoined': False}
         join_state = {'sent': False, 'replied': False}
         async def notify_found(generation):
             await asyncio.sleep(found_delay)
@@ -129,14 +134,17 @@ async def serve(args, ready=None, stop=None):
                 capture.record('data', response, direction='server_to_client', origin='match_probe', **info)
                 await writer.drain()
             team['searching'] = False
+            eligible = join is not None and (team['training'] or join_any_queue)
+            # Без JOIN клиент висит в Match Found; его STOP должен быть принят.
+            team['found_unjoined'] = not eligible
             totals['match_found_notifications'] += 1
             capture.record('match_found', code='0x6e2d',
                            team_body_present=team['body'] is not None,
                            training_inferred=team['training'],
-                           join_notification_eligible=bool(join is not None and team['training']),
+                           join_notification_eligible=eligible,
                            **info)
             status()
-            if join is not None and team['training'] and not join_state['sent']:
+            if eligible and not join_state['sent']:
                 await asyncio.sleep(join[3])
                 if team['generation'] != generation or writer.is_closing() or not enabled['server_to_client']:
                     return
@@ -300,7 +308,7 @@ async def serve(args, ready=None, stop=None):
                                         reason = 'Команда ещё не создана'
                                     elif len(body) != (20 if code == 0x6e29 else 1):
                                         reason = 'Непроверенная длина запроса подбора'
-                                    elif code == 0x6e2b and not team['searching']:
+                                    elif code == 0x6e2b and not team['searching'] and not team['found_unjoined']:
                                         reason = 'Подбор ещё не запущен'
                                     if reason:
                                         capture.record('match_skipped', code=hex(code), reason=reason,
@@ -331,6 +339,7 @@ async def serve(args, ready=None, stop=None):
                                             join_state.update(sent=False, replied=False)
                                         team['generation'] += 1
                                         team['searching'] = code == 0x6e29
+                                        team['found_unjoined'] = False
                                         if code == 0x6e29 and found_delay is not None:
                                             pumps.append(asyncio.create_task(notify_found(team['generation'])))
                                         totals['match_replies'] += 1
@@ -465,6 +474,7 @@ def main():
     parser.add_argument('--match-estimate', type=int, default=640, help='Оценка ожидания в секундах, U32')
     parser.add_argument('--training-reply', action='store_true', help='Разрешить наблюдённый Solo Training без CREATE; требует match-reply и novice-state=1')
     parser.add_argument('--join-instance-config', type=Path, help='Явные синтетические NOTIFY/RSP для loopback опыта после Training Match Found')
+    parser.add_argument('--join-any-queue', action='store_true', help='Локальный опыт: JOIN и для обычной очереди (Solo/Squad), не только Training')
     parser.add_argument('--novice-state', type=int, choices=(0, 1, 2), help='Тестовый MATCH_NOVICE_SYNC после ENTER_GAME; требует team-reply')
     parser.add_argument('--team-nickname', default='Player', help='Имя участника в экспериментальном ответе')
     parser.add_argument('--port', type=int, default=8001)

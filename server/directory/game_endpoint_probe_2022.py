@@ -482,14 +482,14 @@ class Endpoint(asyncio.DatagramProtocol):
                                         if choice is not None and self.staged_loadout:
                                             loadout = state.setdefault('staged_loadout', dict(STAGED_DEFAULTS[self.room_map]))
                                             self.send_application_batch(d, remote, state, [
-                                                (0x11e0, struct.pack('>II', 0, 2)),
+                                                (0x11e0, self.born_snapshot(state)),
                                                 (0x11e2, struct.pack('>III', 2, 0, 0)),
                                                 *[(0x10d0, struct.pack('>II', ATTR_BY_STAGE[stage], value)) for stage, value in sorted(loadout.items())],
                                             ])
                                         elif choice is not None:
                                             state.setdefault('winter_choice', choice)
                                             self.send_application_batch(d, remote, state, [
-                                                (0x11e0, struct.pack('>II', 0, 2)),
+                                                (0x11e0, self.born_snapshot(state)),
                                                 (0x11e2, struct.pack('>III', 2, 0, 0)),
                                                 (0x10d0, struct.pack('>II', 1, state['winter_choice'])),
                                             ])
@@ -525,6 +525,12 @@ class Endpoint(asyncio.DatagramProtocol):
                                         state['born_point'] = point
                                         if cells is not None:
                                             cells[state['actor_uid']] = tuple(point[:2])
+                                            # Свой снимок со всеми клетками комнаты; остальным, кто ещё
+                                            # выбирает, — обновлённый снимок (чужая клетка другим цветом).
+                                            replies = [(0x11e0, self.born_snapshot(state))
+                                                       if code == 0x11e0 else (code, body) for code, body in replies]
+                                            self.emit_peer_avatars([(other, [(0x11e0, self.born_snapshot(other))])
+                                                                    for other in self.born_room_members(state)], [])
                                     self.send_application_batch(d, remote, state, replies)
                                     self.capture.record('winter_selection', synthetic=True, **event)
                                 if message.command==0x483 and len(message.payload)==1 and 'selection_deadline' in state:
@@ -1653,6 +1659,29 @@ class Endpoint(asyncio.DatagramProtocol):
         if 'weapon' in state:
             state['weapon'].loot_available = state['loot_spawned']
             state['weapon'].available_loot.add(uid)
+
+    def born_cells(self, state):
+        if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
+            return None
+        return self.room_born_cells.get((state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1)))
+
+    def born_snapshot(self, state):
+        """0x11E0: >II count,bornType + N×>QIII actorUID,cellX,cellY,0 (docs/signals KIT01).
+        Своя клетка первой; клетки других участников комнаты — как занятые."""
+        cells = self.born_cells(state) or {}
+        own = state.get('actor_uid')
+        rows = sorted(cells.items(), key=lambda item: item[0] != own)
+        body = struct.pack('>II', len(rows), 2)
+        for account, (x, y) in rows:
+            body += struct.pack('>QIII', account, x, y, 0)
+        return body
+
+    def born_room_members(self, state):
+        """Другие участники той же комнаты, ещё на экране выбора клетки."""
+        return [other for other in self.sessions.values()
+                if other is not state and other.get('room_uid') == state.get('room_uid')
+                and other.get('actor_uid') not in (None, state.get('actor_uid'))
+                and other.get('selection_deadline') is not None and 'weapon' not in other]
 
     def emit_peer_avatars(self,outputs,events):
         for recipient,messages in outputs:

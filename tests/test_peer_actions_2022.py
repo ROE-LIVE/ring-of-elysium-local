@@ -56,6 +56,13 @@ class PeerActionTests(unittest.TestCase):
         self.assertEqual(body[12:20], struct.pack('<Q', avatar))
         self.assertEqual(relay_packets(0x536, struct.pack('>I', 20), avatar, {}), [])
 
+    def test_medical_start_notifies_item_use(self):
+        from weapon_probe_2022 import MEDICAL_SLOTS
+        definition, slot = next(iter(MEDICAL_SLOTS.items()))
+        code, body = relay_body(0x3e80, struct.pack('>BBHBIB', 3, 2, slot, 0, 0, 1), 0xA)
+        self.assertEqual((code, body), (0xbee, struct.pack('>QI', 0xA, definition)))
+        self.assertIsNone(relay_body(0x3e80, struct.pack('>BBHBIB', 1, 2, slot, 0, 0, 1), 0xA))
+
     def test_endpoint_relays_only_to_other_room_members(self):
         sent = []
         a, b, c = dict(room_uid=1, actor_uid=10), dict(room_uid=1, actor_uid=11), dict(room_uid=2, actor_uid=12)

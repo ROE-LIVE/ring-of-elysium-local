@@ -15,14 +15,17 @@
 0x11EC SCENE_BROADCAST (декодер 140c42f80, кодер 140bd8360): I32 n (0..1024) + n байт,
 одинаково в обе стороны — клиент просит разослать блок другим. Пересылаем как есть,
 заменяя U64 UID отправителя (memo['actor']) на UID удалённой модели.
+0x0BEE ACTOR_USE_ITEM_NTF (декодер 140bfec90): U64 entity, U32 — гипотеза: определение
+предмета; шлём другим при начале лечения (3E80 action3, как в medical_probe_2022).
 Запрос 0x11DA: 6f, U32 счётчик, U8 режим, U32 tick, U32, f, U32, U32.
 """
 import math
 import struct
 
 from peer_motion_2022 import packed_direction
+from weapon_probe_2022 import MEDICAL_SLOTS
 
-RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8, 0x11ec: 0x11ec}
+RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8, 0x11ec: 0x11ec, 0x3e80: 0xbee}
 # Только амостры в журнал (формат ещё изучается): CAMERA_ROTATE, EU_ACTION (бинт),
 # LOAD_BULLET (перезарядка), SET_HAND, SHOOT_TARGET_WITH_DIR.
 SAMPLE_ONLY = frozenset((0x11d9, 0x536, 0x49c, 0x49e, 0x11dd))
@@ -91,6 +94,12 @@ def relay_body(command, payload, entity, memo=None):
             for order in '<>':
                 payload = payload.replace(struct.pack(order+'Q', actor), struct.pack(order+'Q', entity))
         return 0x11ec, payload
+    if command == 0x3e80 and len(payload) == 10 and payload[0] == 3:
+        _, container, slot = struct.unpack_from('>BBH', payload)
+        definition = next((d for d, s in MEDICAL_SLOTS.items() if s == slot), None)
+        if container != 2 or definition is None:
+            return None
+        return 0xbee, struct.pack('>QI', entity, definition)
     if command == 0x11d7 and len(payload) == 1:
         return 0x11d8, payload + struct.pack('>Q', entity)
     return None

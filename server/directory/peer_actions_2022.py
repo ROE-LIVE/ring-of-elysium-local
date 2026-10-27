@@ -31,8 +31,13 @@ def turn_body(entity, memo):
     return 0x30, struct.pack('>QHHII', entity, yaw, packed_pitch, 0, 0)
 
 
-def relay_packets(command, payload, entity, memo):
-    """Все SYNC для других участников (возможно пусто)."""
+def relay_packets(command, payload, entity, memo, tick=None):
+    """Все SYNC для других участников (возможно пусто).
+
+    tick — текущий tick сцены (25/с): 0x11D6 с устаревшим tick клиент, видимо, отбрасывает.
+    """
+    if tick is not None:
+        memo['now_tick'] = tick
     if command == 0x2f and len(payload) == 12:
         x, y, _ = struct.unpack('>3f', payload)
         if not (math.isfinite(x) and math.isfinite(y)) or math.hypot(x, y) < 1e-6:
@@ -65,7 +70,7 @@ def relay_body(command, payload, entity, memo=None):
         return 0x30, struct.pack('>QHHII', entity, yaw, pitch, 0, 0)
     if command == 0x11d5 and len(payload) == 12:
         return 0x11d6, struct.pack('>Q', entity) + payload + struct.pack(
-            '>II', memo.get('tick', 0), memo.get('counter', 0))
+            '>II', memo.get('now_tick', memo.get('tick', 0)), memo.get('counter', 0))
     if command == 0x11da and len(payload) == 49:
         counter, mode, tick = struct.unpack_from('>IBI', payload, 24)
         memo.update(tick=tick, counter=counter)

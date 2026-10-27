@@ -40,6 +40,8 @@ class PeerActionTests(unittest.TestCase):
         self.assertEqual([c for c, _ in packets], [0x11d6, 0x30])
         self.assertEqual(struct.unpack_from('>HH', packets[1][1], 8), (32768, round(1.5*32767.5)))
         self.assertEqual(relay_packets(0x2f, bytes(12), uid, memo), [])
+        ik = relay_packets(0x11d5, struct.pack('>3f', 5, 0, 0), uid, memo, tick=1234)[0][1]
+        self.assertEqual(struct.unpack_from('>I', ik, 20)[0], 1234)
 
     def test_endpoint_relays_only_to_other_room_members(self):
         sent = []
@@ -47,7 +49,7 @@ class PeerActionTests(unittest.TestCase):
         fake = SimpleNamespace(
             peer_avatars=SimpleNamespace(members={(1, 10): dict(avatar=0xA, state=a), (1, 11): dict(avatar=0xB, state=b),
                                                   (2, 12): dict(avatar=0xC, state=c)}),
-            emit_peer_avatars=lambda outputs, events: sent.extend(outputs),
+            emit_peer_avatars=lambda outputs, events: sent.extend(outputs), started=0,
             capture=SimpleNamespace(record=lambda *x, **y: None))
         Endpoint.relay_peer_action(fake, a, 0x2f, struct.pack('>3f', 1, 0, 0))
         self.assertEqual(len(sent), 1)

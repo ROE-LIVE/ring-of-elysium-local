@@ -7,6 +7,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 import json
 import math
+import os
 from pathlib import Path
 import struct
 import time
@@ -142,6 +143,14 @@ class EvacuationUIFixture:
             # диагностическим мостом к UI, её исходный смысл неизвестен.
             outcome[112:124] = bytes(12)
             outcome[144:172] = bytes(28)
+            if os.environ.get('ROE_OUTCOME_PROBE') == '1':
+                # Диагностика (jogar-mapa -SondaPlacar): неизвестные поля D62 получают метки
+                # «смещение×100», чтобы по экрану итогов сопоставить подписи (Rank/Kill/Damage/
+                # Victory Points, Exp, Coins). Раскладка декодера140c47a73: 6×U32 (24..44),
+                # 2×U64 (48 урон, 56), 11×U32 (64..104).
+                for offset in (32, 36, 44, 64, 68, 72, 76, 80, 96, 100, 104):
+                    struct.pack_into('>I', outcome, offset, offset*100)
+                struct.pack_into('>Q', outcome, 56, 5600)
             terminal = terminal[:8]+struct.pack('>I', len(encoded)+1)+encoded+b'\0'+terminal[16:]
             outcome = outcome[:16]+struct.pack('>I', len(encoded)+1)+encoded+b'\0'+outcome[24:]
         return [(0x106e, bytes(terminal)), (0xd62, bytes(outcome))]

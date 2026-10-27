@@ -992,7 +992,7 @@ class Endpoint(asyncio.DatagramProtocol):
             samples[command] = samples.get(command, 0) + 1
             self.capture.record('peer_action_sample', synthetic=True, request=hex(command),
                                 payload_hex=payload.hex(), account_uid=hex(state['actor_uid']))
-        relay = relay_body(command, payload, member['avatar'])
+        relay = relay_body(command, payload, member['avatar'], state.setdefault('peer_action_memo', {}))
         if relay is None:
             return
         outputs = [(other['state'], [relay]) for other_key, other in self.peer_avatars.members.items()

@@ -76,7 +76,7 @@ class MatchRoomTests(unittest.TestCase):
         endpoint = Endpoint.__new__(Endpoint)
         endpoint.records = []
         endpoint.capture = SimpleNamespace(record=lambda kind, **kw: endpoint.records.append((kind, kw)))
-        selecting = dict(actor_uid=20, room_uid=1)
+        selecting = dict(actor_uid=20, room_uid=1, peer_avatar_anchor=(None, None, time.monotonic()))
         endpoint.peer_avatars = SimpleNamespace(members={(1, 20): dict(state=selecting, avatar=520)})
         # Мира ещё нет (выбор точки): вход общий.
         self.assertEqual(endpoint.match_room(10, 1), 1)
@@ -88,6 +88,28 @@ class MatchRoomTests(unittest.TestCase):
         self.assertEqual(endpoint.records[0][0], 'match_room_separated')
         selecting['match_finished'] = True
         self.assertEqual(endpoint.match_room(10, 1), 1)
+        # Ушёл в лобби (handoff) или молчит >5с — матч не «идёт», новый вход общий.
+        selecting.pop('match_finished')
+        selecting['handoff_at'] = time.monotonic()
+        self.assertEqual(endpoint.match_room(10, 1), 1)
+        selecting.pop('handoff_at')
+        selecting['peer_avatar_anchor'] = (None, None, time.monotonic()-6)
+        self.assertEqual(endpoint.match_room(10, 1), 1)
+
+
+class BornSnapshotTests(unittest.TestCase):
+    def test_snapshot_hides_cells_of_absent_players(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        endpoint.shared_loot = SimpleNamespace(epochs={})
+        now = time.monotonic()
+        me = dict(actor_uid=10, room_uid=1, peer_avatar_anchor=(None, None, now))
+        here = dict(actor_uid=20, room_uid=1, peer_avatar_anchor=(None, None, now))
+        gone = dict(actor_uid=30, room_uid=1, peer_avatar_anchor=(None, None, now), handoff_at=now)
+        endpoint.sessions = {1: me, 2: here, 3: gone}
+        endpoint.room_born_cells = {(1, 1): {10: (1, 1), 20: (2, 2), 30: (3, 3), 40: (4, 4)}}
+        body = endpoint.born_snapshot(me)
+        self.assertEqual(struct.unpack_from('>II', body), (2, 2))
+        self.assertEqual([struct.unpack_from('>Q', body, 8+20*i)[0] for i in range(2)], [10, 20])
 
 
 class BornPointTests(unittest.TestCase):
@@ -98,7 +120,10 @@ class BornPointTests(unittest.TestCase):
         endpoint.spawn_points = ((1, 1, 100, 100, 10), (2, 2, 200, 200, 20))
         endpoint.shared_loot = SimpleNamespace(epochs={})
         endpoint.room_born_cells = {}
-        a, b = dict(actor_uid=10, room_uid=1), dict(actor_uid=20, room_uid=1)
+        now = time.monotonic()
+        a = dict(actor_uid=10, room_uid=1, peer_avatar_anchor=(None, None, now))
+        b = dict(actor_uid=20, room_uid=1, peer_avatar_anchor=(None, None, now))
+        endpoint.sessions = {1: a, 2: b}
         first = endpoint.ensure_born_point(a)
         second = endpoint.ensure_born_point(b)
         self.assertNotEqual(first[:2], second[:2])

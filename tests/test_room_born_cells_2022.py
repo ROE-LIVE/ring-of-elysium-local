@@ -36,6 +36,8 @@ class RoomBornCellTests(unittest.TestCase):
         fake = SimpleNamespace(shared_loot=SimpleNamespace(epochs={1: 2}),
                                room_born_cells={(1, 2): {9: (11, 10), 7: (10, 10)}})
         fake.born_cells = lambda state: Endpoint.born_cells(fake, state)
+        # Ambos presentes na sala (live_room_accounts filtra células de quem saiu).
+        fake.live_room_accounts = lambda state: {7, 9}
         body = Endpoint.born_snapshot(fake, dict(room_uid=1, actor_uid=7))
         self.assertEqual(struct.unpack_from('>II', body), (2, 2))
         self.assertEqual(struct.unpack_from('>QIII', body, 8), (7, 10, 10, 0))
@@ -43,6 +45,7 @@ class RoomBornCellTests(unittest.TestCase):
         self.assertEqual(len(body), 8 + 20 * 2)
         solo = SimpleNamespace(shared_loot=None, room_born_cells={})
         solo.born_cells = lambda state: Endpoint.born_cells(solo, state)
+        solo.live_room_accounts = lambda state: {7}
         self.assertEqual(Endpoint.born_snapshot(solo, dict(room_uid=1, actor_uid=7)), struct.pack('>II', 0, 2))
 
     def test_room_selection_countdown_is_shared(self):

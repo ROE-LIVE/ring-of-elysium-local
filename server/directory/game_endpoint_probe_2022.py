@@ -423,6 +423,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     uid=struct.unpack_from('>Q',message.decoded,22)[0]
                                     state['actor_uid']=uid
                                     state['room_uid']=self.match_room(uid,room['second_identifier'])
+                                    state.pop('handoff_at', None)
                                     state['actor_display_name']=self.load_player_names().get(hex(uid)) or self.room_display_name
                                     updates={'result':0,'m004':1,'m00c':uid,'m014':1,'m01c':room['second_identifier'],
                                              'profile.base.m000':room['first_identifier'],'profile.base.m00c':uid}
@@ -513,6 +514,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.send_application(d,remote,state,0x47a,struct.pack('>I',1))
                                         self.send_application(d,remote,state,0x482,struct.pack('>I',seconds))
                                         self.capture.record('selection_started',synthetic=True,seconds=seconds,remote=remote)
+                                        # Новый матч: своя клетка прошлого матча той же эпохи не переносится.
+                                        old_cells = self.born_cells(state)
+                                        if old_cells:
+                                            old_cells.pop(state.get('actor_uid'), None)
                                         choice = default_choice(self.weapon_fixture)
                                         if choice is not None and self.staged_loadout:
                                             loadout = state.setdefault('staged_loadout', dict(STAGED_DEFAULTS[self.room_map]))
@@ -551,8 +556,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                     if self.shared_loot and 'room_uid' in state:
                                         key = (state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1))
                                         cells = self.room_born_cells.setdefault(key, {})
+                                    live = self.live_room_accounts(state)
                                     taken = frozenset(cell for account, cell in (cells or {}).items()
-                                                      if account != state['actor_uid'])
+                                                      if account != state['actor_uid'] and account in live)
                                     point, replies, event = choose_cell(message.payload, state['actor_uid'],
                                         time.monotonic()-self.started, state.get('selection_deadline'),
                                         'weapon' in state, self.spawn_points, taken)
@@ -1885,7 +1891,9 @@ class Endpoint(asyncio.DatagramProtocol):
         if getattr(self, 'shared_loot', None) and 'room_uid' in state:
             key = (state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1))
             cells = self.room_born_cells.setdefault(key, {})
-        taken = {cell for account, cell in (cells or {}).items() if account != state.get('actor_uid')}
+        live = self.live_room_accounts(state)
+        taken = {cell for account, cell in (cells or {}).items()
+                 if account != state.get('actor_uid') and account in live}
         free = [p for p in self.spawn_points if tuple(p[:2]) not in taken] or list(self.spawn_points)
         point = random.choice(free)
         state['born_point'] = point
@@ -1901,11 +1909,35 @@ class Endpoint(asyncio.DatagramProtocol):
         Своя клетка первой; клетки других участников комнаты — как занятые."""
         cells = self.born_cells(state) or {}
         own = state.get('actor_uid')
-        rows = sorted(cells.items(), key=lambda item: item[0] != own)
+        live = self.live_room_accounts(state)
+        # Клетки ушедших/прошлого матча (комната не опустела — эпоха та же) не показываются.
+        rows = sorted(((account, cell) for account, cell in cells.items() if account in live),
+                      key=lambda item: item[0] != own)
         body = struct.pack('>II', len(rows), 2)
         for account, (x, y) in rows:
             body += struct.pack('>QIII', account, x, y, 0)
         return body
+
+    @staticmethod
+    def active_session(state, now=None):
+        """Сессия в комнате сейчас: пакет не старше5с, не завершена, не снята и не ушла из сцены.
+
+        handoff_at — клиент закрыл TGCP (выход в лобби, 0x105A/0x2DD): соединение ещё шлёт
+        keepalive, но в матче его уже нет (сессия27/10 21:51:34).
+        """
+        anchor = state.get('peer_avatar_anchor')
+        now = time.monotonic() if now is None else now
+        return bool(anchor and now-anchor[2] <= 5 and not state.get('match_finished')
+                    and not state.get('transport_retired') and not state.get('handoff_at'))
+
+    def live_room_accounts(self, state):
+        """Аккаунты, сейчас находящиеся в той же внутренней комнате (включая свой)."""
+        accounts = {state.get('actor_uid')}
+        for other in getattr(self, 'sessions', {}).values():
+            if (other is not state and other.get('room_uid') == state.get('room_uid')
+                    and other.get('actor_uid') is not None and self.active_session(other)):
+                accounts.add(other['actor_uid'])
+        return accounts
 
     def born_room_members(self, state):
         """Другие участники той же комнаты, ещё на экране выбора клетки."""
@@ -1941,10 +1973,11 @@ class Endpoint(asyncio.DatagramProtocol):
         avatars = getattr(self, 'peer_avatars', None)
         if avatars is None:
             return requested
+        # Сессия27/10 21:51: ушедший в лобби, но ещё не истёкший участник считался «идущим
+        # матчем», и двое попали в разные комнаты. Нужна активная связь (пакет ≤5с).
         running = any(room == requested and other != account
                       and member['state'].get('world') is not None
-                      and not member['state'].get('match_finished')
-                      and not member['state'].get('transport_retired')
+                      and self.active_session(member['state'])
                       for (room, other), member in avatars.members.items())
         if not running:
             return requested

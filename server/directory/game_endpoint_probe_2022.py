@@ -5,6 +5,7 @@ import json
 from itertools import groupby
 import math
 import os
+import random
 from pathlib import Path
 import signal
 import struct
@@ -35,7 +36,7 @@ from peer_lifecycle_2022 import expired_members
 from peer_spectator_2022 import PeerSpectators
 from shared_evacuation_2022 import SharedEvacuationRooms
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
-from kill_broadcast_2022 import encode_kill_broadcast
+from kill_broadcast_2022 import encode_kill_broadcast, KILL_WAY_PLAYER, KILL_WAY_SELF
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -583,7 +584,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     for response in responses:
                                         command, payload = response[:2]
                                         if (command == 0x27 and len(payload) == 40 and len(rule) >= 3 and rule[2]
-                                                and len(response) >= 3 and 0 in response[2] and state.get('born_point')
+                                                and len(response) >= 3 and 0 in response[2] and self.ensure_born_point(state)
                                                 and not (len(response) == 5 and response[4])):
                                             patched = bytearray(payload)
                                             struct.pack_into('>iii', patched, 8, *state['born_point'][2:])
@@ -1823,6 +1824,30 @@ class Endpoint(asyncio.DatagramProtocol):
             return None
         return self.room_born_cells.get((state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1)))
 
+    def ensure_born_point(self, state):
+        """Клетка рождения; не выбравший получает случайную свободную клетку каталога.
+
+        Сессии27/10: без выбора все рождались в одной точке шаблона сцены, вместе.
+        Собственное правило (исходное распределение не найдено): случайная клетка из
+        spawn_points, не занятая другим участником той же комнаты/эпохи.
+        """
+        if state.get('born_point') or not getattr(self, 'spawn_points', None):
+            return state.get('born_point')
+        cells = None
+        if getattr(self, 'shared_loot', None) and 'room_uid' in state:
+            key = (state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1))
+            cells = self.room_born_cells.setdefault(key, {})
+        taken = {cell for account, cell in (cells or {}).items() if account != state.get('actor_uid')}
+        free = [p for p in self.spawn_points if tuple(p[:2]) not in taken] or list(self.spawn_points)
+        point = random.choice(free)
+        state['born_point'] = point
+        if cells is not None:
+            cells[state['actor_uid']] = tuple(point[:2])
+        self.capture.record('winter_selection', synthetic=True, action='born_position_random',
+                            selected_cell=list(point[:2]), position=list(point[2:]),
+                            reason='no_selection', original_rule_verified=False)
+        return point
+
     def born_snapshot(self, state):
         """0x11E0: >II count,bornType + N×>QIII actorUID,cellX,cellY,0 (docs/signals KIT01).
         Своя клетка первой; клетки других участников комнаты — как занятые."""
@@ -1897,14 +1922,16 @@ class Endpoint(asyncio.DatagramProtocol):
         for member in members.values():
             recipient = member['state']
             body = encode_kill_broadcast(rid(recipient, victim), name(victim), alive,
-                                         rid(recipient, killer), name(killer), weapon_id, head)
+                                         rid(recipient, killer), name(killer), weapon_id, head,
+                                         KILL_WAY_PLAYER if killer else KILL_WAY_SELF)
             outputs.append((recipient, [(0x480, body)]))
         self.emit_peer_avatars(outputs, [])
         self.capture.record('kill_broadcast', synthetic=True, room_uid=hex(room_uid),
                             victim=hex(victim['actor_uid']),
                             killer=hex(killer['actor_uid']) if killer else None,
                             weapon_id=weapon_id, hit_head=head, alive=alive,
-                            recipients=len(outputs), reason_verified=False)
+                            reason=KILL_WAY_PLAYER if killer else KILL_WAY_SELF,
+                            recipients=len(outputs), reason_verified=True)
 
     def emit_peer_avatars(self,outputs,events):
         for recipient,messages in outputs:

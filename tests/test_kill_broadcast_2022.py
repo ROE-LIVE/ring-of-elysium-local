@@ -45,7 +45,8 @@ class KillBroadcastTests(unittest.TestCase):
         self.assertEqual((views[10]['killer_rid'], views[10]['actor_rid']), (10, 520))
         self.assertEqual((views[20]['killer_rid'], views[20]['actor_rid']), (510, 20))
         self.assertEqual((views[30]['killer_rid'], views[30]['actor_rid']), (510, 520))
-        self.assertTrue(all(v['alive'] == 2 and v['killer_name'] == 'A' and v['hit_head'] for v in views.values()))
+        self.assertTrue(all(v['alive'] == 2 and v['killer_name'] == 'A' and v['hit_head'] and v['reason'] == 1
+                            for v in views.values()))
 
     def test_death_without_recent_shooter_has_no_killer(self):
         endpoint, (a, b, c) = self.endpoint_room()
@@ -53,7 +54,8 @@ class KillBroadcastTests(unittest.TestCase):
         c['last_peer_hit'] = (a, 10111, False, time.monotonic()-11)
         endpoint.broadcast_kill(c)
         view = decode_kill_broadcast(endpoint.sent[0][1][0][1])
-        self.assertEqual((view['killer_rid'], view['killer_name'], view['actor_name'], view['alive']), (0, '', 'C', 2))
+        self.assertEqual((view['killer_rid'], view['killer_name'], view['actor_name'], view['alive'], view['reason']),
+                         (0, '', 'C', 2, 3))
 
 
 class MatchRoomTests(unittest.TestCase):
@@ -73,6 +75,24 @@ class MatchRoomTests(unittest.TestCase):
         self.assertEqual(endpoint.records[0][0], 'match_room_separated')
         selecting['match_finished'] = True
         self.assertEqual(endpoint.match_room(10, 1), 1)
+
+
+class BornPointTests(unittest.TestCase):
+    def test_unselected_players_get_distinct_random_cells(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        endpoint.records = []
+        endpoint.capture = SimpleNamespace(record=lambda kind, **kw: endpoint.records.append((kind, kw)))
+        endpoint.spawn_points = ((1, 1, 100, 100, 10), (2, 2, 200, 200, 20))
+        endpoint.shared_loot = SimpleNamespace(epochs={})
+        endpoint.room_born_cells = {}
+        a, b = dict(actor_uid=10, room_uid=1), dict(actor_uid=20, room_uid=1)
+        first = endpoint.ensure_born_point(a)
+        second = endpoint.ensure_born_point(b)
+        self.assertNotEqual(first[:2], second[:2])
+        self.assertIs(endpoint.ensure_born_point(a), first)
+        self.assertEqual(endpoint.records[0][1]['action'], 'born_position_random')
+        chosen = dict(actor_uid=30, room_uid=1, born_point=(9, 9, 1, 2, 3))
+        self.assertEqual(endpoint.ensure_born_point(chosen), (9, 9, 1, 2, 3))
 
 
 if __name__ == '__main__':

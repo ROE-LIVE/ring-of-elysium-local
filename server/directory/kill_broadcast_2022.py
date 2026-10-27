@@ -8,10 +8,15 @@ SWIG getters ROOM_KILL_BROADCAST_*_get 141442590..141447080 (порядок gett
   U8 bHit_down, bKill_team, bDown_team, bCop_team, bHit_head (+0x1AC),
   U32 iExtra_exp, iKiller_rank_head_icon_id, iDowner_rank_head_icon_id, iActor_rank_head_icon_id.
 STR = U32 длина (1..128, с завершающим NUL) + байты; пустая строка — один NUL.
-Значения iReason клиента не прочитаны (Lua панели GlobalKillHintPanel скомпилирован в другом
-месте); используем 0 — гипотеза, проверяется в игре.
+iReason выбирает подпись STR_KILL_WAY_<iReason> (GAMESTRINGTABLE_EU_INGAME, TableBin00000028d,
+English): с убийцей «eliminated» — 1, 2, 4, 5, 22, 23, 24; без убийцы « is eliminated» — 3, 6..11,
+13..16, 19, 20, 27, 101..105, 122. Игра27/10: iReason0 показал сырой ключ STR_KILL_WAY_0 и не
+вывел убийцу. Берём1 (убийство игроком) и3 (смерть без убийцы); различие зона/падение не известно.
 """
 import struct
+
+KILL_WAY_PLAYER = 1
+KILL_WAY_SELF = 3
 
 
 def encode_string(text):
@@ -22,8 +27,10 @@ def encode_string(text):
 
 
 def encode_kill_broadcast(actor_rid, actor_name, alive, killer_rid=0, killer_name='',
-                          weapon_id=0, hit_head=False, reason=0):
+                          weapon_id=0, hit_head=False, reason=None):
     """Тело0x0480. Без убийцы (зона/падение) — killer_rid0 и пустое имя."""
+    if reason is None:
+        reason = KILL_WAY_PLAYER if killer_rid else KILL_WAY_SELF
     if not 0 <= alive < 2**31 or not 0 <= weapon_id < 2**32:
         raise ValueError('Неверные поля ленты убийств')
     return (struct.pack('>Q', killer_rid) + encode_string(killer_name)

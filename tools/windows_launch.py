@@ -351,8 +351,15 @@ def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=
     anchor переносит стартовый участок сценария на другую карту. Не проверено.
     """
     if map_id == 16010:
-        if anchor is not None or spawn_cells is not None:
-            raise ValueError('MapAnchor/MapSpawnCells только вместе с MapId другой карты')
+        if anchor is not None:
+            raise ValueError('MapAnchor только вместе с MapId другой карты')
+        if spawn_cells is not None:
+            # Свой каталог клеток16010 (например, высоты по рельефу PXBIN вместо оценок team_l).
+            from winter_selection_2022 import load_spawn_points
+            load_spawn_points(Path(spawn_cells), 16010)
+            target = run/'spawn-cells.json'
+            target.write_bytes(Path(spawn_cells).read_bytes())
+            configs['spawn-cells'] = target
         return
     if map_id not in EXPERIMENTAL_MAPS:
         raise ValueError('MapId: 16010 или опытная карта из EuMapConfig')

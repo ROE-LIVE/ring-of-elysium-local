@@ -274,7 +274,12 @@ class PeerAvatarRooms:
         events = [dict(action='peer_avatar_move',account_uid=hex(key[1]),avatar_uid=hex(member['avatar']),
                        position=member['position'],recipients=len(outputs),pose_replicated=True,
                        server_status=member.get('pose',0),transitions=transitions,unknown_pose_events=unknown,
-                       trajectory_replicated=trajectory,trajectory_fallback=trajectory_error)] if outputs or unknown else []
+                       trajectory_replicated=trajectory,trajectory_fallback=trajectory_error,
+                       # Диагностика прицеливания: режим и направление C2S2a.
+                       movement_flags=None if movement is None else movement['bytes'][0],
+                       movement_speed=None if movement is None else movement['word_1'],
+                       movement_floats=None if movement is None else [round(v,4) for v in movement['floats']])
+                  ] if outputs or unknown else []
         return outputs,events
 
     def detach(self, state, reason):

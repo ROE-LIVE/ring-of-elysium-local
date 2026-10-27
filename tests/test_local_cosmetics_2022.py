@@ -73,7 +73,7 @@ class CosmeticsTests(unittest.TestCase):
             state.write_text(json.dumps(dict(avatar=[407,0,0,0,0],avatar_applied=True)))
             config.write_text(json.dumps(dict(owned_gun_skin_ids=[],owned_character_ids=[407],state_file=str(state))))
             codes=[code for code,body in LocalCosmetics(config).initial(42)]
-            prime=(0x73b3,struct.pack('>4IB',0,1,0,0,0))
+            prime=(0x73a3,bytes(4))
             packets=LocalCosmetics(config).initial(42)
             self.assertIn(prime,packets)
             self.assertLess(packets.index(prime),codes.index(0x73a1))

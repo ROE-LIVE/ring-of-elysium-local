@@ -31,14 +31,13 @@ class PeerActionTests(unittest.TestCase):
         self.assertIsNone(relay_body(0x11d5, bytes(11), uid))
         self.assertIsNone(relay_body(0x2f, struct.pack('>3f', float('nan'), 0, 0), uid))
 
-    def test_aim_pitch_from_ik_request_updates_turn(self):
+    def test_ik_request_is_not_used_as_turn_pitch(self):
+        # 0x11D5 é desvio de animação (parâmetro 0x37), não ângulo vertical: só vira 0x11D6.
         uid, memo = 0xA, {}
-        self.assertEqual([c for c, _ in relay_packets(0x11d5, struct.pack('>3f', 0, 0, 0), uid, memo)], [0x11d6])
-        (code, body), = relay_packets(0x2f, struct.pack('>3f', 1, 0, 0), uid, memo)
-        self.assertEqual(struct.unpack_from('>HH', body, 8), (32768, 32768))
-        packets = relay_packets(0x11d5, struct.pack('>3f', 30, 0, 0), uid, memo)
-        self.assertEqual([c for c, _ in packets], [0x11d6, 0x30])
-        self.assertEqual(struct.unpack_from('>HH', packets[1][1], 8), (32768, round(1.5*32767.5)))
+        relay_packets(0x2f, struct.pack('>3f', 1, 0, 0), uid, memo)
+        self.assertEqual([c for c, _ in relay_packets(0x11d5, struct.pack('>3f', 30, 0, 0), uid, memo)], [0x11d6])
+        (code, body), = relay_packets(0x2f, struct.pack('>3f', 0.8, 0, 0.6), uid, memo)
+        self.assertEqual(struct.unpack_from('>HH', body, 8), (32768, round(1.6*32767.5)))
         self.assertEqual(relay_packets(0x2f, bytes(12), uid, memo), [])
         ik = relay_packets(0x11d5, struct.pack('>3f', 5, 0, 0), uid, memo, tick=1234)[0][1]
         self.assertEqual(struct.unpack_from('>I', ik, 20)[0], 1234)

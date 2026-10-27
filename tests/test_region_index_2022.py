@@ -59,11 +59,14 @@ class RegionIndexTests(unittest.TestCase):
     def test_corrupt_rows_rejected_before_use(self):
         valid=struct.pack('<HHH',1,24,8190)
         self.assertEqual(FastRegionIndex.from_bytes(valid,1).rows,(valid[2:],))
+        # 52c0650: пределы строк/run end расширены до16384 для KillZone (10240 строк).
+        wide=struct.pack('<HHH',1,24,16383)
+        self.assertEqual(FastRegionIndex.from_bytes(wide,1).rows,(wide[2:],))
         for bad in (valid[:-1],valid+b'\0',struct.pack('<H',0),
-                    struct.pack('<HHH',1,65,8190),struct.pack('<HHH',1,24,8192),
+                    struct.pack('<HHH',1,65,8190),struct.pack('<HHH',1,24,16384),
                     struct.pack('<H4H',2,24,100,14,100)):
             with self.assertRaises(ValueError):FastRegionIndex.from_bytes(bad,1)
-        for count in (True,0,8193):
+        for count in (True,0,16385):
             with self.assertRaises(ValueError):FastRegionIndex.from_bytes(valid,count)
 
     def test_closed_zone_hurts_exact_region_at_boundary(self):

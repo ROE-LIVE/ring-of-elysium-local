@@ -43,7 +43,7 @@ from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
 from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
-from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, relay_body
+from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, relay_packets
 from environment_probe_2022 import EnvironmentFixture
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
@@ -992,19 +992,20 @@ class Endpoint(asyncio.DatagramProtocol):
             samples[command] = samples.get(command, 0) + 1
             self.capture.record('peer_action_sample', synthetic=True, request=hex(command),
                                 payload_hex=payload.hex(), account_uid=hex(state['actor_uid']))
-        relay = relay_body(command, payload, member['avatar'], state.setdefault('peer_action_memo', {}))
-        if relay is None:
+        relays = relay_packets(command, payload, member['avatar'], state.setdefault('peer_action_memo', {}))
+        if not relays:
             return
-        outputs = [(other['state'], [relay]) for other_key, other in self.peer_avatars.members.items()
+        outputs = [(other['state'], relays) for other_key, other in self.peer_avatars.members.items()
                    if other_key[0] == key[0] and other_key != key]
         if outputs:
             self.emit_peer_avatars(outputs, [])
             counts = state.setdefault('peer_action_relays', {})
-            counts[hex(relay[0])] = counts.get(hex(relay[0]), 0) + 1
-            if counts[hex(relay[0])] in (1, 100, 1000):
-                self.capture.record('peer_action_relay', synthetic=True, request=hex(command), sync=hex(relay[0]),
-                                    account_uid=hex(state['actor_uid']), recipients=len(outputs),
-                                    count=counts[hex(relay[0])], format_verified=False)
+            for relay in relays:
+                counts[hex(relay[0])] = counts.get(hex(relay[0]), 0) + 1
+                if counts[hex(relay[0])] in (1, 100, 1000):
+                    self.capture.record('peer_action_relay', synthetic=True, request=hex(command), sync=hex(relay[0]),
+                                        account_uid=hex(state['actor_uid']), recipients=len(outputs),
+                                        count=counts[hex(relay[0])], format_verified=False)
 
     def broadcast_shared_geton(self, state, packets):
         """Собственный GETON остаётся own; другим адресуется remote Unit UID."""

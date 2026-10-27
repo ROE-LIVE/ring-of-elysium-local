@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server/directory'))
-from peer_actions_2022 import relay_body
+from peer_actions_2022 import relay_body, relay_packets
 from game_endpoint_probe_2022 import Endpoint
 
 
@@ -30,6 +30,16 @@ class PeerActionTests(unittest.TestCase):
         self.assertEqual((code, body), (0x11d8, struct.pack('>BQ', 5, uid)))
         self.assertIsNone(relay_body(0x11d5, bytes(11), uid))
         self.assertIsNone(relay_body(0x2f, struct.pack('>3f', float('nan'), 0, 0), uid))
+
+    def test_aim_pitch_from_ik_request_updates_turn(self):
+        uid, memo = 0xA, {}
+        self.assertEqual([c for c, _ in relay_packets(0x11d5, struct.pack('>3f', 0, 0, 0), uid, memo)], [0x11d6])
+        (code, body), = relay_packets(0x2f, struct.pack('>3f', 1, 0, 0), uid, memo)
+        self.assertEqual(struct.unpack_from('>HH', body, 8), (32768, 32768))
+        packets = relay_packets(0x11d5, struct.pack('>3f', 30, 0, 0), uid, memo)
+        self.assertEqual([c for c, _ in packets], [0x11d6, 0x30])
+        self.assertEqual(struct.unpack_from('>HH', packets[1][1], 8), (32768, round(1.5*32767.5)))
+        self.assertEqual(relay_packets(0x2f, bytes(12), uid, memo), [])
 
     def test_endpoint_relays_only_to_other_room_members(self):
         sent = []

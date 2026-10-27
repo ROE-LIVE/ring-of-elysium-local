@@ -9,13 +9,46 @@
   0x11D8 MOTION_SYNC:     U8, U64 entity
 Запрос 0x2F (замер в игре): 3 float — единичный вектор взгляда (x, y, z); его
 упаковка такая же, как направление движения SC25 (packed_direction).
+Запрос 0x11D5 (замер): первый float — наклон прицела в градусах (до ~17,5 вверх),
+остальные нули; в 0x2F z всегда 0. Поэтому pitch для 0x30 берём из 0x11D5,
+а при каждом 0x11D5 повторяем0x30 с последним направлением (гипотеза, проверяется в игре).
 Запрос 0x11DA: 6f, U32 счётчик, U8 режим, U32 tick, U32, f, U32, U32.
 """
+import math
 import struct
 
 from peer_motion_2022 import packed_direction
 
 RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8}
+
+
+def turn_body(entity, memo):
+    """0x30 из последнего направления 0x2F и наклона прицела 0x11D5."""
+    x, y = memo.get('direction', (1.0, 0.0))
+    pitch = math.radians(max(-89.0, min(89.0, memo.get('pitch', 0.0))))
+    horizontal = math.cos(pitch)
+    yaw, packed_pitch = packed_direction((x*horizontal, y*horizontal, math.sin(pitch)))
+    return 0x30, struct.pack('>QHHII', entity, yaw, packed_pitch, 0, 0)
+
+
+def relay_packets(command, payload, entity, memo):
+    """Все SYNC для других участников (возможно пусто)."""
+    if command == 0x2f and len(payload) == 12:
+        x, y, _ = struct.unpack('>3f', payload)
+        if not (math.isfinite(x) and math.isfinite(y)) or math.hypot(x, y) < 1e-6:
+            return []
+        memo['direction'] = (x, y)
+        return [turn_body(entity, memo)]
+    if command == 0x11d5 and len(payload) == 12:
+        pitch = struct.unpack_from('>f', payload)[0]
+        packets = [relay_body(command, payload, entity, memo)]
+        if math.isfinite(pitch):
+            memo['pitch'] = pitch
+            if 'direction' in memo:
+                packets.append(turn_body(entity, memo))
+        return packets
+    relay = relay_body(command, payload, entity, memo)
+    return [] if relay is None else [relay]
 
 
 def relay_body(command, payload, entity, memo=None):

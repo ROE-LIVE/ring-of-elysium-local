@@ -87,7 +87,9 @@ def relay_body(command, payload, entity, memo=None):
             return None
         actor = memo.get('actor')
         if actor is not None:
-            payload = payload.replace(struct.pack('>Q', actor), struct.pack('>Q', entity))
+            # Замер: внутри блока UID записан little-endian (тип3 = SET_HAND, тип4 = после бинта).
+            for order in '<>':
+                payload = payload.replace(struct.pack(order+'Q', actor), struct.pack(order+'Q', entity))
         return 0x11ec, payload
     if command == 0x11d7 and len(payload) == 1:
         return 0x11d8, payload + struct.pack('>Q', entity)

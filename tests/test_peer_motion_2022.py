@@ -62,7 +62,7 @@ class PeerMotionTests(unittest.TestCase):
                 encode_peer_trajectory(1,movement,1,105)
 
     def test_observed_cardinal_flags_survive_without_facing_rotation(self):
-        for flags in (*range(9),33):
+        for flags in (*range(9),33,16,19,21,23):
             movement=self.movement();movement['bytes']=(flags,1,0)
             self.assertEqual(decode_bc_move(encode_peer_trajectory(1,movement,1,105))['tail'],
                              (flags,32768,32768,1))

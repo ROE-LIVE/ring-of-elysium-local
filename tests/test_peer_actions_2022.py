@@ -50,6 +50,10 @@ class PeerActionTests(unittest.TestCase):
         self.assertEqual(code, 0x11ec)
         self.assertEqual(body, struct.pack('>iIQ', len(blob), 7, avatar) + bytes(8))
         self.assertIsNone(relay_body(0x11ec, struct.pack('>i', 5) + bytes(4), avatar, {}))
+        # Amostra real (SET_HAND): UID little-endian dentro do bloco.
+        real = bytes.fromhex('000000140300000004000000') + struct.pack('<QI', actor, 1)
+        code, body = relay_body(0x11ec, real, avatar, {'actor': actor})
+        self.assertEqual(body[12:20], struct.pack('<Q', avatar))
         self.assertEqual(relay_packets(0x536, struct.pack('>I', 20), avatar, {}), [])
 
     def test_endpoint_relays_only_to_other_room_members(self):

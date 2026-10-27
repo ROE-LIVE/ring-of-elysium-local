@@ -962,12 +962,27 @@ class Endpoint(asyncio.DatagramProtocol):
             self.peer_timer = None
 
     def poll_peer_rooms(self):
+        """Периодический опрос комнат; ошибка одного шага не должна останавливать таймер.
+
+        Сессия27/10: исключение в settle_motion обрывало цепочку call_later, и дальше не
+        шли остановки, наблюдатель, истечение участников и опрос эвакуации.
+        """
         self.peer_timer = None
+        try:
+            self.poll_peer_rooms_once()
+        except Exception as error:
+            self.capture.record('peer_poll_error', synthetic=True, error=f'{type(error).__name__}: {error}')
+        if self.peer_timer is None:
+            delay = .1 if self.peer_avatars and self.peer_avatars.replicate_trajectories else 1
+            self.peer_timer = asyncio.get_running_loop().call_later(delay, self.poll_peer_rooms)
+
+    def poll_peer_rooms_once(self):
         if self.peer_avatars:
             now = time.monotonic()
             self.emit_peer_avatars(*self.peer_avatars.equipment(now))
             self.emit_peer_avatars(*self.peer_avatars.pose_snapshots(now,int((now-self.started)*25)&0xffffffff))
             self.emit_peer_avatars(*self.peer_avatars.settle_motion(now,int((now-self.started)*25)&0xffffffff))
+            self.emit_peer_avatars(*self.peer_avatars.remove_corpses(now))
         for state, reason in expired_members(self.peer_avatars, self.shared_loot, time.monotonic()):
             if self.peer_avatars:
                 outputs, events = self.peer_avatars.detach(state, reason)
@@ -991,8 +1006,6 @@ class Endpoint(asyncio.DatagramProtocol):
             self.poll_shared_evacuation(time.monotonic())
         if self.peer_spectators:
             self.emit_peer_avatars(*self.peer_spectators.poll(self.peer_avatars, time.monotonic()))
-        delay = .1 if self.peer_avatars and self.peer_avatars.replicate_trajectories else 1
-        self.peer_timer = asyncio.get_running_loop().call_later(delay, self.poll_peer_rooms)
 
     def relay_peer_action(self, state, command, payload):
         """Поворот/прицел/выстрел/анимация участника → SYNC другим участникам комнаты."""

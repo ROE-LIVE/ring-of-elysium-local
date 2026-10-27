@@ -44,6 +44,15 @@ class PeerLifecycleTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(expired_members(self.endpoint.peer_avatars,self.endpoint.shared_loot,101),[(self.a,reason)])
             self.a[flag]=False
 
+    async def test_poll_error_is_recorded_and_timer_keeps_running(self):
+        records=[]
+        self.endpoint.capture=SimpleNamespace(record=lambda kind,**kw:records.append((kind,kw)))
+        self.endpoint.poll_peer_rooms_once=lambda:1/0
+        self.endpoint.poll_peer_rooms()
+        self.assertEqual(records[0][0],'peer_poll_error')
+        self.assertIsNotNone(self.endpoint.peer_timer)
+        self.endpoint.stop_peer_timer()
+
     async def test_poll_removes_last_member_retires_transport_and_resets_room(self):
         with patch('game_endpoint_probe_2022.time.monotonic',return_value=145),contextlib.redirect_stdout(io.StringIO()):
             self.endpoint.poll_peer_rooms()

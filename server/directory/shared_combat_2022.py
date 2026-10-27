@@ -106,4 +106,8 @@ class SharedCombatRooms:
         event.update(action='hit_damage',source=hex(source['avatar']),
                      target_account=hex(victim['actor_uid']),shared_pvp=True,
                      original_damage_formula=False)
-        return [(state,source_packets),(victim,armor_packets+own_packets)],event,victim
+        # SHOOT_TARGET_BC — broadcast: жертва получает тот же11EB, где стрелок — remote Unit UID
+        # стрелка, а цель — её собственный AccountUID (без него у жертвы только падает HP, без звука).
+        victim_packets = [(code,struct.pack('>QQ',source['avatar'],victim['actor_uid'])+body[16:])
+                          for code,body in source_packets if code == 0x11eb]
+        return [(state,source_packets),(victim,victim_packets+armor_packets+own_packets)],event,victim

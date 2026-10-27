@@ -69,6 +69,11 @@ class SharedCombatTests(unittest.TestCase):
         self.assertEqual((self.b['world'].hp,self.b['world'].dead),(0,True))
         self.assertEqual([code for code,_ in outputs[1][1]].count(0x533),1)
         self.assertEqual(struct.unpack_from('>Q',outputs[1][1][-1][1],4)[0],20)
+        # A vítima também recebe o 11EB: atirador = UID remoto do atirador, alvo = a própria conta.
+        victim_hit=next(body for code,body in outputs[1][1] if code==0x11eb)
+        self.assertEqual(victim_hit[16:],dict(outputs[0][1])[0x11eb][16:])
+        self.assertEqual(struct.unpack_from('>Q',victim_hit,8)[0],self.b['actor_uid'])
+        self.assertNotEqual(struct.unpack_from('>Q',victim_hit,0)[0],self.a['actor_uid'])
         self.assertEqual((stats.kills,stats.damage_raw,self.a['world'].hp,self.c['world'].hp),(1,60,1000,1000))
         self.assertIsNone(self.combat.hit(self.a,self.hit(3),100.4)[2])
         remote,_=self.avatars.health(self.b,100.4)

@@ -61,6 +61,22 @@ class SharedEvacuationTests(unittest.TestCase):
         self.assertEqual(decisions[0]['reason'],'all_boarded')
         self.assertEqual(len(decisions[0]['seats']),3)
 
+    def test_early_leave_frees_seat_and_finished_member_does_not_block_room(self):
+        control,avatars,states = self.setup_room(3)
+        self.board(control,states[0]);self.board(control,states[1])
+        self.assertIsNone(control.leave(states[2]))
+        self.assertEqual(control.leave(states[0]),1)
+        self.assertIsNone(control.leave(states[0]))
+        # Как finish_gameplay: world/vehicles сняты, участник завершён.
+        states[0].pop('world');states[0].pop('vehicles');states[0]['match_finished']=True
+        control.sync(avatars)
+        self.assertEqual(control.poll(100)[1][0]['reason'],'departure')
+        self.board(control,states[2])
+        control.poll(101)
+        decisions,_ = control.poll(104)
+        self.assertEqual(decisions[0]['reason'],'all_boarded')
+        self.assertEqual(sorted(decisions[0]['members']),[2,3])
+
     def test_no_survivors_is_immediate_and_does_not_require_helicopter(self):
         control,avatars,states = self.setup_room()
         for state in states:state['world'].dead=True
@@ -122,6 +138,27 @@ class SharedEvacuationTests(unittest.TestCase):
             state['match_statistics']=MatchStatistics(started_at=90)
             state['peer_avatar_anchor']=(None,('127.0.0.1',10000+state['actor_uid']),100)
         return endpoint
+
+    def test_endpoint_getoff_in_helicopter_sends_rescued_newspaper_only_to_leaver(self):
+        control,avatars,states=self.setup_room()
+        for state in states:self.board(control,state)
+        class Fixture:
+            def messages(self,uid,room,report,name):
+                return [(0xd62,struct.pack('>QI',uid,report['rescued']))]
+        endpoint=self.endpoint(control,avatars,states,Fixture())
+        self.assertFalse(endpoint.leave_shared_evacuation(self.state(9),None,None))
+        self.assertTrue(endpoint.leave_shared_evacuation(states[0],None,('127.0.0.1',10001)))
+        self.assertEqual(len(endpoint.sent),1)
+        state,packets=endpoint.sent[0]
+        self.assertIs(state,states[0])
+        self.assertEqual(packets[-1],(0x6589,struct.pack('>BQ',1,900)))
+        self.assertTrue(states[0]['match_finished'] and states[0]['match_statistics'].rescued)
+        self.assertEqual(control.rooms[1]['seats'],{2:2})
+        control.sync(avatars)
+        decisions,_=control.poll(200)
+        self.assertEqual(decisions,[])
+        decisions,_=control.poll(203)
+        self.assertEqual(list(decisions[0]['members']),[2])
 
     def test_endpoint_prepares_every_result_before_freezing_and_sends_once(self):
         control,avatars,states=self.setup_room()

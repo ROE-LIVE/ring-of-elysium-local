@@ -73,11 +73,29 @@ class SharedEvacuationRooms:
                          occupied=len(room['seats']))
         return packets, event
 
+    def leave(self, state):
+        """F (GETOFF) на месте вертолёта эвакуации: досрочная газета этого участника.
+
+        Сессии27/10: принятый GETOFF ронял игрока с вертолёта, повторный подъём по
+        лестнице не завершался. Собственное правило (не original): сидящий в общем
+        вертолёте считается спасённым и выходит из матча, вертолёт ждёт остальных.
+        Возвращает место или None, если запрос не относится к эвакуации комнаты.
+        """
+        room = self.rooms.get(state.get('room_uid'))
+        account = state.get('actor_uid')
+        vehicles = state.get('vehicles')
+        if (room is None or room['finished'] or room['members'].get(account) is not state
+                or account not in room['seats'] or vehicles is None
+                or vehicles.seated != room['helicopter']):
+            return None
+        return room['seats'].pop(account)
+
     def poll(self, now):
         """Возвращает решение комнаты; fixture/result commit выполняет endpoint."""
         decisions, events = [], []
         for room_uid, room in self.rooms.items():
-            members = room['members']
+            # Досрочно вышедший (F в вертолёте) уже получил газету: не ждать его как «загружающегося».
+            members = {uid: state for uid, state in room['members'].items() if not state.get('match_finished')}
             if room['finished'] or not members:
                 continue
             # Загружающийся участник ещё не считается погибшим или спасённым.

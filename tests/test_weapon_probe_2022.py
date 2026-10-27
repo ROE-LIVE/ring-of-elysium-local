@@ -174,6 +174,21 @@ class WeaponStateTests(unittest.TestCase):
         damage, packets, event = state.absorb_combat_damage(51)
         self.assertEqual((damage, packets, event['absorbed']), (51, [], 0))
 
+    def test_table_armor_by_body_part_helmet_vest_and_unarmored_limbs(self):
+        state = self.recycling_state()
+        state.equipment[12], state.equipment_durability[12] = 201003, 2500
+        state.equipment[10], state.equipment_durability[10] = 200101, 800
+        self.assertEqual(state.armor_for_part(2), (12, 201003, 55))
+        self.assertEqual(state.armor_for_part(1), (10, 200101, 30))
+        self.assertEqual(state.armor_for_part(3), (None, 0, 0))
+        damage, packets, event = state.absorb_combat_damage(1000, 12, 55)
+        self.assertEqual((damage, event['absorbed'], state.equipment_durability[12]), (450, 550, 1950))
+        # Шлем: поглощение ограничено остатком прочности.
+        damage, _, event = state.absorb_combat_damage(3000, 10, 30)
+        self.assertEqual((damage, event['absorbed'], state.equipment_durability[10]), (2200, 800, 0))
+        self.assertEqual(state.armor_for_part(1), (10, 0, 0))
+        self.assertEqual(state.absorb_combat_damage(400, None, 0)[:2], (400, []))
+
     def test_own_combat_armor_is_disabled_by_default_and_reconciles_latest_value(self):
         state = self.recycling_state()
         state.equipment[12] = 201001

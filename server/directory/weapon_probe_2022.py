@@ -32,6 +32,11 @@ WINTER_KITS = {200907: (2, 150), 200906: (3, 225), 200904: (4, 300)}
 # UI показывает значение/10. Снижение урона и расход прочности не восстановлены.
 ARMOR_DURABILITY = {200101: 800, 200102: 1500, 200103: 2300, 200104: 3000,
                     201001: 2000, 201002: 2200, 201003: 2500, 201004: 3000}
+# EquipmentTableEuropa (TableBin00000a89): шлем nDEFHead, жилет nDEF, проценты защиты.
+ARMOR_DEFENSE = {200101: 30, 200102: 40, 200103: 55, 200104: 67,
+                 201001: 30, 201002: 40, 201003: 55, 201004: 65}
+# Части тела (QSPHYSXCONFIG.XML): голова1 → шлем (слот10), туловище2 → жилет (слот12).
+ARMOR_SLOT_BY_PART = {1: 10, 2: 12}
 
 # TableBin/A81, строки 4/19: 5.56 = 0.5, 12ga = 1.25, nPackMax = 999.
 # Целые сотые веса исключают float-ошибку на границе полной сумки.
@@ -737,18 +742,31 @@ class WeaponState:
         records = self.inventory_records()
         return encode_snapshot(records, self.actor_uid)
 
-    def absorb_combat_damage(self, damage):
-        """Учебная защита тела от дистанционной атаки; исходная формула неизвестна.
+    def armor_for_part(self, part_id):
+        """(слот, определение, процент) брони для части тела по таблице; конечности без брони."""
+        slot = ARMOR_SLOT_BY_PART.get(part_id)
+        definition = self.equipment.get(slot, 0) if slot else 0
+        if definition not in ARMOR_DEFENSE or not self.equipment_durability.get(slot, 0):
+            return slot, 0, 0
+        return slot, definition, ARMOR_DEFENSE[definition]
+
+    def absorb_combat_damage(self, damage, slot=12, percent=None):
+        """Защита от дистанционной атаки; исходная формула неизвестна.
 
         Не применяется к зоне/падению. Поглощение расходует столько же raw
-        прочности жилета; шлем и hit-zone этим опытом не восстанавливаются.
+        прочности брони (собственное правило). percent=None — учебный процент жилета
+        из fixture; PvP передаёт слот и процент по части тела (armor_for_part).
         """
         if type(damage) is not int or not 0 <= damage <= 5000:
             raise ValueError('Учебная атака требует целый урон0..5000')
-        slot = 12
+        if slot not in (10, 12):
+            return damage, [], {'action': 'own_armor_damage', 'raw_damage': damage, 'damage': damage,
+                                'absorbed': 0, 'armor_definition': 0, 'armor_durability': 0,
+                                'armor_absorb_percent': 0, 'experimental': True,
+                                'validation': 'unarmored_part'}
         definition = self.equipment.get(slot, 0)
         before = self.equipment_durability.get(slot, 0)
-        percent = self.fixture.combat_armor_absorb_percent
+        percent = self.fixture.combat_armor_absorb_percent if percent is None else percent
         absorbed = min(before, damage * percent // 100) if definition in ARMOR_DURABILITY else 0
         packets = []
         if absorbed:

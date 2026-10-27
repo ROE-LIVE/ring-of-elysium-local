@@ -92,13 +92,18 @@ class SharedCombatRooms:
         position = world.position
         if position is None or not all(math.isfinite(x) for x in position):
             return [],dict(action='peer_hit_rejected',reason='target_position',target=hex(target_uid)),None
-        definition = weapon.equipment.get(12,0)
-        definition = definition if definition in ARMOR_DURABILITY else 0
         damage, reach = self.hit_damage(accepted[1], accepted[0][:3], position, payload[62])
+        if self.damage_table is not None:
+            # Броня по таблице: шлем для головы, жилет для туловища, конечности без защиты.
+            slot, definition, percent = weapon.armor_for_part(payload[62])
+        else:
+            slot, percent = 12, weapon.fixture.combat_armor_absorb_percent
+            definition = weapon.equipment.get(12,0)
+            definition = definition if definition in ARMOR_DURABILITY else 0
         fixture = replace(self.avatars.fixture,uid=target_uid,position=tuple(position),
                           hp=world.hp,damage=damage,hit_range_cm=reach,armor_definition=definition,
-                          armor_durability=weapon.equipment_durability.get(12,0) if definition else 0,
-                          armor_absorb_percent=weapon.fixture.combat_armor_absorb_percent,
+                          armor_durability=weapon.equipment_durability.get(slot,0) if definition else 0,
+                          armor_absorb_percent=percent if definition else 0,
                           collision_boxes=self.avatars.fixture.collision_boxes or ())
         validator = ActorState(fixture)
         validator.started = True
@@ -111,7 +116,7 @@ class SharedCombatRooms:
         # прочность и dedup одним синхронным участком event loop.
         staged_weapon,staged_world = copy(weapon),copy(world)
         staged_weapon.equipment_durability = dict(weapon.equipment_durability)
-        damage,armor_packets,_ = staged_weapon.absorb_combat_damage(damage)
+        damage,armor_packets,_ = staged_weapon.absorb_combat_damage(damage,slot,percent if definition else 0)
         own_packets,_ = staged_world.apply_damage(damage,source['avatar'])
         source_packets = [(code,body) for code,body in responses if code in (0x11ea, 0x11eb)]
         weapon.equipment_durability.update(staged_weapon.equipment_durability)

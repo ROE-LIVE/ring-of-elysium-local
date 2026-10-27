@@ -72,3 +72,15 @@ def decode_kill_broadcast(body):
                 downer_name=downer_name, weapon_id=weapon_id, actor_rid=actor_rid,
                 actor_name=actor_name, alive=alive, vehicle=vehicle, reason=reason,
                 hit_head=bool(flags[4]), flags=flags, extra=extra)
+
+
+def encode_kill_count(actor_uid, kills, killed=0, assists=0):
+    """0x047E ROOM_ACTOR_KILL_COUNT (декодер140c01cf0, getters141447de0..1414489c0):
+    U32 iKill_count, U64 ullActor_rid, U32 iKilled_count, U32 iAssist_count."""
+    return struct.pack('>IQII', kills, actor_uid, killed, assists)
+
+
+def encode_alive_count(alive, team_alive):
+    """0x047D ROOM_ALIVE_ACTOR_COUNT (декодер140c27d10, getters141447540/141447950):
+    U32 iAlive_count, U32 iTeam_alive_count."""
+    return struct.pack('>II', alive, team_alive)

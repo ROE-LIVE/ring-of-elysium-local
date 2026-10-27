@@ -36,7 +36,8 @@ from peer_lifecycle_2022 import expired_members
 from peer_spectator_2022 import PeerSpectators
 from shared_evacuation_2022 import SharedEvacuationRooms
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
-from kill_broadcast_2022 import encode_kill_broadcast, KILL_WAY_PLAYER, KILL_WAY_SELF
+from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
+                                 KILL_WAY_PLAYER, KILL_WAY_SELF)
 from fall_damage_2022 import FallTracker
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
@@ -715,6 +716,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     outputs, events = self.peer_avatars.admit(state,tick,time.monotonic())
                                     self.emit_peer_avatars(outputs,events)
                                     state['peer_avatar_admitted'] = True
+                                    self.broadcast_alive_count(state)
                                 if self.peer_combat and message.command == 0x11dd:
                                     outputs,event,victim = self.peer_combat.hit(state,message.payload,time.monotonic())
                                     self.emit_peer_avatars(outputs,[])
@@ -1896,6 +1898,22 @@ class Endpoint(asyncio.DatagramProtocol):
                 and other.get('actor_uid') not in (None, state.get('actor_uid'))
                 and other.get('selection_deadline') is not None and 'weapon' not in other]
 
+    @staticmethod
+    def team_alive(state):
+        """Соло-команда из одного игрока: 1, пока он жив и в матче."""
+        world = state.get('world')
+        return int(world is not None and not world.dead and not state.get('match_finished'))
+
+    def broadcast_alive_count(self, state):
+        """0x047D всем участникам комнаты (входит новый живой участник)."""
+        if not getattr(self, 'peer_avatars', None):
+            return
+        room_uid = state.get('room_uid')
+        members = [member['state'] for (room, _), member in self.peer_avatars.members.items() if room == room_uid]
+        alive = sum(self.team_alive(member) for member in members)
+        self.emit_peer_avatars([(member, [(0x47d, encode_alive_count(alive, self.team_alive(member)))])
+                                for member in members], [])
+
     def match_room(self, account, requested):
         """Внутренняя комната матча для нового ENTER_ROOM.
 
@@ -1954,7 +1972,17 @@ class Endpoint(asyncio.DatagramProtocol):
             body = encode_kill_broadcast(rid(recipient, victim), name(victim), alive,
                                          rid(recipient, killer), name(killer), weapon_id, head,
                                          KILL_WAY_PLAYER if killer else KILL_WAY_SELF)
-            outputs.append((recipient, [(0x480, body)]))
+            packets = [(0x480, body), (0x47d, encode_alive_count(alive, self.team_alive(recipient)))]
+            # Свой счётчик HUD (⊕ и «1 Kill»): убийце — убийства, жертве — смерти.
+            if recipient is killer:
+                killer['kill_count'] = killer.get('kill_count', 0) + 1
+                packets.append((0x47e, encode_kill_count(killer['actor_uid'], killer['kill_count'],
+                                                         killer.get('killed_count', 0))))
+            if recipient is victim:
+                victim['killed_count'] = victim.get('killed_count', 0) + 1
+                packets.append((0x47e, encode_kill_count(victim['actor_uid'], victim.get('kill_count', 0),
+                                                         victim['killed_count'])))
+            outputs.append((recipient, packets))
         self.emit_peer_avatars(outputs, [])
         self.capture.record('kill_broadcast', synthetic=True, room_uid=hex(room_uid),
                             victim=hex(victim['actor_uid']),

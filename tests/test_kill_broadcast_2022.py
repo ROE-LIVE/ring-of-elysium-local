@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'server/directory'))
+import struct
 from kill_broadcast_2022 import encode_kill_broadcast, decode_kill_broadcast
 from game_endpoint_probe_2022 import Endpoint
 
@@ -47,6 +48,18 @@ class KillBroadcastTests(unittest.TestCase):
         self.assertEqual((views[30]['killer_rid'], views[30]['actor_rid']), (510, 520))
         self.assertTrue(all(v['alive'] == 2 and v['killer_name'] == 'A' and v['hit_head'] and v['reason'] == 1
                             for v in views.values()))
+
+    def test_kill_sends_alive_count_to_all_and_kill_counters_to_killer_and_victim(self):
+        endpoint, (a, b, c) = self.endpoint_room()
+        b['world'].dead = True
+        b['last_peer_hit'] = (a, 10111, False, time.monotonic())
+        endpoint.broadcast_kill(b)
+        sent = {state['actor_uid']: dict((code, body) for code, body in packets) for state, packets in endpoint.sent}
+        self.assertEqual(struct.unpack('>II', sent[10][0x47d]), (2, 1))
+        self.assertEqual(struct.unpack('>II', sent[20][0x47d]), (2, 0))
+        self.assertEqual(struct.unpack('>IQII', sent[10][0x47e]), (1, 10, 0, 0))
+        self.assertEqual(struct.unpack('>IQII', sent[20][0x47e]), (0, 20, 1, 0))
+        self.assertNotIn(0x47e, sent[30])
 
     def test_death_without_recent_shooter_has_no_killer(self):
         endpoint, (a, b, c) = self.endpoint_room()

@@ -26,7 +26,7 @@ from peer_motion_2022 import packed_direction
 from weapon_probe_2022 import MEDICAL_SLOTS
 
 RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8, 0x11ec: 0x11ec, 0x3e80: 0xbee,
-         0x536: 0x2b}
+         0x536: 0x2b, 0x1159: 0x1159}
 # Только амостры в журнал: CAMERA_ROTATE (луч выстрела), LOAD_BULLET, SET_HAND, SHOOT_TARGET_WITH_DIR.
 SAMPLE_ONLY = frozenset((0x11d9, 0x49c, 0x49e, 0x11dd))
 
@@ -90,7 +90,9 @@ def relay_body(command, payload, entity, memo=None):
         counter, mode, tick = struct.unpack_from('>IBI', payload, 24)
         memo.update(tick=tick, counter=counter)
         return 0x11d4, struct.pack('>Q', entity) + payload[:24] + struct.pack('>BII', mode, tick, counter)
-    if command == 0x11ec and len(payload) >= 4:
+    # 0x1159 SCENE_AROUND_BROADCAST — тот же декодер140c42f80, что и0x11EC; клиент шлёт его
+    # только на лыжах/сноуборде (сессия20261027T205950: 37/33 байта) — поза доски у других.
+    if command in (0x11ec, 0x1159) and len(payload) >= 4:
         size = struct.unpack_from('>i', payload)[0]
         if not 0 <= size <= 1024 or len(payload) != 4+size:
             return None
@@ -99,7 +101,7 @@ def relay_body(command, payload, entity, memo=None):
             # Замер: внутри блока UID записан little-endian (тип3 = SET_HAND, тип4 = после бинта).
             for order in '<>':
                 payload = payload.replace(struct.pack(order+'Q', actor), struct.pack(order+'Q', entity))
-        return 0x11ec, payload
+        return command, payload
     if command == 0x3e80 and len(payload) == 10 and payload[0] == 3:
         _, container, slot = struct.unpack_from('>BBH', payload)
         definition = next((d for d, s in MEDICAL_SLOTS.items() if s == slot), None)

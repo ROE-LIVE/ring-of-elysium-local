@@ -53,6 +53,9 @@ class PeerActionTests(unittest.TestCase):
         real = bytes.fromhex('000000140300000004000000') + struct.pack('<QI', actor, 1)
         code, body = relay_body(0x11ec, real, avatar, {'actor': actor})
         self.assertEqual(body[12:20], struct.pack('<Q', avatar))
+        # SCENE_AROUND_BROADCAST 0x1159 (snowboard): mesmo envelope e troca de UID, mesmo código.
+        code, body = relay_body(0x1159, real, avatar, {'actor': actor})
+        self.assertEqual((code, body[12:20]), (0x1159, struct.pack('<Q', avatar)))
         # STOP_USE_ITEM (20) não vira estado para os outros; AIM/DIS_AIM/SCOPE_AIM viram.
         self.assertEqual(relay_packets(0x536, struct.pack('>I', 20), avatar, {}), [])
         for action, status in ((16, 24), (17, 40), (35, 39)):

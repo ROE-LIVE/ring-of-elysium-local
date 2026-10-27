@@ -1,39 +1,45 @@
-"""Экспериментальный урон от падения: кривая по порогам CharacterTable и разбор событий0x2A."""
+"""Экспериментальный урон от падения: скорость снижения по точкам0x2A, пороги CharacterTable."""
 import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'server/directory'))
-from fall_damage_2022 import FallTracker, fall_damage
+from fall_damage_2022 import FallTracker, fall_damage, speed_damage
 
 
-def point(z, event=0):
-    return dict(position=(0, 0, z), bytes=(0, event, 0))
+def point(z, ms, event=0):
+    return dict(position=(0, 0, z), value=ms//40, bytes=(0, event, ms % 40))
 
 
 class FallDamageTests(unittest.TestCase):
     def test_curve_anchors(self):
+        self.assertEqual(speed_damage(699), 0)
+        self.assertEqual(speed_damage(1400), 500)
+        self.assertEqual(speed_damage(2100), 1000)
         self.assertEqual(fall_damage(130), 0)          # обычный прыжок JumpHeight130
-        self.assertEqual(fall_damage(153), 0)          # ≈ v700
-        self.assertEqual(fall_damage(613), 500)        # ≈ v1400 → половина HP
-        self.assertEqual(fall_damage(1379), 1000)      # ≈ v2100 → смерть
-        self.assertEqual(fall_damage(5000), 1000)
 
-    def test_walk_off_fall_from_session_log(self):
-        # Сессия20261027T205950: FALL на z259340, FALL_LAND на258497 (8,4м).
+    def test_downhill_jump_from_session_log_is_harmless(self):
+        # 20261027T212632, Дудеска21:29:44.78..45.77: вершина290208, приземление289958 (2,5м),
+        # но снижение не быстрее ~575 см/с — бег под гору, а не падение.
         tracker = FallTracker()
-        self.assertIsNone(tracker.observe([point(259340, 4), point(258900)]))
-        height, damage = tracker.observe([point(258497, 29), point(258496, 1)])
-        self.assertEqual(height, 843)
-        self.assertTrue(400 < damage < 1000)
+        self.assertIsNone(tracker.observe([point(290186, 0, 22), point(290208, 220), point(290205, 320, 4)]))
+        height, speed, damage = tracker.observe([point(290096, 540), point(289958, 780), point(289958, 990, 1)])
+        self.assertEqual((height, damage), (250, 0))
+        self.assertLess(speed, 700)
 
-    def test_jump_peak_counts_and_cancel_events_skip_damage(self):
+    def test_real_fall_from_session_log(self):
+        # Jogador1 21:32:40.75..42.18: 14м за ~1,4с; последний отрезок ~1790 см/с.
         tracker = FallTracker()
-        self.assertEqual(tracker.observe([point(1000, 22), point(1130), point(1000, 4), point(1000, 1)]),
-                         (130, 0))
-        # Планер (FLY24) посреди падения отменяет подсчёт.
-        self.assertIsNone(tracker.observe([point(5000, 4), point(4000, 24), point(1000, 1)]))
-        # Лыжный прыжок (43) не считается пешим падением.
-        self.assertIsNone(tracker.observe([point(5000, 43), point(1000, 40), point(1000, 1)]))
+        samples = [(261405, 0, 4), (261295, 200, 0), (261103, 440, 0), (260826, 680, 0),
+                   (260432, 930, 0), (260020, 1160, 0), (260019, 1430, 1)]
+        height, speed, damage = tracker.observe([point(z, ms, e) for z, ms, e in samples])
+        self.assertEqual(height, 1386)
+        self.assertTrue(1700 < speed < 1900)
+        self.assertTrue(700 < damage < 1000)
+
+    def test_cancel_events_skip_damage(self):
+        tracker = FallTracker()
+        self.assertIsNone(tracker.observe([point(5000, 0, 4), point(4000, 200, 24), point(1000, 400, 1)]))
+        self.assertIsNone(tracker.observe([point(5000, 0, 43), point(1000, 200, 40), point(1000, 400, 1)]))
 
 
 if __name__ == '__main__':

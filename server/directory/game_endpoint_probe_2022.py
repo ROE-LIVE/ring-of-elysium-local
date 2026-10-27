@@ -1841,13 +1841,13 @@ class Endpoint(asyncio.DatagramProtocol):
         landing = tracker.observe(movement['points'])
         if landing is None:
             return
-        height, damage = landing
+        height, speed, damage = landing
         if not damage:
             return
         packets, event = world.apply_damage(damage, state['actor_uid'])
         self.send_application_batch(d, remote, state, packets)
         self.capture.record('world_probe', synthetic=True, remote=remote, **dict(
-            event, action='fall_damage', height_cm=height, validation='experimental_fall_curve',
+            event, action='fall_damage', height_cm=height, impact_speed=speed, validation='experimental_fall_speed',
             original_rule_verified=False))
         if self.peer_avatars:
             self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))

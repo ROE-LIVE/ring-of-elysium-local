@@ -3,9 +3,11 @@
 Клиент не просит урон за обычное падение (SKI_HURT_REQ0x100A — только лыжи), значит
 сервер считал его сам. Таблица урона не найдена (analises/dano-por-queda-2026-10-27.md).
 Кривая привязана к CharacterTable клиента (TableBin00000a11): Gravity1600 см/с²,
-mMiddleFallVSpeed700, mHighFallVSpeed1400. Скорость удара v = √(2·g·h), h — от высшей
-точки полёта до точки приземления по C2S0x2A:
-  v < 700 → 0; 700..1400 → 0..50% HP линейно; дальше та же прямая, смерть при2100 (≈14м).
+mMiddleFallVSpeed700, mHighFallVSpeed1400. Скорость удара — наибольшая измеренная скорость
+снижения между соседними точками C2S0x2A в полёте (tick40мс + доля0..39мс):
+  v < 700 → 0; 700..1400 → 0..50% HP линейно; дальше та же прямая, смерть при2100.
+Сессия27/10 (20261027T212632): по высоте «от вершины до приземления» прыжок вниз по склону
+(2,7м, но снижение лишь ~575 см/с) давал16,6 HP; теперь0. Падения6 и14м — ~36 и ~78 HP.
 События C2S0x2A bytes[1] — E_EU_AT_*: 22 JUMP_UP / 4 FALL начинают полёт; 29 FALL_LAND,
 1/2/3 (стойка/присед/лёжа), 30 LAND_TO_MOVE — приземление; планер, парашют, лыжи, лазание,
 трос, вода, транспорт отменяют подсчёт без урона.
@@ -26,25 +28,32 @@ CANCEL_EVENTS = frozenset((5, 6, 7, 9, 23, 24, 36, 37, 38, 39, 40, 41, 42, 43,
                            48, 49, 50, 52, 53, 54, 55, 56, 57))
 
 
-def fall_damage(height_cm):
-    """Урон (шкала HP1000) по высоте падения в см."""
-    if height_cm <= 0:
-        return 0
-    speed = math.sqrt(2*GRAVITY*height_cm)
+def speed_damage(speed):
+    """Урон (шкала HP1000) по скорости удара в см/с."""
     if speed < SAFE_SPEED:
         return 0
-    damage = (speed-SAFE_SPEED)/(HIGH_SPEED-SAFE_SPEED)*FULL_HP/2
-    return min(FULL_HP, round(damage))
+    return min(FULL_HP, round((speed-SAFE_SPEED)/(HIGH_SPEED-SAFE_SPEED)*FULL_HP/2))
+
+
+def fall_damage(height_cm):
+    """Урон по высоте свободного падения (v = √(2·g·h)); для справки и тестов."""
+    return speed_damage(math.sqrt(2*GRAVITY*height_cm)) if height_cm > 0 else 0
+
+
+def point_ms(point):
+    return point['value']*40 + point['bytes'][2]
 
 
 class FallTracker:
-    """Высшая точка текущего полёта; observe возвращает (высота, урон) при приземлении."""
+    """Полёт от START до LAND; observe возвращает (высота, скорость, урон) при приземлении."""
 
     def __init__(self):
-        self.peak = None
+        self.cancel()
 
     def cancel(self):
         self.peak = None
+        self.last = None
+        self.speed = 0.0
 
     def observe(self, points):
         result = None
@@ -52,16 +61,20 @@ class FallTracker:
             z = point['position'][2]
             event = point['bytes'][1]
             if event in CANCEL_EVENTS:
-                self.peak = None
-                continue
-            if event in START_EVENTS:
-                self.peak = z if self.peak is None else max(self.peak, z)
+                self.cancel()
                 continue
             if self.peak is None:
+                if event in START_EVENTS:
+                    self.peak, self.last, self.speed = z, (z, point_ms(point)), 0.0
                 continue
+            previous_z, previous_ms = self.last
+            elapsed = (point_ms(point)-previous_ms) % (2**32*40)
+            if 20 <= elapsed <= 2000:
+                self.speed = max(self.speed, (previous_z-z)*1000/elapsed)
+            self.last = (z, point_ms(point))
             self.peak = max(self.peak, z)
             if event in LAND_EVENTS:
-                height = self.peak - z
-                self.peak = None
-                result = (height, fall_damage(height))
+                height, speed = self.peak-z, self.speed
+                self.cancel()
+                result = (height, round(speed), speed_damage(speed))
         return result

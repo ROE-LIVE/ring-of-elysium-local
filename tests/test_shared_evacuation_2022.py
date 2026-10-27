@@ -77,7 +77,7 @@ class SharedEvacuationTests(unittest.TestCase):
     def test_seat_info_is_38_bytes_and_goes_to_whole_room(self):
         body = encode_end_info(4, 1, (100, 200, 300))
         self.assertEqual(len(body), 38)
-        self.assertEqual(struct.unpack_from('>HH3iB', body), (4, 1, 100, 200, 300, 0))
+        self.assertEqual(struct.unpack_from('>HH3iB', body), (4, 3, 100, 200, 300, 0))   # 1 a bordo → 3 livres
         self.assertEqual(struct.unpack_from('>3iB', body, 21), (100, 200, 300, 0))
         control,avatars,states=self.setup_room()
         self.board(control,states[0])

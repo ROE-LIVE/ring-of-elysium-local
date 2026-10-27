@@ -137,6 +137,8 @@ class PeerAvatarTests(unittest.TestCase):
         outputs,events=rooms.move(a,(101,200,300),14,10.32,movement([255]))
         self.assertEqual(outputs,[]);self.assertEqual(events[0]['unknown_pose_events'],[255])
         self.assertEqual(rooms.members[(1,10)]['pose'],0)
+        outputs,events=rooms.move(a,(101,200,300),15,10.33,movement([40,43,41,1]))
+        self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[50,53,51,0,0])
 
     def test_deferred_pose_snapshot_uses_current_pose_and_stops_after_two_attempts(self):
         rooms=self.fixture();a,b=self.state(10),self.state(20)

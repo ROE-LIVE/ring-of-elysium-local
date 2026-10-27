@@ -39,6 +39,7 @@ from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
 from fall_damage_2022 import FallTracker, ski_hurt
+from airdrop_flight_2022 import AirdropFlight
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -631,6 +632,12 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 # Сценарий содержит старый Citori clip2: после
                                                 # выбранного пистолета он не должен сбрасывать магазин.
                                                 payload = weapon.ammunition_sync(slot=slot)
+                                        if command == 0x654b and len(payload) == 117 and struct.unpack_from('>I', payload, 8)[0] == 501:
+                                            payload = self.start_airdrop_flight(state, payload, responses)
+                                        if command == 0x4a6 and state.get('airdrop_flight') and state['airdrop_flight'].notice is None                                                 and state['airdrop_flight'].phase == 'hover':
+                                            # Объявление — после зависания (AirdropFlight.poll).
+                                            state['airdrop_flight'].notice = (command, payload)
+                                            continue
                                         if self.shared_vehicles and command==0x654b:
                                             self.register_fixture_entity(state,command,payload)
                                             payload=self.shared_vehicles.register(state,command,payload)
@@ -886,6 +893,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                         state['vehicles'].note_fire(message.payload, event)
                                     if message.command == 0x11da and 'target_roster' in state:
                                         state['target_roster'].note_fire(message.payload, event)
+                                if message.command == 0x1f49 and not self.peer_avatars:
+                                    self.poll_airdrop_flights(time.monotonic())
                                 if 'vehicles' in state and message.command == 0x1f49:
                                     now=time.monotonic()
                                     responses, events = state['vehicles'].poll(now,int((now-self.started)*25)&0xffffffff)
@@ -998,6 +1007,7 @@ class Endpoint(asyncio.DatagramProtocol):
             self.peer_timer = asyncio.get_running_loop().call_later(delay, self.poll_peer_rooms)
 
     def poll_peer_rooms_once(self):
+        self.poll_airdrop_flights(time.monotonic())
         if self.peer_avatars:
             now = time.monotonic()
             self.emit_peer_avatars(*self.peer_avatars.equipment(now))
@@ -1858,6 +1868,40 @@ class Endpoint(asyncio.DatagramProtocol):
         if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
             return None
         return self.room_born_cells.get((state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1)))
+
+    def start_airdrop_flight(self, state, payload, responses):
+        """Ящик501: если в том же правиле есть0x4A6 с высотой земли ниже ящика — серверный полёт."""
+        uid = struct.unpack_from('>Q', payload)[0]
+        x, y, z = struct.unpack_from('>3i', payload, 20)
+        ground = None
+        for response in responses:
+            if response[0] == 0x4a6 and len(response[1]) >= 12:
+                nx, ny, nz = struct.unpack_from('>3i', response[1])
+                if (nx, ny) == (x, y) and nz < z:
+                    ground = nz
+        if ground is None or not getattr(self, 'airdrop_flights_enabled', True):
+            return payload
+        flight = AirdropFlight(uid, x, y, ground, time.monotonic())
+        state['airdrop_flight'] = flight
+        self.capture.record('airdrop_flight', synthetic=True, phase='hover', uid=hex(uid),
+                            position=[x, y, flight.top_z], ground_z=ground, original_rule_verified=False)
+        return flight.hover_entity(payload)
+
+    def poll_airdrop_flights(self, now):
+        """Шаг серверного полёта аирдропа для каждой сессии (зависание, спуск, посадка)."""
+        tick = int((now-self.started)*25) & 0xffffffff
+        for state in list(getattr(self, 'sessions', {}).values()):
+            flight = state.get('airdrop_flight')
+            anchor = state.get('peer_avatar_anchor')
+            if flight is None or not anchor or state.get('match_finished') or state.get('transport_retired'):
+                continue
+            packets, phase = flight.poll(now, tick)
+            if packets:
+                self.send_application_batch(anchor[0], anchor[1], state, packets)
+            if phase:
+                self.capture.record('airdrop_flight', synthetic=True, phase=phase, uid=hex(flight.uid),
+                                    position=[flight.x, flight.y, flight.ground_z if phase == 'landed' else flight.top_z],
+                                    remote=anchor[1], original_rule_verified=False)
 
     def apply_ski_hurt(self, d, remote, state, payload):
         """Урон от жёсткого приземления на лыжах/сноуборде по скорости, присланной клиентом."""

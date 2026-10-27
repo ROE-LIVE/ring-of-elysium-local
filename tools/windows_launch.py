@@ -249,7 +249,7 @@ def apply_airdrop_position(configs, run, points_path, seed=None):
     land = [r['position'] for r in rows if r.get('model') != 203 and len(r.get('position', ())) == 3]
     if not land:
         raise ValueError('AirdropPoints: нет наземных точек')
-    x, y, _ = random.Random(seed).choice(land)
+    x, y, ground_z = random.Random(seed).choice(land)
     parcel = json.loads(configs['parcel'].read_text())
     rows = parcel['parcels'] if 'parcels' in parcel else [parcel]
     path = Path(rows[0]['entity_file'])
@@ -271,7 +271,8 @@ def apply_airdrop_position(configs, run, points_path, seed=None):
                     response['payload_file'] = str(target)
                 elif int(str(response['command']), 0) == 0x4a6:
                     response.pop('payload_file', None)
-                    response['payload_hex'] = airdrop_notice((x, y, z)).hex()
+                    # z точки транспорта — высота земли: сервер ведёт по ней полёт (airdrop_flight_2022).
+                    response['payload_hex'] = airdrop_notice((x, y, ground_z)).hex()
         configs[name].write_text(json.dumps(scene, ensure_ascii=False, indent=2), encoding='utf-8')
     return (x, y, z)
 

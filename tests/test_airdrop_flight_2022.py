@@ -1,0 +1,60 @@
+"""Серверный полёт аирдропа: зависание, отложенное объявление, спуск, отцепление шара."""
+import struct
+import sys
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'server/directory'))
+import airdrop_flight_2022 as flight_module
+from airdrop_flight_2022 import AirdropFlight, part_sync, move_bc
+from game_endpoint_probe_2022 import Endpoint
+
+
+class AirdropFlightTests(unittest.TestCase):
+    def test_formats(self):
+        self.assertEqual(len(part_sync(5, 1, 3)), 37)
+        self.assertEqual(struct.unpack('>QQIIIIBI', part_sync(5, 1, 3)), (5, 0, 1, 3, 0, 0, 3, 0))
+        body = move_bc(5, (1, 2, 3), -250, 99)
+        self.assertEqual((len(body), struct.unpack_from('>QI', body), struct.unpack_from('>3i', body, 13)),
+                         (73, (5, 99), (1, 2, 3)))
+        self.assertEqual(struct.unpack_from('>3f', body, 26), (0.0, 0.0, -250.0))
+
+    def test_hover_then_notice_then_descent_then_balloon_release(self):
+        flight = AirdropFlight(7, 100, 200, 250000, 0)
+        flight.notice = (0x4a6, b'notice')
+        packets, phase = flight.poll(0, 1)
+        self.assertEqual((packets[0][0], phase), (0x6575, None))
+        self.assertEqual(struct.unpack_from('>3i', packets[0][1], 13), (100, 200, 250000+flight_module.HOVER_HEIGHT))
+        self.assertEqual(flight.poll(0.1, 1), ([], None))          # не чаще HOVER_PERIOD
+        packets, phase = flight.poll(flight_module.HOVER_SECONDS, 1)
+        self.assertEqual((packets, phase), ([(0x4a6, b'notice')], 'descent'))
+        landing = flight_module.HOVER_SECONDS + flight_module.HOVER_HEIGHT/flight_module.DESCENT_SPEED
+        packets, phase = flight.poll(flight_module.HOVER_SECONDS + 1, 1)
+        self.assertEqual(struct.unpack_from('>i', packets[0][1], 21)[0], 250000+flight_module.HOVER_HEIGHT-250)
+        packets, phase = flight.poll(landing + 1, 1)
+        self.assertEqual(phase, 'landed')
+        self.assertEqual([code for code, _ in packets], [0x6575, 0x6546, 0x6546])
+        self.assertEqual(struct.unpack_from('>3i', packets[0][1], 13), (100, 200, 250000))
+        self.assertEqual(flight.poll(landing + 5, 1), ([], None))
+
+    def test_endpoint_starts_flight_only_with_ground_notice(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        endpoint.records = []
+        endpoint.capture = SimpleNamespace(record=lambda kind, **kw: endpoint.records.append((kind, kw)))
+        entity = bytearray(117)
+        struct.pack_into('>QI', entity, 0, 9, 501)
+        struct.pack_into('>3i', entity, 20, 100, 200, 301000)
+        state = {}
+        notice = struct.pack('>iiiBiiiB', 100, 200, 258000, 0, 0, 0, 0, 0)
+        patched = endpoint.start_airdrop_flight(state, bytes(entity), [(0x654b, bytes(entity)), (0x4a6, notice)])
+        self.assertEqual(struct.unpack_from('>3i', patched, 20), (100, 200, 258000+flight_module.HOVER_HEIGHT))
+        self.assertEqual(state['airdrop_flight'].ground_z, 258000)
+        # Без высоты земли (уведомление в небе) — прежнее нативное падение.
+        sky = struct.pack('>iiiBiiiB', 100, 200, 301000, 0, 0, 0, 0, 0)
+        other = {}
+        self.assertEqual(endpoint.start_airdrop_flight(other, bytes(entity), [(0x4a6, sky)]), bytes(entity))
+        self.assertNotIn('airdrop_flight', other)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -34,7 +34,7 @@ from peer_avatar_2022 import PeerAvatarRooms
 from shared_loot_2022 import SharedLootRooms
 from peer_lifecycle_2022 import expired_members
 from peer_spectator_2022 import PeerSpectators
-from shared_evacuation_2022 import SharedEvacuationRooms
+from shared_evacuation_2022 import SharedEvacuationRooms, SEATS, encode_end_info
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
@@ -898,6 +898,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                         responses, event = self.shared_evacuation.geton(state, message.payload, time.monotonic())
                                         if event['action'] == 'shared_evacuation_geton':
                                             self.broadcast_shared_geton(state, responses)
+                                            self.broadcast_seat_info(state)
                                     elif (self.shared_evacuation and message.command == 0x6543
                                             and self.leave_shared_evacuation(state, d, remote)):
                                         continue
@@ -1088,6 +1089,21 @@ class Endpoint(asyncio.DatagramProtocol):
                 translated.append((command,bytes(body)))
             outputs.append((other['state'], translated))
         self.emit_peer_avatars(outputs, [])
+
+    def broadcast_seat_info(self, state):
+        """0x657F всей комнате после посадки: силуэт вертолёта и «Seats remaining» в HUD."""
+        room = self.shared_evacuation.rooms.get(state.get('room_uid'))
+        vehicles = state.get('vehicles')
+        helicopter = vehicles.vehicles.get(room['helicopter']) if room and vehicles else None
+        if helicopter is None:
+            return
+        body = encode_end_info(SEATS, len(room['seats']), helicopter['position'])
+        members = [member['state'] for (room_uid, _), member in self.peer_avatars.members.items()
+                   if room_uid == state['room_uid']]
+        self.emit_peer_avatars([(member, [(0x657f, body)]) for member in members], [])
+        self.capture.record('shared_evacuation_probe', synthetic=True, action='seat_info',
+                            room_uid=hex(state['room_uid']), seats=SEATS, occupied=len(room['seats']),
+                            recipients=len(members), field_order_verified=False)
 
     def leave_shared_evacuation(self, state, d, remote):
         """F/GETOFF на месте общего вертолёта: показать газету, оставаясь на борту до отлёта.

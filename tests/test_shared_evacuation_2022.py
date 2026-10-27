@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'server/directory'))
-from shared_evacuation_2022 import SharedEvacuationRooms
+from shared_evacuation_2022 import SharedEvacuationRooms, encode_end_info
 from vehicle_probe_2022 import VehicleState
 from game_endpoint_probe_2022 import Endpoint
 from match_statistics_2022 import MatchStatistics
@@ -73,6 +73,19 @@ class SharedEvacuationTests(unittest.TestCase):
         decisions,_ = control.poll(103)
         self.assertEqual(decisions[0]['reason'],'all_boarded')
         self.assertEqual(sorted(decisions[0]['members']),[1,2])
+
+    def test_seat_info_is_38_bytes_and_goes_to_whole_room(self):
+        body = encode_end_info(4, 1, (100, 200, 300))
+        self.assertEqual(len(body), 38)
+        self.assertEqual(struct.unpack_from('>HH3iB', body), (4, 1, 100, 200, 300, 0))
+        self.assertEqual(struct.unpack_from('>3iB', body, 21), (100, 200, 300, 0))
+        control,avatars,states=self.setup_room()
+        self.board(control,states[0])
+        endpoint=self.endpoint(control,avatars,states,None)
+        endpoint.emit_peer_avatars=lambda outputs,events:endpoint.sent.extend(outputs)
+        endpoint.broadcast_seat_info(states[0])
+        self.assertEqual(len(endpoint.sent),2)
+        self.assertTrue(all(packets==[(0x657f,encode_end_info(4,1,(100,200,300)))] for _,packets in endpoint.sent))
 
     def test_no_survivors_is_immediate_and_does_not_require_helicopter(self):
         control,avatars,states = self.setup_room()

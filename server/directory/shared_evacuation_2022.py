@@ -6,6 +6,8 @@ Wire/native доставка проверяется отдельно от инв
 import math
 import struct
 
+SEATS = 4
+
 
 class SharedEvacuationRooms:
     def __init__(self, delay_seconds, depart_after=60):
@@ -137,3 +139,14 @@ class SharedEvacuationRooms:
         if room is not decision['room'] or room['finished']:
             raise ValueError('Устаревшее решение эвакуации')
         room['finished'] = True
+
+
+def encode_end_info(seats, occupied, position):
+    """0x657F EU_PLANE_MSGID_END_INFO_SYNC (декодер140c9b370, обработчик140e75fa0 → событие
+    EVENT_ICELAND_SEAT_INFO_UPDATED): U16, U16, POS13, U32, POS13, U32 (38 байт).
+    Обработчик пишет два U16 в объект вертолёта (+0x13C/+0x140), x,y первой POS13 и xyz второй.
+    Гипотеза (имён SWIG нет): U16 мест всего и U16 занято; позиции — вертолёт; U32 — 0.
+    """
+    x, y, z = (int(v) for v in position)
+    pos = struct.pack('>iiiB', x, y, z, 0)
+    return struct.pack('>HH', seats, occupied) + pos + struct.pack('>I', 0) + pos + struct.pack('>I', 0)

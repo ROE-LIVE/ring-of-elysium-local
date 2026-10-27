@@ -37,6 +37,7 @@ from peer_spectator_2022 import PeerSpectators
 from shared_evacuation_2022 import SharedEvacuationRooms
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import encode_kill_broadcast, KILL_WAY_PLAYER, KILL_WAY_SELF
+from fall_damage_2022 import FallTracker
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -792,6 +793,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             now = time.monotonic()
                                             outputs, events = self.peer_avatars.move(state,state['last_movement_position'],int((now-self.started)*25)&0xffffffff,now,movement)
                                             self.emit_peer_avatars(outputs,events)
+                                        self.apply_fall_damage(d, remote, state, movement)
                                 if self.peer_avatars and (message.command in PEER_ACTION_RELAY or message.command in PEER_ACTION_SAMPLES):
                                     self.relay_peer_action(state, message.command, message.payload)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
@@ -1823,6 +1825,32 @@ class Endpoint(asyncio.DatagramProtocol):
         if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
             return None
         return self.room_born_cells.get((state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1)))
+
+    def apply_fall_damage(self, d, remote, state, movement):
+        """Экспериментальный урон от падения пешком (fall_damage_2022); смерть — общими путями."""
+        world = state.get('world')
+        if world is None or world.dead:
+            return
+        tracker = state.setdefault('fall_tracker', FallTracker())
+        vehicles = state.get('vehicles')
+        if vehicles is not None and (vehicles.seated or vehicles.climb_protected(time.monotonic())):
+            tracker.cancel()
+            return
+        landing = tracker.observe(movement['points'])
+        if landing is None:
+            return
+        height, damage = landing
+        if not damage:
+            return
+        packets, event = world.apply_damage(damage, state['actor_uid'])
+        self.send_application_batch(d, remote, state, packets)
+        self.capture.record('world_probe', synthetic=True, remote=remote, **dict(
+            event, action='fall_damage', height_cm=height, validation='experimental_fall_curve',
+            original_rule_verified=False))
+        if self.peer_avatars:
+            self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
+        self.emit_own_death_inventory(d, remote, state)
+        self.cancel_dead_actions(state, remote)
 
     def ensure_born_point(self, state):
         """Клетка рождения; не выбравший получает случайную свободную клетку каталога.

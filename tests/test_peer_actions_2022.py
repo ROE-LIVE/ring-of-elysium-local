@@ -43,6 +43,15 @@ class PeerActionTests(unittest.TestCase):
         ik = relay_packets(0x11d5, struct.pack('>3f', 5, 0, 0), uid, memo, tick=1234)[0][1]
         self.assertEqual(struct.unpack_from('>I', ik, 20)[0], 1234)
 
+    def test_scene_broadcast_is_relayed_with_remote_uid(self):
+        actor, avatar = 0x515bb1e1dd242c, 0x2040000100001
+        blob = struct.pack('>IQ', 7, actor) + bytes(8)
+        code, body = relay_body(0x11ec, struct.pack('>i', len(blob)) + blob, avatar, {'actor': actor})
+        self.assertEqual(code, 0x11ec)
+        self.assertEqual(body, struct.pack('>iIQ', len(blob), 7, avatar) + bytes(8))
+        self.assertIsNone(relay_body(0x11ec, struct.pack('>i', 5) + bytes(4), avatar, {}))
+        self.assertEqual(relay_packets(0x536, struct.pack('>I', 20), avatar, {}), [])
+
     def test_endpoint_relays_only_to_other_room_members(self):
         sent = []
         a, b, c = dict(room_uid=1, actor_uid=10), dict(room_uid=1, actor_uid=11), dict(room_uid=2, actor_uid=12)

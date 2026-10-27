@@ -12,6 +12,9 @@
 Запрос 0x11D5 (замер): первый float — наклон прицела в градусах (до ~17,5 вверх),
 остальные нули; в 0x2F z всегда 0. Поэтому pitch для 0x30 берём из 0x11D5,
 а при каждом 0x11D5 повторяем0x30 с последним направлением (гипотеза, проверяется в игре).
+0x11EC SCENE_BROADCAST (декодер 140c42f80, кодер 140bd8360): I32 n (0..1024) + n байт,
+одинаково в обе стороны — клиент просит разослать блок другим. Пересылаем как есть,
+заменяя U64 UID отправителя (memo['actor']) на UID удалённой модели.
 Запрос 0x11DA: 6f, U32 счётчик, U8 режим, U32 tick, U32, f, U32, U32.
 """
 import math
@@ -19,7 +22,10 @@ import struct
 
 from peer_motion_2022 import packed_direction
 
-RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8}
+RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8, 0x11ec: 0x11ec}
+# Только амостры в журнал (формат ещё изучается): CAMERA_ROTATE, EU_ACTION (бинт),
+# LOAD_BULLET (перезарядка), SET_HAND, SHOOT_TARGET_WITH_DIR.
+SAMPLE_ONLY = frozenset((0x11d9, 0x536, 0x49c, 0x49e, 0x11dd))
 
 
 def turn_body(entity, memo):
@@ -75,6 +81,14 @@ def relay_body(command, payload, entity, memo=None):
         counter, mode, tick = struct.unpack_from('>IBI', payload, 24)
         memo.update(tick=tick, counter=counter)
         return 0x11d4, struct.pack('>Q', entity) + payload[:24] + struct.pack('>BII', mode, tick, counter)
+    if command == 0x11ec and len(payload) >= 4:
+        size = struct.unpack_from('>i', payload)[0]
+        if not 0 <= size <= 1024 or len(payload) != 4+size:
+            return None
+        actor = memo.get('actor')
+        if actor is not None:
+            payload = payload.replace(struct.pack('>Q', actor), struct.pack('>Q', entity))
+        return 0x11ec, payload
     if command == 0x11d7 and len(payload) == 1:
         return 0x11d8, payload + struct.pack('>Q', entity)
     return None

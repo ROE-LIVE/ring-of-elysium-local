@@ -43,7 +43,7 @@ from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
 from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
-from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, relay_packets
+from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, SAMPLE_ONLY as PEER_ACTION_SAMPLES, relay_packets
 from environment_probe_2022 import EnvironmentFixture
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
@@ -783,7 +783,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             now = time.monotonic()
                                             outputs, events = self.peer_avatars.move(state,state['last_movement_position'],int((now-self.started)*25)&0xffffffff,now,movement)
                                             self.emit_peer_avatars(outputs,events)
-                                if self.peer_avatars and message.command in PEER_ACTION_RELAY:
+                                if self.peer_avatars and (message.command in PEER_ACTION_RELAY or message.command in PEER_ACTION_SAMPLES):
                                     self.relay_peer_action(state, message.command, message.payload)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
                                     if 'loot_catalog' not in state:
@@ -992,7 +992,9 @@ class Endpoint(asyncio.DatagramProtocol):
             samples[command] = samples.get(command, 0) + 1
             self.capture.record('peer_action_sample', synthetic=True, request=hex(command),
                                 payload_hex=payload.hex(), account_uid=hex(state['actor_uid']))
-        relays = relay_packets(command, payload, member['avatar'], state.setdefault('peer_action_memo', {}),
+        memo = state.setdefault('peer_action_memo', {})
+        memo['actor'] = state.get('actor_uid')
+        relays = relay_packets(command, payload, member['avatar'], memo,
                                int((time.monotonic()-self.started)*25) & 0xffffffff)
         if not relays:
             return

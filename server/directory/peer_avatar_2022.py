@@ -276,9 +276,9 @@ class PeerAvatarRooms:
                        server_status=member.get('pose',0),transitions=transitions,unknown_pose_events=unknown,
                        trajectory_replicated=trajectory,trajectory_fallback=trajectory_error,
                        # Диагностика прицеливания: режим и направление C2S2a.
-                       movement_flags=None if movement is None else movement['bytes'][0],
-                       movement_speed=None if movement is None else movement['word_1'],
-                       movement_floats=None if movement is None else [round(v,4) for v in movement['floats']])
+                       movement_flags=(movement or {}).get('bytes',(None,))[0],
+                       movement_speed=(movement or {}).get('word_1'),
+                       movement_floats=[round(v,4) for v in (movement or {}).get('floats',())] or None)
                   ] if outputs or unknown else []
         return outputs,events
 

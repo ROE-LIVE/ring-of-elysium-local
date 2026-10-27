@@ -992,6 +992,10 @@ class Endpoint(asyncio.DatagramProtocol):
             samples[command] = samples.get(command, 0) + 1
             self.capture.record('peer_action_sample', synthetic=True, request=hex(command),
                                 payload_hex=payload.hex(), account_uid=hex(state['actor_uid']))
+        # Убитый игрок остаётся зрителем: его камера шлёт0x2F/0x11D5, а труп не должен вертеться.
+        world = state.get('world')
+        if world is not None and world.dead:
+            return
         memo = state.setdefault('peer_action_memo', {})
         memo['actor'] = state.get('actor_uid')
         relays = relay_packets(command, payload, member['avatar'], memo,

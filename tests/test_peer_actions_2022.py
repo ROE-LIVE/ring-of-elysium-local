@@ -69,6 +69,9 @@ class PeerActionTests(unittest.TestCase):
         self.assertIs(sent[0][0], b)
         self.assertEqual(sent[0][1][0][0], 0x30)
         self.assertEqual(struct.unpack_from('>Q', sent[0][1][0][1])[0], 0xA)
+        a['world'] = SimpleNamespace(dead=True)
+        Endpoint.relay_peer_action(fake, a, 0x2f, struct.pack('>3f', 0, 1, 0))
+        self.assertEqual(len(sent), 1)
 
 
 if __name__ == '__main__':

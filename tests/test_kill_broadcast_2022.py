@@ -67,6 +67,13 @@ class KillBroadcastTests(unittest.TestCase):
         endpoint.broadcast_alive_count(c)
         self.assertTrue(all(struct.unpack('>II', packets[0][1])[0] == 3 for _, packets in endpoint.sent))
 
+    def test_alive_count_excludes_players_seated_in_rescue_helicopter(self):
+        endpoint, (a, b, c) = self.endpoint_room()
+        b['vehicles'] = SimpleNamespace(seated=900, vehicles={900: dict(configuration=6)})
+        c['vehicles'] = SimpleNamespace(seated=901, vehicles={901: dict(configuration=102)})
+        endpoint.broadcast_alive_count(a)
+        self.assertTrue(all(struct.unpack('>II', packets[0][1])[0] == 2 for _, packets in endpoint.sent))
+
     def test_death_without_recent_shooter_has_no_killer(self):
         endpoint, (a, b, c) = self.endpoint_room()
         c['world'].dead = True

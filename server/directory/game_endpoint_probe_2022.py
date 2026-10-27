@@ -911,6 +911,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                         if event['action'] == 'shared_evacuation_geton':
                                             self.broadcast_shared_geton(state, responses)
                                             self.broadcast_seat_info(state)
+                                            self.broadcast_alive_count(state)
                                     elif (self.shared_evacuation and message.command == 0x6543
                                             and self.leave_shared_evacuation(state, d, remote)):
                                         continue
@@ -1988,9 +1989,18 @@ class Endpoint(asyncio.DatagramProtocol):
             return
         room_uid = state.get('room_uid')
         members = [member['state'] for (room, _), member in self.peer_avatars.members.items() if room == room_uid]
-        alive = sum(self.team_alive(member) for member in members)
+        alive = self.unboarded_count(members)
         self.emit_peer_avatars([(member, [(0x47d, encode_alive_count(alive, self.team_alive(member)))])
                                 for member in members], [])
+
+    def unboarded_count(self, members):
+        """Живые, ещё не севшие в вертолёт эвакуации: на этапе вертолёта HUD подписывает это число
+        «Unboarded Players» (STR_KILL_SURVIVE_PANEL_HINT); игра27/10 показала2 при одном на борту."""
+        def boarded(state):
+            vehicles = state.get('vehicles')
+            return bool(vehicles and vehicles.seated
+                        and vehicles.vehicles.get(vehicles.seated, {}).get('configuration') == 6)
+        return sum(self.team_alive(member) and not boarded(member) for member in members)
 
     def match_room(self, account, requested):
         """Внутренняя комната матча для нового ENTER_ROOM.
@@ -2051,7 +2061,8 @@ class Endpoint(asyncio.DatagramProtocol):
             body = encode_kill_broadcast(rid(recipient, victim), name(victim), alive,
                                          rid(recipient, killer), name(killer), weapon_id, head,
                                          KILL_WAY_PLAYER if killer else KILL_WAY_SELF)
-            packets = [(0x480, body), (0x47d, encode_alive_count(alive, self.team_alive(recipient)))]
+            packets = [(0x480, body), (0x47d, encode_alive_count(self.unboarded_count(
+                [m['state'] for m in members.values()]), self.team_alive(recipient)))]
             # Свой счётчик HUD (⊕ и «1 Kill»): убийце — убийства, жертве — смерти.
             if recipient is killer:
                 killer['kill_count'] = killer.get('kill_count', 0) + 1

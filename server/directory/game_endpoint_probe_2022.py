@@ -986,6 +986,12 @@ class Endpoint(asyncio.DatagramProtocol):
         member = self.peer_avatars.members.get(key)
         if member is None:
             return
+        # Amostras locais (hex) dos primeiros pedidos de cada tipo: formato dos campos ainda em estudo.
+        samples = state.setdefault('peer_action_samples', {})
+        if samples.get(command, 0) < 40:
+            samples[command] = samples.get(command, 0) + 1
+            self.capture.record('peer_action_sample', synthetic=True, request=hex(command),
+                                payload_hex=payload.hex(), account_uid=hex(state['actor_uid']))
         relay = relay_body(command, payload, member['avatar'])
         if relay is None:
             return

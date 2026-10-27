@@ -66,6 +66,23 @@ class CosmeticsTests(unittest.TestCase):
             self.assertEqual(dict(packets)[0x73b1],account.accessory_sync())
             self.assertEqual(LocalCosmetics(config).accessory_selection,account.accessory_selection)
 
+    def test_character_without_accessories_primes_profile_before_avatar(self):
+        # Гость Дудеска (27/10): персонаж407 без аксессуаров — в лобби базовая модель до матча.
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);state=root/'state.json';config=root/'catalog.json'
+            state.write_text(json.dumps(dict(avatar=[407,0,0,0,0],avatar_applied=True)))
+            config.write_text(json.dumps(dict(owned_gun_skin_ids=[],owned_character_ids=[407],state_file=str(state))))
+            codes=[code for code,body in LocalCosmetics(config).initial(42)]
+            prime=(0x73b3,struct.pack('>4IB',0,1,0,0,0))
+            packets=LocalCosmetics(config).initial(42)
+            self.assertIn(prime,packets)
+            self.assertLess(packets.index(prime),codes.index(0x73a1))
+            # С сохранёнными аксессуарами пустой EquipRSP не нужен.
+            state.write_text(json.dumps(dict(avatar=[407,0,0,0,0],accessory_selection=[[100608,0,200000,0]])))
+            config.write_text(json.dumps(dict(owned_gun_skin_ids=[],owned_character_ids=[407],
+                                              owned_accessory_ids=[200000],state_file=str(state))))
+            self.assertNotIn(prime,LocalCosmetics(config).initial(42))
+
     def accessory_account(self, root):
         config=root/'catalog.json';state=root/'state.json'
         config.write_text(json.dumps(dict(owned_gun_skin_ids=[],owned_accessory_ids=[200000,200001],state_file=str(state))))

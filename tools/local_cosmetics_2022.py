@@ -128,6 +128,11 @@ class LocalCosmetics:
                        for weapon,skin in sorted(self.selected.items()))
         if self.characters:packets.append((0x73aa,character_container(self.characters)))
         if self.accessories:packets.append((0x73b0,accessory_container(self.accessories)))
+        if any(self.avatar) and not self.accessory_selection:
+            # Без сохранённых аксессуаров EquipRSP не приходит, cache profile в лобби не создаётся,
+            # и персонаж (73A1) не применяется: гостевой аккаунт видел базовую модель до первого
+            # матча (27/10). Пустой EquipRSP (ret0, item0) → 1412E0770 → GetOrCreate140D9F130.
+            packets.append((0x73b3,struct.pack('>4IB',0,1,0,0,0)))
         if any(self.avatar) or self.initialize_default_avatar:packets.append((0x73a1,self.avatar_sync()))
         # Полный73B1→1412E0370 требует уже существующий cache profile.
         # EquipRSP→1412E0770 вызывает GetOrCreate140D9F130 для своего actor.

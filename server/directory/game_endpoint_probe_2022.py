@@ -579,6 +579,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                     tick,fraction=divmod(milliseconds,40)
                                     self.send_application(d,remote,state,0x484,struct.pack('>II',tick&0xffffffff,fraction))
                                     self.capture.record('selection_timer_response',synthetic=True,request_byte=message.payload[0],remote=remote)
+                                    # 0x483 приходит, когда экран выбора открыт. Снимок клеток при selection_started
+                                    # мог прийти раньше экрана: опоздавший не видел клетку первого (27/10 22:29).
+                                    if self.spawn_points and self.born_cells(state) and 'weapon' not in state:
+                                        self.send_application(d,remote,state,0x11e0,self.born_snapshot(state))
                                 for index, rule in enumerate(self.scene_rules):
                                     trigger, responses = rule[:2]
                                     if trigger != message.command or index in state['scene_rules_sent']:

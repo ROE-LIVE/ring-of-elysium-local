@@ -25,10 +25,38 @@ import struct
 from peer_motion_2022 import packed_direction
 from weapon_probe_2022 import MEDICAL_SLOTS
 
-RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8, 0x11ec: 0x11ec, 0x3e80: 0xbee}
-# Только амостры в журнал (формат ещё изучается): CAMERA_ROTATE, EU_ACTION (бинт),
-# LOAD_BULLET (перезарядка), SET_HAND, SHOOT_TARGET_WITH_DIR.
-SAMPLE_ONLY = frozenset((0x11d9, 0x536, 0x49c, 0x49e, 0x11dd))
+RELAY = {0x2f: 0x30, 0x11d5: 0x11d6, 0x11da: 0x11d4, 0x11d7: 0x11d8, 0x11ec: 0x11ec, 0x3e80: 0xbee,
+         0x536: 0x2b}
+# Только амостры в журнал: CAMERA_ROTATE (луч выстрела), LOAD_BULLET, SET_HAND, SHOOT_TARGET_WITH_DIR.
+SAMPLE_ONLY = frozenset((0x11d9, 0x49c, 0x49e, 0x11dd))
+
+# 0x2B SCENE_MSGID_STATUS_ENTER: U64 unit, U32 E_EU_ST_*. Значения перечислений взяты из
+# регистрации имён в клиенте2022 (lea имени + mov значения, 140621260..): NOT_USE_ITEM=27
+# совпадает с уже проверенным статусом конца лечения medical_probe_2022.
+ST_USE_ITEM, ST_MEDICAL, ST_AIMING, ST_NOT_USE_ITEM = 16, 22, 24, 27
+ST_SCOPE_AIMING, ST_STOP_AIM, ST_LOAD_BULLET = 39, 40, 41
+# 0x536 ACTOR_EU_ACTION_REQ: U32 E_EU_AT_* (AIM=16, DIS_AIM=17, STOP_USE_ITEM=20, SCOPE_AIM=35).
+ACTION_STATUS = {16: ST_AIMING, 35: ST_SCOPE_AIMING, 17: ST_STOP_AIM}
+# События сервера (weapon/medical) → статус удалённой модели.
+EVENT_STATUS = {'reload_started': ST_LOAD_BULLET, 'reload': ST_NOT_USE_ITEM,
+                'medical_started': ST_MEDICAL, 'medical_finished': ST_NOT_USE_ITEM,
+                'medical_cancelled': ST_NOT_USE_ITEM}
+
+
+def status_body(entity, status):
+    return 0x2b, struct.pack('>QI', entity, status)
+
+
+def event_status(event, memo):
+    """Статус для других по событию сервера; конец перезарядки — только после её начала."""
+    action = event.get('action') if isinstance(event, dict) else None
+    status = EVENT_STATUS.get(action)
+    if action == 'reload_started':
+        memo['reloading'] = True
+    elif action == 'reload':
+        if not memo.pop('reloading', False):
+            return None
+    return status
 
 
 def turn_body(entity, memo):
@@ -100,6 +128,9 @@ def relay_body(command, payload, entity, memo=None):
         if container != 2 or definition is None:
             return None
         return 0xbee, struct.pack('>QI', entity, definition)
+    if command == 0x536 and len(payload) == 4:
+        status = ACTION_STATUS.get(struct.unpack('>I', payload)[0])
+        return None if status is None else status_body(entity, status)
     if command == 0x11d7 and len(payload) == 1:
         return 0x11d8, payload + struct.pack('>Q', entity)
     return None

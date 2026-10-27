@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server/directory'))
-from peer_actions_2022 import relay_body, relay_packets
+from peer_actions_2022 import event_status, relay_body, relay_packets
 from game_endpoint_probe_2022 import Endpoint
 
 
@@ -54,7 +54,30 @@ class PeerActionTests(unittest.TestCase):
         real = bytes.fromhex('000000140300000004000000') + struct.pack('<QI', actor, 1)
         code, body = relay_body(0x11ec, real, avatar, {'actor': actor})
         self.assertEqual(body[12:20], struct.pack('<Q', avatar))
+        # STOP_USE_ITEM (20) não vira estado para os outros; AIM/DIS_AIM/SCOPE_AIM viram.
         self.assertEqual(relay_packets(0x536, struct.pack('>I', 20), avatar, {}), [])
+        for action, status in ((16, 24), (17, 40), (35, 39)):
+            self.assertEqual(relay_packets(0x536, struct.pack('>I', action), avatar, {}),
+                             [(0x2b, struct.pack('>QI', avatar, status))])
+
+    def test_reload_and_medical_events_map_to_status(self):
+        memo = {}
+        self.assertIsNone(event_status({'action': 'reload'}, memo))
+        self.assertEqual(event_status({'action': 'reload_started'}, memo), 41)
+        self.assertEqual(event_status({'action': 'reload'}, memo), 27)
+        self.assertIsNone(event_status({'action': 'reload'}, memo))
+        self.assertEqual([event_status({'action': a}, memo) for a in
+                          ('medical_started', 'medical_finished', 'medical_cancelled', 'hand')], [22, 27, 27, None])
+
+    def test_endpoint_status_goes_only_to_other_room_members(self):
+        sent = []
+        a, b = dict(room_uid=1, actor_uid=10), dict(room_uid=1, actor_uid=11)
+        fake = SimpleNamespace(
+            peer_avatars=SimpleNamespace(members={(1, 10): dict(avatar=0xA, state=a), (1, 11): dict(avatar=0xB, state=b)}),
+            emit_peer_avatars=lambda outputs, events: sent.extend(outputs),
+            capture=SimpleNamespace(record=lambda *x, **y: None))
+        Endpoint.relay_peer_status(fake, a, [{'action': 'reload_started', 'seconds': 2}, {'action': 'hand'}])
+        self.assertEqual(sent, [(b, [(0x2b, struct.pack('>QI', 0xA, 41))])])
 
     def test_medical_start_notifies_item_use(self):
         from weapon_probe_2022 import MEDICAL_SLOTS

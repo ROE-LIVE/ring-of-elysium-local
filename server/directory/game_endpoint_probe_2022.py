@@ -43,7 +43,7 @@ from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
 from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
-from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, SAMPLE_ONLY as PEER_ACTION_SAMPLES, relay_packets
+from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, SAMPLE_ONLY as PEER_ACTION_SAMPLES, event_status, relay_packets, status_body
 from environment_probe_2022 import EnvironmentFixture
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
@@ -805,6 +805,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.send_application_batch(d, remote, state, responses)
                                     for reload_event in reload_events:
                                         self.capture.record('weapon_probe', synthetic=True, remote=remote, **reload_event)
+                                    self.relay_peer_status(state, reload_events)
                                 medical_handled = False
                                 if 'weapon' in state and 'world' in state:
                                     if 'medical' not in state:
@@ -819,6 +820,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.send_application_batch(d, remote, state, responses)
                                     for event in events:
                                         self.capture.record('medical_probe', synthetic=True, remote=remote, **event)
+                                    self.relay_peer_status(state, events)
                                 if medical_handled and self.peer_avatars:
                                     self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
                                 if 'weapon' in state and state['weapon'].fixture.throwable_actions:
@@ -850,6 +852,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     for command, payload in responses:
                                         self.send_application(d, remote, state, command, payload)
                                     self.capture.record('weapon_probe', synthetic=True, remote=remote, **event)
+                                    self.relay_peer_status(state, [event])
                                     if message.command == 0x11da and self.peer_combat:
                                         self.peer_combat.note_fire(state,message.payload,event,time.monotonic())
                                     if message.command == 0x11da and 'vehicles' in state:
@@ -1013,6 +1016,27 @@ class Endpoint(asyncio.DatagramProtocol):
                     self.capture.record('peer_action_relay', synthetic=True, request=hex(command), sync=hex(relay[0]),
                                         account_uid=hex(state['actor_uid']), recipients=len(outputs),
                                         count=counts[hex(relay[0])], format_verified=False)
+
+    def relay_peer_status(self, state, events):
+        """Перезарядка/лечение участника → STATUS_ENTER его удалённой модели у других."""
+        if not self.peer_avatars or 'room_uid' not in state:
+            return
+        member = self.peer_avatars.members.get((state.get('room_uid'), state.get('actor_uid')))
+        if member is None:
+            return
+        memo = state.setdefault('peer_action_memo', {})
+        for event in events:
+            status = event_status(event, memo)
+            if status is None:
+                continue
+            outputs = [(other['state'], [status_body(member['avatar'], status)])
+                       for other_key, other in self.peer_avatars.members.items()
+                       if other_key[0] == state['room_uid'] and other_key[1] != state['actor_uid']]
+            if outputs:
+                self.emit_peer_avatars(outputs, [])
+                self.capture.record('peer_action_relay', synthetic=True, request=event['action'], sync='0x2b',
+                                    status=status, account_uid=hex(state['actor_uid']), recipients=len(outputs),
+                                    format_verified=False)
 
     def broadcast_shared_geton(self, state, packets):
         """Собственный GETON остаётся own; другим адресуется remote Unit UID."""

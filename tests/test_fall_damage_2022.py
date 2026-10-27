@@ -12,12 +12,12 @@ def point(z, ms, event=0):
 
 class FallDamageTests(unittest.TestCase):
     def test_curve_anchors(self):
-        self.assertEqual(speed_damage(1212), 0)         # 6,4м сессии20261027T215844 — без урона
-        self.assertEqual(speed_damage(1399), 0)
-        self.assertEqual(speed_damage(2450), 500)
-        self.assertEqual(speed_damage(3500), 1000)
+        self.assertEqual(fall_damage(640), 0)            # 6,4м — без урона (пользователь)
+        self.assertTrue(80 < fall_damage(1000) < 130)    # 10м — урон должен быть
+        self.assertEqual(speed_damage(2500), 500)
+        self.assertEqual(speed_damage(3400), 1000)
         # Видео оригинала: сноуборд с ~30м (≈3100 см/с) оставил18 HP.
-        self.assertEqual(speed_damage(3100), 810)
+        self.assertEqual(speed_damage(3100), 833)
         self.assertEqual(fall_damage(130), 0)          # обычный прыжок JumpHeight130
 
     def test_downhill_jump_from_session_log_is_harmless(self):
@@ -37,10 +37,10 @@ class FallDamageTests(unittest.TestCase):
         height, speed, damage = tracker.observe([point(z, ms, e) for z, ms, e in samples])
         self.assertEqual(height, 1386)
         self.assertTrue(1700 < speed < 1900)
-        self.assertTrue(100 < damage < 250)
+        self.assertTrue(200 < damage < 400)   # 13,9м по высоте
 
     def test_ski_hurt_request(self):
-        self.assertEqual(ski_hurt(bytes.fromhex('00000c1c')), (3100, 810, (0x100b, bytes(4))))
+        self.assertEqual(ski_hurt(bytes.fromhex('00000c1c')), (3100, 833, (0x100b, bytes(4))))
         self.assertEqual(ski_hurt((1000).to_bytes(4, 'big'))[1], 0)
         with self.assertRaises(ValueError):
             ski_hurt(bytes(3))

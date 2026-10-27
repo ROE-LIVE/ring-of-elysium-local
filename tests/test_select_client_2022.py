@@ -21,7 +21,10 @@ class SelectClientTests(unittest.TestCase):
                          'SFC/World_EU_ICELAND_4096_RemainingFiles.sfc'):
                 p = game/name;p.parent.mkdir(exist_ok=True);p.write_bytes(b'synthetic fixture')
             script = base/'check.ps1'
+            # Windows PowerShell5.1: Get-FileHash — функция модуля Utility; его автозагрузка
+            # посреди сценария перекрывала заглушку ниже. Явный импорт до заглушек.
             script.write_text('''$ErrorActionPreference = 'Stop'
+Import-Module Microsoft.PowerShell.Utility
 . $env:ROE_SELECT_HELPER
 $script:answer = '"' + $env:ROE_SELECT_GAME + '"'
 $script:prompts = 0
@@ -54,8 +57,10 @@ Write-Output 'SELECT_CLIENT_OK'
             before = {p.relative_to(game):p.read_bytes() for p in game.rglob('*') if p.is_file()}
             env = dict(os.environ, ROE_SELECT_HELPER=str(ROOT/'tools/select_client.ps1'),
                        ROE_SELECT_GAME=str(game), ROE_SELECT_REPO=str(repo))
-            result = subprocess.run([SHELL, '-NoProfile', '-File', str(script)], env=env,
-                                    capture_output=True, text=True, timeout=30)
+            # Bypass только для процесса теста; см. test_reset_local_2022.
+            result = subprocess.run([SHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script)],
+                                    env=env, capture_output=True, text=True, encoding='utf-8',
+                                    errors='replace', timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
             self.assertIn('SELECT_CLIENT_OK', result.stdout)
             self.assertEqual((repo/'.tools/client-path.txt').read_text(), str(game))

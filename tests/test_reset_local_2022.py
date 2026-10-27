@@ -22,8 +22,11 @@ class ResetTests(unittest.TestCase):
         script.write_text("$ErrorActionPreference='Stop'\n. $env:ROE_RESET_HELPER\n"+body, encoding='utf-8-sig')
         env = dict(os.environ, ROE_RESET_HELPER=str(ROOT/'tools/local_session.ps1'),
                    ROE_RESET_REPO=str(root), ROE_RESET_GAME=str(game))
-        result = subprocess.run([SHELL, '-NoProfile', '-File', str(script)], env=env,
-                                capture_output=True, text=True, timeout=30)
+        # Bypass только для процесса теста (политика Windows по умолчанию Restricted
+        # блокирует -File); вывод PowerShell в кодовой странице консоли не должен ронять тест.
+        result = subprocess.run([SHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script)],
+                                env=env, capture_output=True, text=True, encoding='utf-8',
+                                errors='replace', timeout=30)
         if success:
             self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
         else:

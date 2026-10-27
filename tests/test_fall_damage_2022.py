@@ -12,9 +12,10 @@ def point(z, ms, event=0):
 
 class FallDamageTests(unittest.TestCase):
     def test_curve_anchors(self):
-        self.assertEqual(speed_damage(699), 0)
-        self.assertEqual(speed_damage(1400), 500)
-        self.assertEqual(speed_damage(2100), 1000)
+        self.assertEqual(speed_damage(1212), 0)         # 6,4м сессии20261027T215844 — без урона
+        self.assertEqual(speed_damage(1399), 0)
+        self.assertEqual(speed_damage(2100), 500)
+        self.assertEqual(speed_damage(2800), 1000)
         self.assertEqual(fall_damage(130), 0)          # обычный прыжок JumpHeight130
 
     def test_downhill_jump_from_session_log_is_harmless(self):
@@ -34,7 +35,7 @@ class FallDamageTests(unittest.TestCase):
         height, speed, damage = tracker.observe([point(z, ms, e) for z, ms, e in samples])
         self.assertEqual(height, 1386)
         self.assertTrue(1700 < speed < 1900)
-        self.assertTrue(700 < damage < 1000)
+        self.assertTrue(200 < damage < 400)
 
     def test_cancel_events_skip_damage(self):
         tracker = FallTracker()

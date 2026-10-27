@@ -5,7 +5,9 @@
 Кривая привязана к CharacterTable клиента (TableBin00000a11): Gravity1600 см/с²,
 mMiddleFallVSpeed700, mHighFallVSpeed1400. Скорость удара — наибольшая измеренная скорость
 снижения между соседними точками C2S0x2A в полёте (tick40мс + доля0..39мс):
-  v < 1400 (mHighFallVSpeed) → 0; 1400..2100 → 0..50% HP линейно; смерть при2800.
+  v < 1400 (mHighFallVSpeed) → 0; дальше линейно, смерть при3500 (половина HP при2450).
+Калибровка по видео оригинала (пользователь27/10): прыжок на сноуборде с высоты ~2 сосен
+(~30м, v ≈ 3100 см/с) оставил18 HP из100 → ~82% урона при3100.
 Сессия27/10 (20261027T212632): по высоте «от вершины до приземления» прыжок вниз по склону
 (2,7м, но снижение лишь ~575 см/с) давал16,6 HP. Сессия20261027T215844: падение6,4м
 (1212 см/с) дало36,6 HP, а в оригинале с такой высоты урона нет (пользователь) — порог
@@ -18,8 +20,8 @@ import math
 
 GRAVITY = 1600
 SAFE_SPEED = 1400
-HIGH_SPEED = 2100
-LETHAL_SPEED = 2800
+HIGH_SPEED = 2450
+LETHAL_SPEED = 3500
 FULL_HP = 1000
 
 START_EVENTS = frozenset((22, 4))
@@ -80,3 +82,14 @@ class FallTracker:
                 self.cancel()
                 result = (height, round(speed), speed_damage(speed))
         return result
+
+
+def ski_hurt(payload):
+    """0x100A SKI_HURT_REQ (декодер140bfec20, getter SKI_HURT_REQ_iSpeed): U32 iSpeed.
+    Ответ0x100B SKI_HURT_RSP: U32 iRet (тот же декодер). Единица iSpeed не подтверждена
+    (предположение см/с, как остальные скорости клиента); сырое значение пишется в журнал.
+    Возвращает (скорость, урон, ответ)."""
+    if len(payload) != 4:
+        raise ValueError('SKI_HURT_REQ ожидает4байта')
+    speed = int.from_bytes(payload, 'big')
+    return speed, speed_damage(speed), (0x100b, bytes(4))

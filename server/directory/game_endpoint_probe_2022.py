@@ -38,7 +38,7 @@ from shared_evacuation_2022 import SharedEvacuationRooms, SEATS, encode_end_info
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
-from fall_damage_2022 import FallTracker
+from fall_damage_2022 import FallTracker, ski_hurt
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -723,6 +723,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.emit_peer_avatars(outputs,events)
                                     state['peer_avatar_admitted'] = True
                                     self.broadcast_alive_count(state)
+                                if message.command == 0x100a and 'world' in state and not state['world'].dead:
+                                    self.apply_ski_hurt(d, remote, state, message.payload)
                                 if self.peer_combat and message.command == 0x11dd:
                                     outputs,event,victim = self.peer_combat.hit(state,message.payload,time.monotonic())
                                     self.emit_peer_avatars(outputs,[])
@@ -1851,6 +1853,25 @@ class Endpoint(asyncio.DatagramProtocol):
         if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
             return None
         return self.room_born_cells.get((state['room_uid'], self.shared_loot.epochs.get(state['room_uid'], 1)))
+
+    def apply_ski_hurt(self, d, remote, state, payload):
+        """Урон от жёсткого приземления на лыжах/сноуборде по скорости, присланной клиентом."""
+        speed, damage, reply = ski_hurt(payload)
+        world = state['world']
+        packets = [reply]
+        event = dict(action='ski_hurt', raw_speed=speed, damage=0, hp=world.hp)
+        if damage:
+            health, applied = world.apply_damage(damage, state['actor_uid'])
+            packets = health + packets
+            event.update(damage=applied['damage'], hp=applied['hp'])
+        self.send_application_batch(d, remote, state, packets)
+        self.capture.record('world_probe', synthetic=True, remote=remote, unit_verified=False,
+                            validation='experimental_fall_speed', **event)
+        if damage:
+            if self.peer_avatars:
+                self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
+            self.emit_own_death_inventory(d, remote, state)
+            self.cancel_dead_actions(state, remote)
 
     def apply_fall_damage(self, d, remote, state, movement):
         """Экспериментальный урон от падения пешком (fall_damage_2022); смерть — общими путями."""

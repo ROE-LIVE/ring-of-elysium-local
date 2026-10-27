@@ -13,6 +13,10 @@
     (U32 iPart_id, U32 iStatus, U32 iHp, U32 iBullet_num, U8 bPart_type; доп. блок только для5),
     U32 iResult. Порядок полей — по getters1414f1c80..1414f2ce0; E_EUV_PART_* — регистрация имён.
 iStatus разрушенной части не найден: берём3 (как разрушенный транспорт) — гипотеза.
+Игра27/10: без владельца клиент сам симулировал падение (слал MOVE_REQ0x6549) и игнорировал
+MOVE_BC. Поэтому сразу и каждые OWNER_PERIOD секунд — OWNER_SYNC0x656D с владельцем0
+(декодер140C9AAA0, формат как в shared_vehicle_2022.owner_packet): гипотеза «без владельца
+клиент не ведёт физику».
 """
 import struct
 
@@ -24,6 +28,7 @@ DESCENT_SPEED = 250           # см/с
 HOVER_PERIOD = 0.5
 DESCENT_PERIOD = 0.2
 PART_BALOON, PART_BALOON_FIRE = 3, 4
+OWNER_PERIOD = 2.0
 DESTROYED_STATUS = 3
 
 
@@ -33,6 +38,11 @@ def move_bc(uid, position, velocity_z, tick):
     struct.pack_into('>3i', body, 13, *position)
     struct.pack_into('>3f', body, 26, 0.0, 0.0, float(velocity_z))
     return bytes(body)
+
+
+def owner_sync(uid, position, owner=0):
+    return (0x656d, struct.pack('>QIQ', uid, 0, owner) + struct.pack('>iiiB', *position, 0)
+            + struct.pack('>4f', 0, 0, 0, 1) + bytes(3))
 
 
 def part_sync(uid, part_id, part_type, hp=0, status=DESTROYED_STATUS):
@@ -47,6 +57,7 @@ class AirdropFlight:
         self.notice = None
         self.phase = 'hover'
         self.next_send = now
+        self.next_owner = now
 
     def hover_entity(self, body):
         """Ящик501 сразу на высоте зависания над точкой."""
@@ -56,8 +67,24 @@ class AirdropFlight:
 
     def poll(self, now, tick):
         """Пакеты для клиента (возможно пусто) и событие смены фазы (или None)."""
-        if self.phase == 'done' or now < self.next_send:
+        if self.phase == 'done':
             return [], None
+        owner = []
+        if now >= self.next_owner:
+            self.next_owner = now + OWNER_PERIOD
+            owner = [owner_sync(self.uid, (self.x, self.y, self.current_z(now)))]
+        if now < self.next_send:
+            return owner, None
+        packets, phase = self.step(now, tick)
+        return owner + packets, phase
+
+    def current_z(self, now):
+        elapsed = now - self.started
+        if elapsed < HOVER_SECONDS:
+            return self.top_z
+        return max(self.ground_z, round(self.top_z - DESCENT_SPEED*(elapsed - HOVER_SECONDS)))
+
+    def step(self, now, tick):
         elapsed = now - self.started
         if self.phase == 'hover':
             if elapsed < HOVER_SECONDS:

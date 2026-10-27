@@ -37,6 +37,14 @@ class SharedLootTests(unittest.TestCase):
         self.assertEqual(self.rooms.world_start(fresh, 200), 200)
         with self.assertRaises(ValueError): self.rooms.world_start(self.a, 201)
 
+    def test_dropped_uids_do_not_reuse_launcher_fixture_ranges(self):
+        # windows_launch: medical 0x31d0003…, attachment 05, grenade 06, набор 09, одиночный выброс 02.
+        fixture_ranges = [0x31d0000000000 + (kind << 24) for kind in (2, 3, 5, 6, 9)]
+        for _ in range(300):
+            index, uid = self.rooms.allocate_ground()
+            self.assertGreaterEqual(index, 0x10000000)
+            self.assertFalse(any(base <= uid < base + 0x1000000 for base in fixture_ranges), hex(uid))
+
     def test_racing_pickups_only_one_inventory_receives_quantity(self):
         before = self.a['weapon'].reserve + self.b['weapon'].reserve
         _, event, outputs = self.rooms.handle(self.a, 0x3b63, self.request)

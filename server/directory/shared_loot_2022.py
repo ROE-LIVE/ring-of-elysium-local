@@ -51,7 +51,10 @@ class SharedLootRooms:
         if self.drop_counter > 8192:
             raise ValueError('Лимит общего наземного лута')
         index = 0x10000000 + self.drop_counter
-        uid = 0x31d0003000000 + self.drop_counter
+        # 0x31d0003xxxxxx занят medical-7000N.bin (70002→…001, 70003→…002): клиент не создавал
+        # первые два выброшенных предмета комнаты. Отдельный диапазон 0x10 не пересекается
+        # с наборами windows_launch (02/03/05/06/09) и death_parcel (0x31d04…/0x31d05…).
+        uid = 0x31d0010000000 + self.drop_counter
         return index, uid
 
     def world_start(self, state, now):

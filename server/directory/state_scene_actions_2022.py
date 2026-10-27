@@ -8,6 +8,15 @@ from death_parcel_2022 import DeathParcelState
 
 def validate_state_action(row):
     action = row.get('action')
+    if action == 'airdrop':
+        # Серверный полёт аирдропа над точкой земли (airdrop_flight_2022); не исходная команда ROE.
+        if set(row)-{'id','action','recipient_actor_uid','position'}:
+            raise ValueError('State action не принимает wire payload/неизвестные поля')
+        position = row.get('position')
+        if (not isinstance(position, list) or len(position) != 3
+                or any(type(n) is not int or not 0 < n < 1000000 for n in position)):
+            raise ValueError('airdrop: position требует три целых см (точка земли)')
+        return dict(action=action,position=list(position))
     if action == 'teleport':
         # Локальный перенос своего actor через server27; не исходная команда ROE.
         if set(row)-{'id','action','recipient_actor_uid','position'}:

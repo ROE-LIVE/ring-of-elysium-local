@@ -48,12 +48,28 @@ class AirdropFlightTests(unittest.TestCase):
         notice = struct.pack('>iiiBiiiB', 100, 200, 258000, 0, 0, 0, 0, 0)
         patched = endpoint.start_airdrop_flight(state, bytes(entity), [(0x654b, bytes(entity)), (0x4a6, notice)])
         self.assertEqual(struct.unpack_from('>3i', patched, 20), (100, 200, 258000+flight_module.HOVER_HEIGHT))
-        self.assertEqual(state['airdrop_flight'].ground_z, 258000)
+        self.assertEqual(state['airdrop_flights'][0].ground_z, 258000)
         # Без высоты земли (уведомление в небе) — прежнее нативное падение.
         sky = struct.pack('>iiiBiiiB', 100, 200, 301000, 0, 0, 0, 0, 0)
         other = {}
         self.assertEqual(endpoint.start_airdrop_flight(other, bytes(entity), [(0x4a6, sky)]), bytes(entity))
-        self.assertNotIn('airdrop_flight', other)
+        self.assertNotIn('airdrop_flights', other)
+
+    def test_live_airdrop_builds_new_entity_and_flight(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        entity = bytearray(117)
+        struct.pack_into('>QI', entity, 0, 9, 501)
+        endpoint.scene_rules = [(0x1f49, [(0x654b, bytes(entity))])]
+        state = {}
+        packets, event = endpoint.live_airdrop(state, [100, 200, 258000])
+        self.assertTrue(event['accepted'])
+        code, body = packets[0]
+        uid = struct.unpack_from('>Q', body)[0]
+        self.assertEqual((code, struct.unpack_from('>I', body, 8)[0]), (0x654b, 501))
+        self.assertEqual(endpoint.live_airdrop({}, [100, 200, 258000])[0][0][1][:8], body[:8])   # mesmo nome → mesmo UID
+        self.assertNotEqual(uid, 9)
+        self.assertEqual(struct.unpack_from('>3i', body, 20), (100, 200, 258000+flight_module.HOVER_HEIGHT))
+        self.assertEqual(state['airdrop_flights'][0].notice[0], 0x4a6)
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ import signal
 import struct
 import sys
 import time
+import zlib
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -475,7 +476,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                             if code is None:
                                                 # Общая комната: разрешён только teleport (запрос пользователя27/10,
                                                 # обычно с recipient_actor_uid); прочие действия меняют общий баланс.
-                                                if self.shared_loot and payload['action'] != 'teleport':
+                                                if payload['action'] == 'airdrop':
+                                                    packets,event = self.live_airdrop(state,payload['position'],name)
+                                                elif self.shared_loot and payload['action'] != 'teleport':
                                                     packets,event = [],dict(action=payload['action'],accepted=False,reason='solo_action_only')
                                                 else:
                                                     try:
@@ -634,9 +637,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 payload = weapon.ammunition_sync(slot=slot)
                                         if command == 0x654b and len(payload) == 117 and struct.unpack_from('>I', payload, 8)[0] == 501:
                                             payload = self.start_airdrop_flight(state, payload, responses)
-                                        if command == 0x4a6 and state.get('airdrop_flight') and state['airdrop_flight'].notice is None                                                 and state['airdrop_flight'].phase == 'hover':
+                                        waiting = [f for f in state.get('airdrop_flights', ()) if f.notice is None and f.phase == 'hover']
+                                        if command == 0x4a6 and waiting:
                                             # Объявление — после зависания (AirdropFlight.poll).
-                                            state['airdrop_flight'].notice = (command, payload)
+                                            waiting[-1].notice = (command, payload)
                                             continue
                                         if self.shared_vehicles and command==0x654b:
                                             self.register_fixture_entity(state,command,payload)
@@ -1882,7 +1886,8 @@ class Endpoint(asyncio.DatagramProtocol):
         if ground is None or not getattr(self, 'airdrop_flights_enabled', True):
             return payload
         flight = AirdropFlight(uid, x, y, ground, time.monotonic())
-        state['airdrop_flight'] = flight
+        state.setdefault('airdrop_flights', []).append(flight)
+        self.airdrop_template = bytes(payload)
         self.capture.record('airdrop_flight', synthetic=True, phase='hover', uid=hex(uid),
                             position=[x, y, flight.top_z], ground_z=ground, original_rule_verified=False)
         return flight.hover_entity(payload)
@@ -1891,17 +1896,40 @@ class Endpoint(asyncio.DatagramProtocol):
         """Шаг серверного полёта аирдропа для каждой сессии (зависание, спуск, посадка)."""
         tick = int((now-self.started)*25) & 0xffffffff
         for state in list(getattr(self, 'sessions', {}).values()):
-            flight = state.get('airdrop_flight')
             anchor = state.get('peer_avatar_anchor')
-            if flight is None or not anchor or state.get('match_finished') or state.get('transport_retired'):
+            if not anchor or state.get('match_finished') or state.get('transport_retired'):
                 continue
-            packets, phase = flight.poll(now, tick)
-            if packets:
-                self.send_application_batch(anchor[0], anchor[1], state, packets)
-            if phase:
-                self.capture.record('airdrop_flight', synthetic=True, phase=phase, uid=hex(flight.uid),
-                                    position=[flight.x, flight.y, flight.ground_z if phase == 'landed' else flight.top_z],
-                                    remote=anchor[1], original_rule_verified=False)
+            for flight in list(state.get('airdrop_flights', ())):
+                packets, phase = flight.poll(now, tick)
+                if packets:
+                    self.send_application_batch(anchor[0], anchor[1], state, packets)
+                if phase:
+                    self.capture.record('airdrop_flight', synthetic=True, phase=phase, uid=hex(flight.uid),
+                                        position=[flight.x, flight.y, flight.ground_z if phase == 'landed' else flight.top_z],
+                                        remote=anchor[1], original_rule_verified=False)
+                if flight.phase == 'done':
+                    state['airdrop_flights'].remove(flight)
+
+    def live_airdrop(self, state, position, name='airdrop'):
+        """Живая команда airdrop: новый ящик501 (другой UID, без лута) и полный полёт над точкой."""
+        template = getattr(self, 'airdrop_template', None)
+        if template is None:
+            for rule in getattr(self, 'scene_rules', ()) or ():
+                for response in rule[1]:
+                    if response[0] == 0x654b and len(response[1]) == 117 and struct.unpack_from('>I', response[1], 8)[0] == 501:
+                        template = bytes(response[1])
+        if template is None:
+            return [], dict(action='airdrop', accepted=False, reason='no_501_template')
+        # UID из имени команды: все участники получают один и тот же ящик.
+        uid = struct.unpack_from('>Q', template)[0] + 0x1000 + (zlib.crc32(name.encode()) & 0xfff)
+        x, y, z = position
+        flight = AirdropFlight(uid, x, y, z, time.monotonic())
+        flight.notice = (0x4a6, struct.pack('>iiiBiiiB', x, y, z, 0, 0, 0, 0, 0))
+        state.setdefault('airdrop_flights', []).append(flight)
+        body = bytearray(template)
+        struct.pack_into('>Q', body, 0, uid)
+        return [(0x654b, flight.hover_entity(bytes(body)))], dict(
+            action='airdrop', accepted=True, uid=hex(uid), position=list(position), experimental=True)
 
     def apply_ski_hurt(self, d, remote, state, payload):
         """Урон от жёсткого приземления на лыжах/сноуборде по скорости, присланной клиентом."""

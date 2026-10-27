@@ -41,11 +41,11 @@ def main(argv=None):
     parser.add_argument('--run',type=Path,required=True)
     parser.add_argument('--id',default=None)
     parser.add_argument('--recipient',default=None)
-    parser.add_argument('--action',choices=('set_own_health','give_ammo','damage_npc','teleport'),required=True)
+    parser.add_argument('--action',choices=('set_own_health','give_ammo','damage_npc','teleport','airdrop'),required=True)
     parser.add_argument('--hp',type=int);parser.add_argument('--quantity',type=int)
     parser.add_argument('--definition',type=int);parser.add_argument('--damage',type=int)
     parser.add_argument('--npc-uid',help='UID конкретной пассивной мишени; только damage_npc')
-    parser.add_argument('--position',type=int,nargs=3,metavar=('X','Y','Z'),help='см карты; только teleport')
+    parser.add_argument('--position',type=int,nargs=3,metavar=('X','Y','Z'),help='см карты; teleport или airdrop (точка земли)')
     args=parser.parse_args(argv)
     row=dict(id=args.id or ('admin-'+uuid.uuid4().hex[:12]),action=args.action)
     for name in ('hp','quantity','definition','damage'):

@@ -35,6 +35,7 @@ from peer_lifecycle_2022 import expired_members
 from peer_spectator_2022 import PeerSpectators
 from shared_evacuation_2022 import SharedEvacuationRooms
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
+from kill_broadcast_2022 import encode_kill_broadcast
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -716,6 +717,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.capture.record('shared_combat_probe',synthetic=True,**event)
                                     if victim is not None:
                                         state.setdefault('match_statistics',MatchStatistics()).observe(event)
+                                        # Для ленты убийств0x0480: последний принятый PvP-урон по жертве.
+                                        victim['last_peer_hit'] = (state, event.get('gun_definition') or 0,
+                                                                   event.get('part_id') == 1, time.monotonic())
                                         self.emit_peer_avatars(*self.peer_avatars.health(victim,time.monotonic()))
                                         anchor = victim['peer_avatar_anchor']
                                         self.emit_own_death_inventory(anchor[0],anchor[1],victim)
@@ -1394,6 +1398,7 @@ class Endpoint(asyncio.DatagramProtocol):
         world = state.get('world')
         if world is None or not getattr(world, 'dead', False):
             return
+        self.broadcast_kill(state)
         statistics = state.get('match_statistics')
         if statistics is not None and statistics.ended_at is None:
             report = statistics.finish(time.monotonic(), rescued=False)
@@ -1824,6 +1829,46 @@ class Endpoint(asyncio.DatagramProtocol):
                 if other is not state and other.get('room_uid') == state.get('room_uid')
                 and other.get('actor_uid') not in (None, state.get('actor_uid'))
                 and other.get('selection_deadline') is not None and 'weapon' not in other]
+
+    def broadcast_kill(self, victim):
+        """0x0480 всем участникам комнаты один раз на смерть; UID — в системе получателя."""
+        if not getattr(self, 'peer_avatars', None) or victim.get('kill_broadcast_sent'):
+            return
+        room_uid = victim.get('room_uid')
+        members = {account: member for (room, account), member in self.peer_avatars.members.items()
+                   if room == room_uid}
+        if members.get(victim.get('actor_uid'), {}).get('state') is not victim:
+            return
+        victim['kill_broadcast_sent'] = True
+        alive = sum(1 for member in members.values()
+                    if member['state'].get('world') is not None and not member['state']['world'].dead
+                    and not member['state'].get('match_finished'))
+        killer, weapon_id, head = None, 0, False
+        hit = victim.get('last_peer_hit')
+        # Собственный предел: убийца — автор PvP-попадания не старше10с (иначе смерть «сама»).
+        if hit and time.monotonic()-hit[3] <= 10 and hit[0] is not victim:
+            killer, weapon_id, head = hit[0], hit[1], hit[2]
+        def rid(recipient, subject):
+            if subject is None:
+                return 0
+            if recipient is subject:
+                return subject['actor_uid']
+            member = members.get(subject['actor_uid'])
+            return member['avatar'] if member else 0
+        def name(subject):
+            return subject.get('actor_display_name', self.room_display_name) if subject else ''
+        outputs = []
+        for member in members.values():
+            recipient = member['state']
+            body = encode_kill_broadcast(rid(recipient, victim), name(victim), alive,
+                                         rid(recipient, killer), name(killer), weapon_id, head)
+            outputs.append((recipient, [(0x480, body)]))
+        self.emit_peer_avatars(outputs, [])
+        self.capture.record('kill_broadcast', synthetic=True, room_uid=hex(room_uid),
+                            victim=hex(victim['actor_uid']),
+                            killer=hex(killer['actor_uid']) if killer else None,
+                            weapon_id=weapon_id, hit_head=head, alive=alive,
+                            recipients=len(outputs), reason_verified=False)
 
     def emit_peer_avatars(self,outputs,events):
         for recipient,messages in outputs:

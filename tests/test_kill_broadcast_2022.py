@@ -1,0 +1,60 @@
+"""Лента убийств0x0480: формат декодера клиента и рассылка комнате."""
+import sys
+import time
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'server/directory'))
+from kill_broadcast_2022 import encode_kill_broadcast, decode_kill_broadcast
+from game_endpoint_probe_2022 import Endpoint
+
+
+class KillBroadcastTests(unittest.TestCase):
+    def test_round_trip_and_client_string_rules(self):
+        body = encode_kill_broadcast(0x2040000100001, 'Charlie', 1, 0x515bb1e1dd242c, 'Jogador1', 10111, True)
+        decoded = decode_kill_broadcast(body)
+        self.assertEqual((decoded['actor_name'], decoded['killer_name'], decoded['weapon_id']),
+                         ('Charlie', 'Jogador1', 10111))
+        self.assertEqual((decoded['alive'], decoded['hit_head'], decoded['downer_name']), (1, True, ''))
+        # Пустая строка — длина1 (один NUL): декодер клиента отвергает длину0.
+        self.assertEqual(body[8:12], (9).to_bytes(4, 'big'))
+        empty = decode_kill_broadcast(encode_kill_broadcast(5, 'X', 3))
+        self.assertEqual((empty['killer_rid'], empty['killer_name']), (0, ''))
+        self.assertEqual(len(encode_kill_broadcast(5, 'X', 3)), 8+5+8+5+4+8+6+12+5+16)
+
+    def endpoint_room(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        endpoint.room_display_name = 'LOCAL'
+        endpoint.records, endpoint.sent = [], []
+        endpoint.capture = SimpleNamespace(record=lambda kind, **kw: endpoint.records.append((kind, kw)))
+        endpoint.emit_peer_avatars = lambda outputs, events: endpoint.sent.extend(outputs)
+        states = [dict(actor_uid=uid, room_uid=1, actor_display_name=name,
+                       world=SimpleNamespace(dead=False)) for uid, name in ((10, 'A'), (20, 'B'), (30, 'C'))]
+        endpoint.peer_avatars = SimpleNamespace(members={
+            (1, s['actor_uid']): dict(state=s, avatar=500+s['actor_uid']) for s in states})
+        return endpoint, states
+
+    def test_pvp_kill_uses_recipient_view_and_is_sent_once(self):
+        endpoint, (a, b, c) = self.endpoint_room()
+        b['world'].dead = True
+        b['last_peer_hit'] = (a, 10111, True, time.monotonic())
+        endpoint.broadcast_kill(b)
+        endpoint.broadcast_kill(b)
+        self.assertEqual(len(endpoint.sent), 3)
+        views = {state['actor_uid']: decode_kill_broadcast(packets[0][1]) for state, packets in endpoint.sent}
+        self.assertEqual((views[10]['killer_rid'], views[10]['actor_rid']), (10, 520))
+        self.assertEqual((views[20]['killer_rid'], views[20]['actor_rid']), (510, 20))
+        self.assertEqual((views[30]['killer_rid'], views[30]['actor_rid']), (510, 520))
+        self.assertTrue(all(v['alive'] == 2 and v['killer_name'] == 'A' and v['hit_head'] for v in views.values()))
+
+    def test_death_without_recent_shooter_has_no_killer(self):
+        endpoint, (a, b, c) = self.endpoint_room()
+        c['world'].dead = True
+        c['last_peer_hit'] = (a, 10111, False, time.monotonic()-11)
+        endpoint.broadcast_kill(c)
+        view = decode_kill_broadcast(endpoint.sent[0][1][0][1])
+        self.assertEqual((view['killer_rid'], view['killer_name'], view['actor_name'], view['alive']), (0, '', 'C', 2))
+
+
+if __name__ == '__main__':
+    unittest.main()

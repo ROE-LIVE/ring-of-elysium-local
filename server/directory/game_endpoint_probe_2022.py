@@ -1083,31 +1083,29 @@ class Endpoint(asyncio.DatagramProtocol):
         self.emit_peer_avatars(outputs, [])
 
     def leave_shared_evacuation(self, state, d, remote):
-        """F/GETOFF на месте общего вертолёта: газета «спасён» только этому участнику."""
+        """F/GETOFF на месте общего вертолёта: показать газету, оставаясь на борту до отлёта.
+
+        GETOFF не исполняется (без0x6544), матч не завершается; газета — те же сообщения
+        результата без0x6589. Повторный F не шлёт газету снова. Итог матча — при отлёте.
+        """
         vehicles = state.get('vehicles')
         if vehicles is None or vehicles.vehicles.get(vehicles.seated, {}).get('configuration') != 6:
             return False
         self.shared_evacuation.sync(self.peer_avatars)
-        helicopter, room_uid = vehicles.seated, state['room_uid']
-        seat = self.shared_evacuation.leave(state)
+        seat = self.shared_evacuation.seat_of(state)
         if seat is None:
             return False
-        now = time.monotonic()
-        name = state.get('actor_display_name', self.room_display_name)
-        report = state['match_statistics'].snapshot(now)
-        report['rescued'] = 1
-        packets = []
-        if not vehicles.survivor_announced:
-            packets.append((0x6580, survivor_event(helicopter, state['actor_uid'], name, seat)))
-        packets.extend(self.evacuation_result_fixture.messages(state['actor_uid'], room_uid, report, name))
-        packets.append((0x6589, struct.pack('>BQ', 1, helicopter)))
-        state['match_statistics'].finish(now, rescued=True)
-        state['match_terminal_packets'] = tuple(packets)
-        vehicles.evacuation_finished = True
-        self.send_application_batch(d, remote, state, packets)
-        self.capture.record('shared_evacuation_probe', synthetic=True, action='shared_evacuation_early_leave',
-                            room_uid=hex(room_uid), seat=seat, original_rule_verified=False)
-        self.finish_gameplay(state, remote, 'rescued')
+        room_uid = state['room_uid']
+        if not state.get('evacuation_newspaper_shown'):
+            state['evacuation_newspaper_shown'] = True
+            name = state.get('actor_display_name', self.room_display_name)
+            report = state['match_statistics'].snapshot(time.monotonic())
+            report['rescued'] = 1
+            self.send_application_batch(d, remote, state, list(
+                self.evacuation_result_fixture.messages(state['actor_uid'], room_uid, report, name)))
+        self.capture.record('shared_evacuation_probe', synthetic=True, action='shared_evacuation_newspaper',
+                            room_uid=hex(room_uid), seat=seat, stays_seated=True,
+                            original_rule_verified=False)
         return True
 
     def poll_shared_evacuation(self, now):

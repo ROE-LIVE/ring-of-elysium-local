@@ -73,13 +73,12 @@ class SharedEvacuationRooms:
                          occupied=len(room['seats']))
         return packets, event
 
-    def leave(self, state):
-        """F (GETOFF) на месте вертолёта эвакуации: досрочная газета этого участника.
+    def seat_of(self, state):
+        """Место участника в общем вертолёте эвакуации или None.
 
-        Сессии27/10: принятый GETOFF ронял игрока с вертолёта, повторный подъём по
-        лестнице не завершался. Собственное правило (не original): сидящий в общем
-        вертолёте считается спасённым и выходит из матча, вертолёт ждёт остальных.
-        Возвращает место или None, если запрос не относится к эвакуации комнаты.
+        F (GETOFF) на этом месте — только газета, без выхода (уточнение пользователя27/10:
+        в оригинале F открывает газету, игрок остаётся до отлёта). Принятый GETOFF ронял
+        игрока с вертолёта, повторный подъём по лестнице не завершался.
         """
         room = self.rooms.get(state.get('room_uid'))
         account = state.get('actor_uid')
@@ -88,7 +87,7 @@ class SharedEvacuationRooms:
                 or account not in room['seats'] or vehicles is None
                 or vehicles.seated != room['helicopter']):
             return None
-        return room['seats'].pop(account)
+        return room['seats'][account]
 
     def poll(self, now):
         """Возвращает решение комнаты; fixture/result commit выполняет endpoint."""

@@ -1948,9 +1948,14 @@ class Endpoint(asyncio.DatagramProtocol):
 
     @staticmethod
     def team_alive(state):
-        """Соло-команда из одного игрока: 1, пока он жив и в матче."""
+        """Соло-команда из одного игрока: 1, пока он жив и в матче.
+
+        Мир может ещё не быть создан в момент допуска (admit идёт до WorldState в том же0x1F49):
+        такой участник жив. Сессия27/10: второй игрок не учитывался, счётчик показывал1.
+        """
         world = state.get('world')
-        return int(world is not None and not world.dead and not state.get('match_finished'))
+        return int(not (world is not None and world.dead) and not state.get('match_finished')
+                   and not state.get('transport_retired'))
 
     def broadcast_alive_count(self, state):
         """0x047D всем участникам комнаты (входит новый живой участник)."""

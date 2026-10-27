@@ -61,6 +61,12 @@ class KillBroadcastTests(unittest.TestCase):
         self.assertEqual(struct.unpack('>IQII', sent[20][0x47e]), (0, 20, 1, 0))
         self.assertNotIn(0x47e, sent[30])
 
+    def test_alive_count_includes_member_without_world_yet(self):
+        endpoint, (a, b, c) = self.endpoint_room()
+        c.pop('world')
+        endpoint.broadcast_alive_count(c)
+        self.assertTrue(all(struct.unpack('>II', packets[0][1])[0] == 3 for _, packets in endpoint.sent))
+
     def test_death_without_recent_shooter_has_no_killer(self):
         endpoint, (a, b, c) = self.endpoint_room()
         c['world'].dead = True

@@ -239,6 +239,43 @@ def shared_room_uids(account):
     return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in (2, 3, 4)]
 
 
+def apply_airdrop_position(configs, run, points_path, seed=None):
+    """Место аирдропа: случайная наземная точка транспорта карты (открытое место, не лодки)
+    вместо фиксированной точки сценария у вертолёта. Меняет XY модели501 и AIRDROP_START."""
+    if points_path is None:
+        return None
+    import random
+    rows = json.loads(Path(points_path).read_text(encoding='utf-8')).get('vehicles', [])
+    land = [r['position'] for r in rows if r.get('model') != 203 and len(r.get('position', ())) == 3]
+    if not land:
+        raise ValueError('AirdropPoints: нет наземных точек')
+    x, y, _ = random.Random(seed).choice(land)
+    parcel = json.loads(configs['parcel'].read_text())
+    rows = parcel['parcels'] if 'parcels' in parcel else [parcel]
+    path = Path(rows[0]['entity_file'])
+    body = bytearray(path.read_bytes())
+    if len(body) != 117 or struct.unpack_from('>I', body, 8)[0] != 501:
+        raise ValueError('AirdropPoints: нужна модель501/117')
+    z = struct.unpack_from('>3i', body, 20)[2]
+    struct.pack_into('>2i', body, 20, x, y)
+    target = run/'airdrop-501.bin'
+    target.write_bytes(bytes(body))
+    rows[0]['entity_file'] = str(target)
+    configs['parcel'].write_text(json.dumps(parcel, ensure_ascii=False, indent=2), encoding='utf-8')
+    from airdrop_fixture_2022 import airdrop_notice
+    for name in ('scene-walk', 'scene-cycle'):
+        scene = json.loads(configs[name].read_text())
+        for rule in scene:
+            for response in rule.get('responses', []):
+                if response.get('payload_file') == str(path):
+                    response['payload_file'] = str(target)
+                elif int(str(response['command']), 0) == 0x4a6:
+                    response.pop('payload_file', None)
+                    response['payload_hex'] = airdrop_notice((x, y, z)).hex()
+        configs[name].write_text(json.dumps(scene, ensure_ascii=False, indent=2), encoding='utf-8')
+    return (x, y, z)
+
+
 def apply_zone_damage(configs, damage):
     """Урон закрытой зоны (сырые HP из1000 в секунду) вместо buff915 (150/с). Исходная фаза
     температуры не восстановлена; величина — наблюдение по видео (~1%/с), а не таблица."""
@@ -958,6 +995,7 @@ def main():
                         help='Локальный опыт комнаты на несколько клиентов (через relay_lan): аватары, общий лут/HP/зона/машины/эвакуация')
     parser.add_argument('--player-name',help='Имя этого игрока (над моделью у других, пакет смерти, газета); до12 байт видно в игре')
     parser.add_argument('--guest-name',help='Комната: имя игрока второго PC')
+    parser.add_argument('--airdrop-points',type=Path,help='Каталог транспорта карты (generate_vehicle_spawns): случайное место аирдропа')
     parser.add_argument('--zone-damage',type=int,help='Урон закрытой зоны, HP из1000 в секунду (без опции — buff915: 150)')
     parser.add_argument('--airdrop-table',type=Path,help='Состав аирдропа по таблице «空投» (generate_airdrop_table.py)')
     parser.add_argument('--airdrop-seed',type=int,help='Seed выбора аирдропа; без него — случайный')
@@ -1071,6 +1109,7 @@ def main():
                        args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
         apply_airdrop_table(configs, run, args.airdrop_table, args.airdrop_seed)
         apply_zone_damage(configs, args.zone_damage)
+        apply_airdrop_position(configs, run, args.airdrop_points, args.airdrop_seed)
         from actor_probe_2022 import ActorFixture
         if args.bots:ActorFixture.load(configs['actor'])
         if args.target != 'none':
@@ -1107,6 +1146,9 @@ def main():
                        args.map_zone_profile, args.map_zone_index, args.map_zone_seed)
     apply_airdrop_table(configs, run, args.airdrop_table, args.airdrop_seed)
     apply_zone_damage(configs, args.zone_damage)
+    airdrop_xyz = apply_airdrop_position(configs, run, args.airdrop_points, args.airdrop_seed)
+    if airdrop_xyz:
+        print('Аирдроп: X=%d Y=%d' % airdrop_xyz[:2], flush=True)
     if args.remote_peer:
         check_ports([(8001,socket.SOCK_STREAM),(19001,socket.SOCK_STREAM),(18001,socket.SOCK_DGRAM)])
     elif args.lan_tunnel:

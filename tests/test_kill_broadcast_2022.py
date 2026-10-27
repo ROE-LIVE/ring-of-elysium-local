@@ -56,5 +56,24 @@ class KillBroadcastTests(unittest.TestCase):
         self.assertEqual((view['killer_rid'], view['killer_name'], view['actor_name'], view['alive']), (0, '', 'C', 2))
 
 
+class MatchRoomTests(unittest.TestCase):
+    def test_entry_during_running_match_gets_separate_room(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        endpoint.records = []
+        endpoint.capture = SimpleNamespace(record=lambda kind, **kw: endpoint.records.append((kind, kw)))
+        selecting = dict(actor_uid=20, room_uid=1)
+        endpoint.peer_avatars = SimpleNamespace(members={(1, 20): dict(state=selecting, avatar=520)})
+        # Мира ещё нет (выбор точки): вход общий.
+        self.assertEqual(endpoint.match_room(10, 1), 1)
+        selecting['world'] = SimpleNamespace(dead=False)
+        # Повторный вход того же аккаунта не считается «другим участником».
+        self.assertEqual(endpoint.match_room(20, 1), 1)
+        first, second = endpoint.match_room(10, 1), endpoint.match_room(10, 1)
+        self.assertNotIn(first, (1, second))
+        self.assertEqual(endpoint.records[0][0], 'match_room_separated')
+        selecting['match_finished'] = True
+        self.assertEqual(endpoint.match_room(10, 1), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

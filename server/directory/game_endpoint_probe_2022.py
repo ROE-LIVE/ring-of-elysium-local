@@ -419,7 +419,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     data=bytearray(self.room_template)
                                     uid=struct.unpack_from('>Q',message.decoded,22)[0]
                                     state['actor_uid']=uid
-                                    state['room_uid']=room['second_identifier']
+                                    state['room_uid']=self.match_room(uid,room['second_identifier'])
                                     state['actor_display_name']=self.load_player_names().get(hex(uid)) or self.room_display_name
                                     updates={'result':0,'m004':1,'m00c':uid,'m014':1,'m01c':room['second_identifier'],
                                              'profile.base.m000':room['first_identifier'],'profile.base.m00c':uid}
@@ -1829,6 +1829,31 @@ class Endpoint(asyncio.DatagramProtocol):
                 if other is not state and other.get('room_uid') == state.get('room_uid')
                 and other.get('actor_uid') not in (None, state.get('actor_uid'))
                 and other.get('selection_deadline') is not None and 'weapon' not in other]
+
+    def match_room(self, account, requested):
+        """Внутренняя комната матча для нового ENTER_ROOM.
+
+        Лобби всегда даёт одну комнату (second_identifier1). Сессия27/10: вышедший в лобби
+        игрок снова попадал в идущий матч с новым персонажем и новой экипировкой. Собственное
+        правило: если в комнате уже идёт мир другого участника, новый вход — отдельный матч.
+        Вход во время выбора стартовой точки (мира ещё нет) остаётся общим.
+        """
+        avatars = getattr(self, 'peer_avatars', None)
+        if avatars is None:
+            return requested
+        running = any(room == requested and other != account
+                      and member['state'].get('world') is not None
+                      and not member['state'].get('match_finished')
+                      and not member['state'].get('transport_retired')
+                      for (room, other), member in avatars.members.items())
+        if not running:
+            return requested
+        self.private_rooms = getattr(self, 'private_rooms', 0) + 1
+        room_uid = (requested << 16) + self.private_rooms
+        self.capture.record('match_room_separated', synthetic=True, account_uid=hex(account),
+                            requested_room=hex(requested), room_uid=hex(room_uid),
+                            reason='match_in_progress', original_rule_verified=False)
+        return room_uid
 
     def broadcast_kill(self, victim):
         """0x0480 всем участникам комнаты один раз на смерть; UID — в системе получателя."""

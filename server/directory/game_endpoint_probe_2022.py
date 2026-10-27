@@ -34,6 +34,7 @@ from shared_loot_2022 import SharedLootRooms
 from peer_lifecycle_2022 import expired_members
 from peer_spectator_2022 import PeerSpectators
 from shared_evacuation_2022 import SharedEvacuationRooms
+from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -142,7 +143,10 @@ class Endpoint(asyncio.DatagramProtocol):
         if peer_pellet_damage is not None and (not shared_peer_health or not world_fixture
                 or not world_fixture.death_on_zero or world_fixture.hp_floor != 0):
             raise ValueError('peer-pellet-damage требует shared-peer-health/death_on_zero/hp_floor0')
-        self.peer_combat = SharedCombatRooms(self.peer_avatars,peer_pellet_damage) if peer_pellet_damage is not None else None
+        # Урон по таблице оружия клиента (config/gun-damage-2022.json), если файл есть; иначе учебный.
+        self.peer_combat = (SharedCombatRooms(self.peer_avatars,peer_pellet_damage,
+                                              GunDamageTable.load() if GUN_DAMAGE_PATH.exists() else None)
+                            if peer_pellet_damage is not None else None)
         if peer_spectator and not shared_peer_health:
             raise ValueError('Наблюдение требует shared-peer-health')
         self.peer_spectators = PeerSpectators() if peer_spectator else None

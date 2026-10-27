@@ -15,11 +15,24 @@ from shoot_target_records_2022 import decode_hit_records
 
 
 class SharedCombatRooms:
-    def __init__(self, avatars, pellet_damage):
+    def __init__(self, avatars, pellet_damage, damage_table=None):
         if type(pellet_damage) is not int or not 1 <= pellet_damage <= 100:
             raise ValueError('Учебный PvP требует целый урон1..100')
         self.avatars = avatars
         self.damage = pellet_damage
+        # GunDamageTable (EquipmentTableEuropa): урон/дальность по оружию и части тела.
+        # Без таблицы или для неизвестного оружия остаётся учебный pellet_damage и предел100м.
+        self.damage_table = damage_table
+
+    def hit_damage(self, gun_definition, origin, target_position, part_id):
+        """(урон, предел дальности см) для принятого выстрела."""
+        if self.damage_table is None:
+            return self.damage, 10000
+        distance = math.dist(origin, target_position)
+        damage = self.damage_table.damage(gun_definition, distance, part_id)
+        if damage is None:
+            return self.damage, 10000
+        return damage, self.damage_table.reach(gun_definition)
 
     def member(self, state, now):
         member = self.avatars.members.get((state.get('room_uid'), state.get('actor_uid')))
@@ -81,8 +94,9 @@ class SharedCombatRooms:
             return [],dict(action='peer_hit_rejected',reason='target_position',target=hex(target_uid)),None
         definition = weapon.equipment.get(12,0)
         definition = definition if definition in ARMOR_DURABILITY else 0
+        damage, reach = self.hit_damage(accepted[1], accepted[0][:3], position, payload[62])
         fixture = replace(self.avatars.fixture,uid=target_uid,position=tuple(position),
-                          hp=world.hp,damage=self.damage,armor_definition=definition,
+                          hp=world.hp,damage=damage,hit_range_cm=reach,armor_definition=definition,
                           armor_durability=weapon.equipment_durability.get(12,0) if definition else 0,
                           armor_absorb_percent=weapon.fixture.combat_armor_absorb_percent,
                           collision_boxes=self.avatars.fixture.collision_boxes or ())
@@ -97,7 +111,7 @@ class SharedCombatRooms:
         # прочность и dedup одним синхронным участком event loop.
         staged_weapon,staged_world = copy(weapon),copy(world)
         staged_weapon.equipment_durability = dict(weapon.equipment_durability)
-        damage,armor_packets,_ = staged_weapon.absorb_combat_damage(self.damage)
+        damage,armor_packets,_ = staged_weapon.absorb_combat_damage(damage)
         own_packets,_ = staged_world.apply_damage(damage,source['avatar'])
         source_packets = [(code,body) for code,body in responses if code in (0x11ea, 0x11eb)]
         weapon.equipment_durability.update(staged_weapon.equipment_durability)

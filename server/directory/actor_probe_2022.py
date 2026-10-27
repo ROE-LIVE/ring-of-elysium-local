@@ -70,6 +70,8 @@ class ActorFixture:
     material_penetration: bool = False
     # Только явно извлечённый и проверенный ресурс Iceland2022; по умолчанию нет.
     collision_heightfield: object | None = None
+    # Предел дальности выстрела по цели (см); PvP берёт nRange оружия из EquipmentTableEuropa.
+    hit_range_cm: int = 10000
 
     @classmethod
     def load(cls, path):
@@ -327,7 +329,7 @@ class ActorState:
             reason = 'shot_hit_limit'
         elif sum((a-b)**2 for a, b in zip(point, self.position)) > 250**2:
             reason = 'target_position'
-        elif sum((a-b)**2 for a, b in zip(origin, self.position)) > 10000**2:
+        elif sum((a-b)**2 for a, b in zip(origin, self.position)) > self.fixture.hit_range_cm**2:
             reason = 'range'
         elif (self.fixture.collision_boxes is not None or self.fixture.collision_triangles is not None
               or self.fixture.collision_meshes or self.fixture.collision_heightfield is not None):

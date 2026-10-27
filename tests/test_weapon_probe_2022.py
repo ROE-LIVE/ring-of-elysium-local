@@ -187,7 +187,7 @@ class WeaponStateTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('>I', record, 32)[0], 1950)
         self.assertIn(packets[0], state.reconcile_inventory())
         before = dict(state.equipment_durability)
-        for invalid in (True, -1, 101, 1.5):
+        for invalid in (True, -1, 5001, 1.5):
             with self.assertRaises(ValueError): state.absorb_combat_damage(invalid)
         self.assertEqual(state.equipment_durability, before)
 

@@ -261,7 +261,7 @@ class WorldState:
 
     def apply_damage(self, damage, source_uid):
         """Экспериментальная атака по дистанции, без серверного raycast."""
-        if type(damage) is not int or not 0 <= damage <= 100:
+        if type(damage) is not int or not 0 <= damage <= 5000:
             raise ValueError('Неверный урон бота')
         before = self.hp
         self.hp = max(self.fixture.hp_floor,self.hp-damage)

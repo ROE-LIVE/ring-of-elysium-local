@@ -84,7 +84,7 @@ class WorldTests(unittest.TestCase):
         packets, event = world.apply_damage(0, 43)
         self.assertEqual((world.hp, world.dead, event['damage']), (50, False, 0))
         self.assertEqual([code for code, _ in packets], [0x1069])
-        for invalid in (True, -1, 101, .5):
+        for invalid in (True, -1, 5001, .5):
             with self.assertRaises(ValueError): world.apply_damage(invalid, 43)
         self.assertEqual(world.hp, 50)
 

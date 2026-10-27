@@ -743,8 +743,8 @@ class WeaponState:
         Не применяется к зоне/падению. Поглощение расходует столько же raw
         прочности жилета; шлем и hit-zone этим опытом не восстанавливаются.
         """
-        if type(damage) is not int or not 0 <= damage <= 100:
-            raise ValueError('Учебная атака требует целый урон0..100')
+        if type(damage) is not int or not 0 <= damage <= 5000:
+            raise ValueError('Учебная атака требует целый урон0..5000')
         slot = 12
         definition = self.equipment.get(slot, 0)
         before = self.equipment_durability.get(slot, 0)

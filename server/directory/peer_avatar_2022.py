@@ -195,6 +195,33 @@ class PeerAvatarRooms:
                 self.pose_bootstrap[pair] = (now+2,remaining-1)
         return outputs,events
 
+    CORPSE_SECONDS = 30
+
+    def remove_corpses(self,now):
+        """Через CORPSE_SECONDS после смерти тело удаляется у остальных (SC583), остаётся рюкзак.
+
+        Запрос пользователя27/10: тело должно исчезать, оставляя мешок с лутом (death parcel —
+        отдельная наземная сущность). Срок30с — собственный выбор, исходный не найден.
+        Участник остаётся в комнате (наблюдатель, итог матча), удаляется только модель.
+        """
+        outputs,events = [],[]
+        for key,member in self.members.items():
+            world = member['state'].get('world')
+            if world is None or not world.dead or member.get('corpse_removed'):
+                continue
+            since = member.setdefault('dead_since',now)
+            if now-since < self.CORPSE_SECONDS:
+                continue
+            member['corpse_removed'] = True
+            payload = struct.pack('>Q', member['avatar'])
+            recipients = [(other['state'],[(0x583,payload)]) for other_key,other in self.members.items()
+                          if other_key[0] == key[0] and other_key != key]
+            outputs.extend(recipients)
+            events.append(dict(action='peer_avatar_corpse_removed',account_uid=hex(key[1]),
+                               avatar_uid=hex(member['avatar']),recipients=len(recipients),
+                               original_rule_verified=False))
+        return outputs,events
+
     def settle_motion(self,now,tick):
         """Завершить предсказанную очередь одним авторитетным неподвижным якорем.
 

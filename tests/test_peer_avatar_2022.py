@@ -140,6 +140,17 @@ class PeerAvatarTests(unittest.TestCase):
         outputs,events=rooms.move(a,(101,200,300),15,10.33,movement([40,43,41,1]))
         self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[50,53,51,0,0])
 
+    def test_corpse_model_is_removed_for_others_after_delay(self):
+        rooms=self.fixture();a,b=self.state(10),self.state(20)
+        rooms.admit(a,1);rooms.admit(b,1)
+        b['world']=SimpleNamespace(dead=True)
+        self.assertEqual(rooms.remove_corpses(100),([],[]))
+        outputs,events=rooms.remove_corpses(100+rooms.CORPSE_SECONDS)
+        self.assertEqual([(s['actor_uid'],p[0][0]) for s,p in outputs],[(10,0x583)])
+        self.assertEqual(events[0]['action'],'peer_avatar_corpse_removed')
+        self.assertEqual(rooms.remove_corpses(200),([],[]))
+        self.assertIn((1,20),rooms.members)
+
     def test_deferred_pose_snapshot_uses_current_pose_and_stops_after_two_attempts(self):
         rooms=self.fixture();a,b=self.state(10),self.state(20)
         rooms.admit(a,1,10)

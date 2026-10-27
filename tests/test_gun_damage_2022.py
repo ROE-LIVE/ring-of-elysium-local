@@ -14,13 +14,13 @@ class GunDamageTests(unittest.TestCase):
                                      10402: [260, 0, 400, 25000, 39900, 50]})
 
     def test_head_ratio_and_body(self):
-        self.assertEqual(self.table.damage(10111, 1000, 3), 2000)
-        self.assertEqual(self.table.damage(10111, 1000, 1), 3000)
         self.assertEqual(self.table.damage(10111, 1000, 2), 2000)
+        self.assertEqual(self.table.damage(10111, 1000, 3), 400)
+        self.assertEqual(self.table.damage(10111, 1000, 1), 3000)
 
     def test_linear_dropoff_and_range(self):
-        self.assertEqual(self.table.damage(10111, 47500, 3), 1900)
-        self.assertEqual(self.table.damage(10111, 90000, 3), 1800)
+        self.assertEqual(self.table.damage(10111, 47500, 2), 1900)
+        self.assertEqual(self.table.damage(10111, 90000, 2), 1800)
         self.assertEqual(self.table.damage(10111, 100001, 3), 0)
         self.assertEqual(self.table.damage(10402, 25000, 3), 0)
         self.assertEqual(self.table.reach(10402), 39900)
@@ -33,14 +33,14 @@ class GunDamageTests(unittest.TestCase):
     def test_pvp_uses_table_and_falls_back_to_training_damage(self):
         combat = SharedCombatRooms(None, 100, self.table)
         self.assertEqual(combat.hit_damage(10111, (0, 0, 0), (0, 10000, 0), 1), (3000, 100000))
-        self.assertEqual(combat.hit_damage(20001, (0, 0, 0), (0, 100, 0), 3), (100, 10000))
+        self.assertEqual(combat.hit_damage(20001, (0, 0, 0), (0, 100, 0), 2), (100, 10000))
         self.assertEqual(SharedCombatRooms(None, 100).hit_damage(10111, (0, 0, 0), (0, 1, 0), 1), (100, 10000))
 
     def test_generated_config_loads_when_present(self):
         if not DEFAULT_PATH.exists():
             self.skipTest('config/gun-damage-2022.json не сгенерирован')
         table = GunDamageTable.load()
-        self.assertEqual(table.damage(10201, 0, 3), 400)
+        self.assertEqual(table.damage(10201, 0, 2), 400)
 
 
 if __name__ == '__main__':

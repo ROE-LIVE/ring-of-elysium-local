@@ -6,12 +6,16 @@
   - линейное падение nDamage → nDamageMin между nDropOffStart и nDropOffEnd;
   - дальше nRange урона нет;
   - part1 (голова, подтверждено head-feedback16.10) × nHitHeadRatio/100;
-  - прочие части тела ×1 — множителей конечностей в таблицах клиента нет.
+  - part3 (руки/ноги по QSPHYSXCONFIG.XML: Head→1, Pelvis/Spine/Spine1/Neck→2, конечности→3)
+    × LIMB_PERCENT/100 — выбор пользователя27/10 (20%), в таблицах клиента множителя нет;
+  - part2 (туловище) ×1.
 """
 import json
 from pathlib import Path
 
 HEAD_PART = 1
+LIMB_PART = 3
+LIMB_PERCENT = 20
 DEFAULT_PATH = Path(__file__).resolve().parents[2] / 'config' / 'gun-damage-2022.json'
 
 
@@ -41,6 +45,8 @@ class GunDamageTable:
             damage = damage - (damage-minimum)*fraction
         if part_id == HEAD_PART:
             damage = damage*head/100
+        elif part_id == LIMB_PART:
+            damage = damage*LIMB_PERCENT/100
         return max(0, round(damage))
 
     def reach(self, gun_definition):

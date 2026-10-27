@@ -37,13 +37,16 @@ class GuestPortTests(unittest.IsolatedAsyncioTestCase):
             keyfile = directory / 'key'; keyfile.write_bytes(KEY)
             args = argparse.Namespace(session_key_file=keyfile, reply=False, port=0, duration=10, output=directory,
                                       upstream_port=server.sockets[0].getsockname()[1],
-                                      actor_uid_pool=POOL, guest_port=guest_port)
+                                      actor_uid_pool=POOL, guest_port=guest_port,
+                                      host_name='Alex', player_names=directory / 'names.json')
             ready = asyncio.get_running_loop().create_future()
             with contextlib.redirect_stdout(io.StringIO()):
                 task = asyncio.create_task(probe.serve(args, ready, stop))
                 (host, port), capture = await asyncio.wait_for(ready, 2)
-                for target in (port, port, guest_port, guest_port):
+                for target, preamble in ((port, b''), (port, b''), (guest_port, b'ROENAME Bernard' + bytes([10])),
+                                         (guest_port, b'')):
                     _, writer = await asyncio.open_connection('127.0.0.1', target)
+                    writer.write(preamble + bytes(8)); await writer.drain()
                     await asyncio.sleep(0.05)
                     writer.close(); await writer.wait_closed()
                     await asyncio.sleep(0.05)
@@ -51,6 +54,10 @@ class GuestPortTests(unittest.IsolatedAsyncioTestCase):
             events = [json.loads(l) for l in (capture / 'events.jsonl').read_text().splitlines()]
             assigned = [e['assigned_actor_uid'] for e in events if e['kind'] == 'connect']
             self.assertEqual(assigned, [hex(POOL[0])] * 2 + [hex(POOL[1])] * 2)
+            names = [e.get('player_name') for e in events if e['kind'] == 'connect']
+            self.assertEqual(names, ['Alex', 'Alex', 'Bernard', None])
+            saved = json.loads((directory / 'names.json').read_text(encoding='utf-8'))
+            self.assertEqual(saved, {hex(POOL[0]): 'Alex', hex(POOL[1]): 'Bernard'})
         server.close(); await server.wait_closed()
 
 

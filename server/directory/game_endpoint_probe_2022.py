@@ -164,8 +164,9 @@ class Endpoint(asyncio.DatagramProtocol):
         self.room_born_cells = {}
         # Комната: (room_uid, эпоха) → общий дедлайн выбора (секунды от started).
         self.room_selection_deadlines = {}
-        # Имена аккаунтов, заданные на хосте (--player-names): hex UID → имя.
+        # Имена аккаунтов (--player-names): hex UID → имя; файл обновляет прокси, читаем при входе.
         self.player_names = {}
+        self.player_names_path = None
         if shared_death_loot and not shared_peer_health:
             raise ValueError('shared-death-loot требует shared-peer-health')
         if shared_death_loot and actor_fixture:
@@ -413,7 +414,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                     uid=struct.unpack_from('>Q',message.decoded,22)[0]
                                     state['actor_uid']=uid
                                     state['room_uid']=room['second_identifier']
-                                    state['actor_display_name']=self.player_names.get(hex(uid)) or self.room_display_name
+                                    state['actor_display_name']=self.load_player_names().get(hex(uid)) or self.room_display_name
                                     updates={'result':0,'m004':1,'m00c':uid,'m014':1,'m01c':room['second_identifier'],
                                              'profile.base.m000':room['first_identifier'],'profile.base.m00c':uid}
                                     for name,value in updates.items():
@@ -1685,6 +1686,19 @@ class Endpoint(asyncio.DatagramProtocol):
             state['weapon'].loot_available = state['loot_spawned']
             state['weapon'].available_loot.add(uid)
 
+    def load_player_names(self):
+        """Свежие имена из файла сессии (второй PC присылает имя при входе в лобби)."""
+        path = self.player_names_path
+        if path is not None and path.exists():
+            try:
+                names = json.loads(path.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                names = None
+            if (isinstance(names, dict) and len(names) <= 8
+                    and all(isinstance(v, str) and 0 < len(v.strip()) <= 32 for v in names.values())):
+                self.player_names = {k.lower(): v.strip() for k, v in names.items()}
+        return self.player_names
+
     def shared_world_object(self, state, kind):
         """Общий словарь состояния дверей/окон комнаты; вне комнаты — None (своё состояние)."""
         if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
@@ -1817,11 +1831,8 @@ async def main(args):
     peer_avatar_fixture = ActorFixture.load(args.peer_avatar_config) if getattr(args,'peer_avatar_config',None) else None
     transport, endpoint = await loop.create_datagram_endpoint(lambda:Endpoint(capture,args.handshake,args.ident,args.grant,args.auth,args.room_template,rules,args.scene_clock,args.selection_seconds,weapon_fixture,getattr(args,'live_commands',None),world_fixture,actor_fixture,getattr(args,'evacuation_delay_seconds',None),parcel_fixture,result_fixture,loot_catalog,environment_fixture,getattr(args,'reliable_udp',False),getattr(args,'idle_handoff',False),getattr(args,'diagnostic_vehicle_pellet_damage',None),peer_avatar_fixture,getattr(args,'shared_ground_loot',False),getattr(args,'shared_world_clock',False),getattr(args,'shared_peer_health',False),getattr(args,'peer_avatar_trajectories',False),getattr(args,'peer_spectator',False),getattr(args,'shared_evacuation',False),getattr(args,'shared_vehicles',False),getattr(args,'peer_equipment',False),getattr(args,'peer_pellet_damage',None),getattr(args,'shared_death_loot',False),door_fixture=DoorFixture.load(args.door_config) if getattr(args,'door_config',None) else None,breakable_fixture=BreakableFixture.load(args.breakable_config) if getattr(args,'breakable_config',None) else None,spawn_points_file=getattr(args,'spawn_points',None)), local_addr=('127.0.0.1',args.port))
     if getattr(args, 'player_names', None):
-        names = json.loads(args.player_names.read_text(encoding='utf-8'))
-        if (not isinstance(names, dict) or len(names) > 8
-                or any(not isinstance(v, str) or not v.strip() or len(v) > 32 for v in names.values())):
-            raise ValueError('player-names: до8 имён, 1..32 символа')
-        endpoint.player_names = {k.lower(): v.strip() for k, v in names.items()}
+        endpoint.player_names_path = args.player_names
+        endpoint.load_player_names()
     try:
         await asyncio.wait_for(stop.wait(),args.duration)
     except asyncio.TimeoutError:

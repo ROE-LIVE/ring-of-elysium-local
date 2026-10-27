@@ -1130,11 +1130,25 @@ def main():
             watched.append(('udp-tunnel',bridge))
             print('Удалённый peer подключён. Профиль: '+args.profile+'. Настройки матча задаются на Linux. Журнал клиента: '+str(run),flush=True)
         else:
+            # Имена комнаты: начальные из аргументов; прокси дописывает имя, присланное вторым PC.
+            names_file = run/'player-names.json'
+            names = {}
+            if getattr(args, 'player_name', None):
+                names[hex(account['actor_uid'])] = args.player_name
+            if getattr(args, 'guest_name', None) and args.shared_room:
+                names.update({hex(u): args.guest_name for u in shared_room_uids(account)[1:]})
+            names_file.write_text(json.dumps(names, ensure_ascii=False, indent=2), encoding='utf-8')
+            name_args = ['--player-names', str(names_file)]
+            if getattr(args, 'player_name', None):
+                name_args += ['--host-name', args.player_name]
+            if getattr(args, 'guest_name', None):
+                name_args += ['--guest-name', args.guest_name]
             lobby,log=start('lobby',[args.dotnet,str(dll)]);wait_ready(lobby,log,'Started on port 9001')
             proxy,log=start('proxy',[sys.executable,'-X','utf8','-B','-u',str(ROOT/'tools/run_service.py'),'proxy',
                 '--session-key-file',str(args.key_file),'--local-server-clock','--reply','--team-reply','--match-reply','--novice-state','1',
                 '--training-reply','--match-found-delay','5','--join-instance-config',str(configs['join']),'--join-any-queue',
                 '--local-cosmetics-config',str(configs['cosmetics']),'--actor-uid',str(account['actor_uid']),'--duration',str(args.duration+30),'--output',str(run/'lobby'),'--log-message-codes']
+                +name_args
                 +(['--actor-uid-pool',','.join(hex(u) for u in shared_room_uids(account)),'--guest-port','8011'] if args.shared_room else []))
             wait_ready(proxy,log,'"kind": "ready"')
             room=json.loads(configs['room'].read_text())['room_file']
@@ -1160,15 +1174,7 @@ def main():
             elif args.target != 'none':command+=['--actor-config',str(configs['target-'+args.target])]
             if args.shared_room:
                 command = shared_room_endpoint(command, configs, getattr(args, 'shared_pvp', None))
-            names = {}
-            if getattr(args, 'player_name', None):
-                names[hex(account['actor_uid'])] = args.player_name
-            if getattr(args, 'guest_name', None) and args.shared_room:
-                # Один второй PC: имя на все гостевые UID (переподключение может взять следующий).
-                names.update({hex(u): args.guest_name for u in shared_room_uids(account)[1:]})
-            if names:
-                (run/'player-names.json').write_text(json.dumps(names, ensure_ascii=False, indent=2), encoding='utf-8')
-                command += ['--player-names', str(run/'player-names.json')]
+            command += ['--player-names', str(names_file)]
             peer,log=start('endpoint',command);wait_ready(peer,log,'"kind": "ready"')
             print(f'Сервисы готовы. Режим: {args.mode}; оружие: {args.weapon_profile}; комплект: {args.kit}. Журнал: {run}',flush=True)
             if 'custom-loot-catalog' in configs:

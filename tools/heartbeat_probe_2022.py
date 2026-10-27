@@ -110,11 +110,44 @@ async def serve(args, ready=None, stop=None):
         temporary.replace(path)
 
     active_guests = set()
+    names_path = getattr(args, 'player_names', None)
+
+    def save_name(actor_uid, name):
+        """Имена комнаты для сервера сцены: hex UID → имя (файл сессии, перечитывается при входе)."""
+        if not names_path or actor_uid is None or not name:
+            return
+        names = json.loads(names_path.read_text(encoding='utf-8')) if names_path.exists() else {}
+        names[hex(actor_uid)] = name
+        temporary = names_path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(names, ensure_ascii=False, indent=2), encoding='utf-8')
+        temporary.replace(names_path)
+
+    class PrefixReader:
+        """Возвращает уже прочитанные байты, затем продолжает исходный поток."""
+        def __init__(self, prefix, source):
+            self.prefix, self.source = prefix, source
+
+        async def read(self, n):
+            if self.prefix:
+                data, self.prefix = self.prefix, b''
+                return data
+            return await self.source.read(n)
 
     async def handle_guest(reader, writer):
-        await handle(reader, writer, guest=True)
+        # relay_lan (клиент второго PC) может прислать строку «ROENAME <имя>» с переводом строки до данных игры.
+        name = None
+        try:
+            head = await asyncio.wait_for(reader.readexactly(8), 10)
+        except (asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionError):
+            writer.close()
+            return
+        if head == b'ROENAME ':
+            line = await asyncio.wait_for(reader.readline(), 5)
+            name = line.strip().decode('utf-8', 'replace').strip()[:32] or None
+            head = b''
+        await handle(PrefixReader(head, reader), writer, guest=True, name=name)
 
-    async def handle(reader, writer, guest=False):
+    async def handle(reader, writer, guest=False, name=None):
         task = asyncio.current_task()
         tasks.add(task)
         connection = uuid.uuid4().hex[:12]
@@ -133,7 +166,12 @@ async def serve(args, ready=None, stop=None):
                 actor_uid = pool[0]
         else:
             actor_uid = pool[totals['connections'] % len(pool)] if pool else None
-        actor_stream = LobbyActorUIDStream(key, actor_uid) if actor_uid is not None else None
+        if name is None:
+            name = getattr(args, 'guest_name', None) if guest else getattr(args, 'host_name', None)
+        actor_stream = LobbyActorUIDStream(key, actor_uid, name) if actor_uid is not None else None
+        save_name(actor_uid, name)
+        if name:
+            info['player_name'] = name
         cosmetics = cosmetics_for(actor_uid, pool)
         if pool and len(pool) > 1:
             info['assigned_actor_uid'] = hex(actor_uid)
@@ -514,6 +552,9 @@ def main():
     parser.add_argument('--novice-state', type=int, choices=(0, 1, 2), help='Тестовый MATCH_NOVICE_SYNC после ENTER_GAME; требует team-reply')
     parser.add_argument('--team-nickname', default='Player', help='Имя участника в экспериментальном ответе')
     parser.add_argument('--port', type=int, default=8001)
+    parser.add_argument('--host-name', help='Имя игрока этого PC (лобби 0x2ef и комната)')
+    parser.add_argument('--guest-name', help='Имя гостя по умолчанию, если relay не прислал своё')
+    parser.add_argument('--player-names', type=Path, help='Файл имён комнаты (hex UID → имя) для сервера сцены')
     parser.add_argument('--guest-port', type=int, help='Комната: порт для relay_lan; там выдаются гостевые UID пула, а --port всегда отдаёт первый UID')
     parser.add_argument('--upstream-port', type=int, default=9001)
     parser.add_argument('--duration', type=float, default=180)

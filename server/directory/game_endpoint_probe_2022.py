@@ -470,7 +470,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.send_application_batch(d,remote,state,[(code,payload) for _,code,payload in group])
                                         for name, code, payload in group:
                                             if code is None:
-                                                if self.shared_loot:
+                                                # Общая комната: разрешён только teleport (запрос пользователя27/10,
+                                                # обычно с recipient_actor_uid); прочие действия меняют общий баланс.
+                                                if self.shared_loot and payload['action'] != 'teleport':
                                                     packets,event = [],dict(action=payload['action'],accepted=False,reason='solo_action_only')
                                                 else:
                                                     try:

@@ -28,9 +28,10 @@ def encode_peer_trajectory(uid, movement, sequence, tick):
     if not 1 <= len(points) <= 20:
         raise ValueError('Нужно от1 до20 точек движения')
     speed, flags = movement['word_1'], movement['bytes'][0]
-    # Бит0x10 — прицеливание (замер27/10: 16, 19, 21, 23 при ходьбе с прицелом).
+    # Бит0x10 — прицеливание (замер27/10: 16, 19, 21, 23 при ходьбе с прицелом),
+    # бит0x20 — бег (33 вперёд, 34/40 по диагонали W+A/W+D); младшие биты — направление0..8.
     if (type(speed) is not int or not 0 <= speed <= 2000
-            or not (flags in (*range(9), 33) or (flags & 0x10 and flags & ~0x10 in range(9)))):
+            or not (flags & ~0x30) in range(9)):
         raise ValueError('Режим движения вне проверенного подмножества')
     anchor = points[0]['position']
     entries = []

@@ -43,6 +43,7 @@ from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
 from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
+from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, relay_body
 from environment_probe_2022 import EnvironmentFixture
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
@@ -782,6 +783,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                             now = time.monotonic()
                                             outputs, events = self.peer_avatars.move(state,state['last_movement_position'],int((now-self.started)*25)&0xffffffff,now,movement)
                                             self.emit_peer_avatars(outputs,events)
+                                if self.peer_avatars and message.command in PEER_ACTION_RELAY:
+                                    self.relay_peer_action(state, message.command, message.payload)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
                                     if 'loot_catalog' not in state:
                                         state['loot_catalog'] = LootCatalogState(self.loot_catalog, state['weapon'],
@@ -976,6 +979,26 @@ class Endpoint(asyncio.DatagramProtocol):
             self.emit_peer_avatars(*self.peer_spectators.poll(self.peer_avatars, time.monotonic()))
         delay = .1 if self.peer_avatars and self.peer_avatars.replicate_trajectories else 1
         self.peer_timer = asyncio.get_running_loop().call_later(delay, self.poll_peer_rooms)
+
+    def relay_peer_action(self, state, command, payload):
+        """Поворот/прицел/выстрел/анимация участника → SYNC другим участникам комнаты."""
+        key = (state.get('room_uid'), state.get('actor_uid'))
+        member = self.peer_avatars.members.get(key)
+        if member is None:
+            return
+        relay = relay_body(command, payload, member['avatar'])
+        if relay is None:
+            return
+        outputs = [(other['state'], [relay]) for other_key, other in self.peer_avatars.members.items()
+                   if other_key[0] == key[0] and other_key != key]
+        if outputs:
+            self.emit_peer_avatars(outputs, [])
+            counts = state.setdefault('peer_action_relays', {})
+            counts[hex(relay[0])] = counts.get(hex(relay[0]), 0) + 1
+            if counts[hex(relay[0])] in (1, 100, 1000):
+                self.capture.record('peer_action_relay', synthetic=True, request=hex(command), sync=hex(relay[0]),
+                                    account_uid=hex(state['actor_uid']), recipients=len(outputs),
+                                    count=counts[hex(relay[0])], format_verified=False)
 
     def broadcast_shared_geton(self, state, packets):
         """Собственный GETON остаётся own; другим адресуется remote Unit UID."""

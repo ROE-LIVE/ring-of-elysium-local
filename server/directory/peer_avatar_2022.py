@@ -240,7 +240,7 @@ class PeerAvatarRooms:
         # bytes[1]==0 означает отсутствие перехода; стоя имеет код1.
         # События = E_EU_AT_*, статусы = E_EU_ST_* (регистрация имён клиента2022, analises/dados).
         # Лыжи/сноуборд (опыт27/10, в журнале были события40/43): GROUND_SKI40→50,
-        # INAIR_SKI41→51, SKI_JUMP43→53.
+        # INAIR_SKI41→51, SKI_JUMP43→53. Траектория и в прыжке (51/53): без неё прыжок шёл рывками.
         mapping = {1:0,2:1,3:2,22:3,4:9,40:50,41:51,43:53}
         if movement is not None:
             for point in movement['points']:
@@ -256,7 +256,7 @@ class PeerAvatarRooms:
         if now-member['last_emit'] >= .2 or packets:
             member['last_emit'] = now
             final = None
-            if self.replicate_trajectories and movement is not None and member.get('pose',0) in (0,1,2,50):
+            if self.replicate_trajectories and movement is not None and member.get('pose',0) in (0,1,2,50,51,53):
                 sequence = (member.get('motion_sequence',struct.unpack_from('>I',self.fixture.movement,23)[0])+1)&0xffffffff
                 try:
                     body = encode_peer_trajectory(member['avatar'],movement,sequence,tick)

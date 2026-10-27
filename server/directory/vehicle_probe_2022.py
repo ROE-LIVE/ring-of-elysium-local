@@ -407,6 +407,12 @@ class VehicleState:
                 cross=(y*t[2]-z*t[1],z*t[0]-x*t[2],x*t[1]-y*t[0])
                 position=tuple(round(p+a+w*b+c) for p,a,b,c in zip(vehicle['position'],v,t,cross))
                 boat_exit_fallback = True
+            zero_exit_fallback = False
+            if position == (0,0,0) and not boat_exit_fallback:
+                # Сессия27/10: выход из вертолёта с нулевыми XYZ ставил игрока в (0,0,0) —
+                # падение под карту. Собственный fallback: позиция самого транспорта.
+                position = tuple(vehicle['position'])
+                zero_exit_fallback = True
             # Собственная диагностическая граница10м для Jeep: отказ не
             # меняет место/позицию и не разрешает удалённый выход-телепорт.
             if vehicle['configuration'] in RIDEABLE and math.dist(position,vehicle['position'])>1000:
@@ -423,7 +429,8 @@ class VehicleState:
             self.departure_origin = self.departure_tick = None
             return [(0x6544, response)], {'action': 'getoff', 'uid': hex(uid),
                                         'position': position, 'experimental': True,
-                                        'boat_zero_exit_fallback': boat_exit_fallback}
+                                        'boat_zero_exit_fallback': boat_exit_fallback,
+                                        'zero_exit_fallback': zero_exit_fallback}
         return [], {'action': 'ignored', 'command': hex(command)}
 
     def climb_protected(self, now):

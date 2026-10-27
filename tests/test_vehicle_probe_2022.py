@@ -246,8 +246,10 @@ class VehicleTests(unittest.TestCase):
         movement = bytearray(73)
         struct.pack_into('>Q', movement, 0, 789)
         self.assertEqual(state.handle(0x6549, movement)[0], [])
-        response, _ = state.handle(0x6543, bytes(14))
+        response, event = state.handle(0x6543, bytes(14))
         self.assertEqual(struct.unpack_from('>I', response[0][1], 20)[0], 4)
+        # Saída com XYZ nulo: o jogador sai na posição do helicóptero, não em (0,0,0).
+        self.assertEqual((event['position'], event['zero_exit_fallback']), ((10, 20, 1300), True))
 
     def test_singleplayer_finish_requires_seat_delay_and_runs_once(self):
         state = VehicleState(123, evacuation_delay=8)

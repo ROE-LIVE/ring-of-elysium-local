@@ -41,7 +41,7 @@ def main(argv=None):
     parser.add_argument('--run',type=Path,required=True)
     parser.add_argument('--id',default=None)
     parser.add_argument('--recipient',default=None)
-    parser.add_argument('--action',choices=('set_own_health','give_ammo','damage_npc','teleport','airdrop','kick'),required=True)
+    parser.add_argument('--action',choices=('set_own_health','give_ammo','damage_npc','teleport','airdrop','kick','spectate'),required=True)
     parser.add_argument('--hp',type=int);parser.add_argument('--quantity',type=int)
     parser.add_argument('--release-status',type=int,help='airdrop: один iStatus отцепления шара (опыт)')
     parser.add_argument('--definition',type=int);parser.add_argument('--damage',type=int)

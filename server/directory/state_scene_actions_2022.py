@@ -23,6 +23,17 @@ def validate_state_action(row):
         if status is not None:
             result['release_status'] = status
         return result
+    if action == 'spectate':
+        # Администратор: смотреть камерой другого участника (account UID цели; 0 — закончить).
+        if set(row)-{'id','action','recipient_actor_uid','target_actor_uid'}:
+            raise ValueError('State action не принимает wire payload/неизвестные поля')
+        try:
+            target = int(str(row.get('target_actor_uid', 0)), 0)
+        except ValueError:
+            raise ValueError('spectate: target_actor_uid U64') from None
+        if not 0 <= target < 2**64:
+            raise ValueError('spectate: target_actor_uid U64')
+        return dict(action=action, target_actor_uid=target)
     if action == 'kick':
         # Администратор (панель): итог «не спасён» и выход в лобби; не исходная команда ROE.
         if set(row)-{'id','action','recipient_actor_uid'}:

@@ -514,6 +514,14 @@ class Endpoint(asyncio.DatagramProtocol):
                                             if code is None:
                                                 # Общая комната: разрешён только teleport (запрос пользователя27/10,
                                                 # обычно с recipient_actor_uid); прочие действия меняют общий баланс.
+                                                if payload['action'] == 'spectate':
+                                                    accepted = self.admin_spectate(state, payload['target_actor_uid'])
+                                                    control.acknowledge(name)
+                                                    self.capture.record('live_state_action',id=name,recipient_actor_uid=hex(state['actor_uid']),
+                                                                        synthetic=True,action='spectate',accepted=accepted,
+                                                                        target_actor_uid=hex(payload['target_actor_uid']),
+                                                                        reason=None if accepted else 'target_not_in_room')
+                                                    continue
                                                 if payload['action'] == 'kick':
                                                     self.kick_player(state, d, remote, 'kicked')
                                                     control.acknowledge(name)
@@ -1325,6 +1333,20 @@ class Endpoint(asyncio.DatagramProtocol):
         counts[message.command] = counts.get(message.command, 0) + 1
         self.capture.record('client_payload_sample', synthetic=True, command=hex(message.command),
                             payload_hex=message.payload[:256].hex(), account_uid=hex(state.get('actor_uid') or 0))
+
+    def admin_spectate(self, state, target_account):
+        """Observar outro participante da sala (painel); 0 encerra. Precisa da sala compartilhada."""
+        if not self.peer_avatars or not self.peer_spectators:
+            return False
+        key = (state.get('room_uid'), state.get('actor_uid'))
+        if target_account == 0:
+            self.peer_spectators.force(key, 0)
+            return True
+        target = self.peer_avatars.members.get((key[0], target_account))
+        if target is None or target_account == key[1]:
+            return False
+        self.peer_spectators.force(key, target['avatar'])
+        return True
 
     def ban_list(self):
         # Criada sob demanda: os testes montam Endpoint sem __init__.

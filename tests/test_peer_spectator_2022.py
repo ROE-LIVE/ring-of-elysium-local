@@ -135,3 +135,28 @@ class PeerSpectatorTests(unittest.TestCase):
         control.poll(rooms,102)
         observer['world'].dead = True
         self.assertEqual(len(control.poll(rooms,102)[0]),2)
+
+
+class AdminSpectatorTests(unittest.TestCase):
+    """Admin vivo forçado a observar outro participante (painel)."""
+
+    def state(self):
+        return dict(world=SimpleNamespace(dead=False), auth_sent=True, room_sent=True,
+                    peer_avatar_anchor=(None, None, 100))
+
+    def test_forced_alive_observer_gets_target_once_and_stop_clears(self):
+        admin, other = self.state(), self.state()
+        rooms = SimpleNamespace(members={(1, 10): dict(state=admin, avatar=500),
+                                         (1, 20): dict(state=other, avatar=600)})
+        control = PeerSpectators()
+        self.assertEqual(control.poll(rooms, 101), ([], []))       # vivo e sem pedido: nada
+        control.force((1, 10), 600)
+        outputs, events = control.poll(rooms, 101)
+        self.assertEqual(outputs, [(other, [(0x6fbe, struct.pack('>Q', 10))]),
+                                   (admin, [(0x6fbb, struct.pack('>Q', 600))])])
+        self.assertEqual(events[0]['action'], 'peer_spectator_admin')
+        self.assertEqual(control.poll(rooms, 101), ([], []))       # sem repetir
+        control.force((1, 10), 0)
+        outputs, events = control.poll(rooms, 101)
+        self.assertEqual(outputs, [(admin, [(0x6fbb, struct.pack('>Q', 0))])])
+        self.assertNotIn((1, 10), control.forced)

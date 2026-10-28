@@ -11,6 +11,14 @@ class PeerSpectators:
     def __init__(self):
         self.receipts = {}
         self.camera_ticks = {}
+        # Admin (painel): observador vivo forçado → unit UID do alvo (0 = parar). Experimento:
+        # o cliente pode recusar 6FBB estando vivo.
+        self.forced = {}
+
+    def force(self, key, target_unit):
+        """Pedido do admin; o próximo poll envia 6FBB/6FBE (ou 6FBB 0 para encerrar)."""
+        self.forced[key] = target_unit
+        self.receipts.pop(key, None)
 
     @staticmethod
     def connected(state, now):
@@ -29,6 +37,10 @@ class PeerSpectators:
         for key, member in members.items():
             state = member['state']
             world = state.get('world')
+            if key in self.forced and world is not None and self.connected(state, now):
+                outputs_events = self.poll_forced(key, members, now)
+                outputs.extend(outputs_events[0]); events.extend(outputs_events[1])
+                continue
             if world is not None and not world.dead:
                 self.receipts.pop(key, None)
             if world is None or not world.dead or not self.connected(state, now):
@@ -57,6 +69,23 @@ class PeerSpectators:
                                account_uid=hex(key[1]), room_uid=hex(key[0]),
                                target_unit_uid=hex(target)))
         return outputs, events
+
+    def poll_forced(self, key, members, now):
+        target = self.forced[key]
+        state = members[key]['state']
+        if target == 0:
+            del self.forced[key]
+            self.receipts.pop(key, None)
+            return [(state, [(0x6fbb, struct.pack('>Q', 0))])], [dict(action='peer_spectator_admin_stop',
+                                                                      account_uid=hex(key[1]))]
+        target_state = next((other['state'] for other_key, other in members.items()
+                             if other_key[0] == key[0] and other['avatar'] == target), None)
+        receipt = (id(state), target)
+        if target_state is None or self.receipts.get(key) == receipt:
+            return [], []
+        self.receipts[key] = receipt
+        return ([(target_state, [(0x6fbe, struct.pack('>Q', key[1]))]), (state, [(0x6fbb, struct.pack('>Q', target))])],
+                [dict(action='peer_spectator_admin', account_uid=hex(key[1]), target_unit_uid=hex(target))])
 
     def relay_camera(self, rooms, state, payload, now):
         """Проверенный selector1: 61B LE внутри bounded BE byte-array.
@@ -90,8 +119,8 @@ class PeerSpectators:
             if observer is None or observer_key[0] != key[0] or receipt[1] != member['avatar']:
                 continue
             target = observer['state']
-            if (receipt[0] != id(target) or not self.connected(target,now)
-                    or target.get('world') is None or not target['world'].dead):
+            if (receipt[0] != id(target) or not self.connected(target,now) or target.get('world') is None
+                    or not (target['world'].dead or observer_key in self.forced)):
                 continue
             outputs.append((target,[(0x6fbd,bytes(body))]))
         if not outputs:

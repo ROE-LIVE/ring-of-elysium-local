@@ -10,13 +10,19 @@ def validate_state_action(row):
     action = row.get('action')
     if action == 'airdrop':
         # Серверный полёт аирдропа над точкой земли (airdrop_flight_2022); не исходная команда ROE.
-        if set(row)-{'id','action','recipient_actor_uid','position'}:
+        if set(row)-{'id','action','recipient_actor_uid','position','release_status'}:
             raise ValueError('State action не принимает wire payload/неизвестные поля')
         position = row.get('position')
         if (not isinstance(position, list) or len(position) != 3
                 or any(type(n) is not int or not 0 < n < 1000000 for n in position)):
             raise ValueError('airdrop: position требует три целых см (точка земли)')
-        return dict(action=action,position=list(position))
+        status = row.get('release_status')
+        if status is not None and (type(status) is not int or not 0 <= status <= 64):
+            raise ValueError('airdrop: release_status 0..64')
+        result = dict(action=action,position=list(position))
+        if status is not None:
+            result['release_status'] = status
+        return result
     if action == 'teleport':
         # Локальный перенос своего actor через server27; не исходная команда ROE.
         if set(row)-{'id','action','recipient_actor_uid','position'}:

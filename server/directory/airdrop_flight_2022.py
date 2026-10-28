@@ -69,7 +69,8 @@ def part_sync(uid, part_id, part_type, hp=0, status=DESTROYED_STATUS):
 
 
 class AirdropFlight:
-    def __init__(self, uid, x, y, ground_z, now):
+    def __init__(self, uid, x, y, ground_z, now, release_statuses=RELEASE_STATUSES):
+        self.release_statuses = tuple(release_statuses)
         self.uid, self.x, self.y, self.ground_z = uid, x, y, ground_z
         self.top_z = ground_z + HOVER_HEIGHT
         self.started = now
@@ -122,10 +123,10 @@ class AirdropFlight:
             self.release_index = 0
             self.next_send = now
             return [(0x6575, move_bc(self.uid, (self.x, self.y, self.ground_z), 0, tick))], 'landed'
-        if self.release_index >= len(RELEASE_STATUSES):
+        if self.release_index >= len(self.release_statuses):
             self.phase = 'done'
             return [], 'released'
-        status = RELEASE_STATUSES[self.release_index]
+        status = self.release_statuses[self.release_index]
         self.release_index += 1
         self.next_send = now + RELEASE_PERIOD
         self.last_release_status = status

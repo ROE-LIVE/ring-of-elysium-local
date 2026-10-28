@@ -81,6 +81,20 @@ class AirdropFlightTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('>3i', body, 20), (100, 200, 258000+flight_module.HOVER_HEIGHT))
         self.assertEqual(state['airdrop_flights'][0].notice[0], 0x4a6)
 
+    def test_single_release_status_per_flight(self):
+        flight = AirdropFlight(7, 0, 0, 0, 0, (5,))
+        flight.phase, flight.release_index = 'release', 0
+        packets, phase = flight.poll(10**6, 1)
+        self.assertEqual(phase, 'release_status_5')
+        self.assertEqual(flight.poll(10**7, 1), ([], 'released'))
+        endpoint = Endpoint.__new__(Endpoint)
+        entity = bytearray(117)
+        struct.pack_into('>QI', entity, 0, 9, 501)
+        endpoint.scene_rules = [(0x1f49, [(0x654b, bytes(entity))])]
+        state = {}
+        _, event = endpoint.live_airdrop(state, [1, 2, 3], 'drop-5', 5)
+        self.assertEqual((event['release_status'], state['airdrop_flights'][0].release_statuses), (5, (5,)))
+
 
 if __name__ == '__main__':
     unittest.main()

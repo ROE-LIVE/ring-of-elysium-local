@@ -847,6 +847,15 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.send_application(d, remote, state, command, payload)
                                         for event in events:
                                             self.capture.record('world_probe', synthetic=True, remote=remote, **event)
+                                            if event.get('action') == 'closed_zone_leave' and self.environment_fixture:
+                                                # Hipótese (Europa, 28/10): o cliente baixa ATR_TEMPERATURE sozinho na
+                                                # área fechada e o visual de cinzas segue a temperatura; ao voltar à zona
+                                                # segura ele ficava preso nas cinzas. Devolve a temperatura inicial.
+                                                self.send_application(d, remote, state, 0x10d0, struct.pack(
+                                                    '>Ii', 5, self.environment_fixture.temperature))
+                                                self.capture.record('zone_temperature_restored', synthetic=True, remote=remote,
+                                                                    temperature_raw=self.environment_fixture.temperature,
+                                                                    hypothesis=True)
                                     if self.peer_avatars:
                                         self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
                                     self.emit_own_death_inventory(d, remote, state)

@@ -73,7 +73,7 @@ class PeerAvatarTests(unittest.TestCase):
         self.assertFalse(events[0]['trajectory_replicated'])
         self.assertIsNotNone(events[0]['trajectory_fallback'])
 
-    def test_pose_transition_precedes_trajectory_and_jump_uses_discrete_path(self):
+    def test_pose_transition_precedes_trajectory_also_in_jump(self):
         rooms=self.fixture();rooms.replicate_trajectories=True
         a,b=self.state(10),self.state(20)
         rooms.admit(a,1);rooms.admit(b,1)
@@ -82,9 +82,11 @@ class PeerAvatarTests(unittest.TestCase):
         outputs,_=rooms.move(a,(100,200,300),100,10,movement)
         self.assertEqual([code for code,_ in outputs[0][1]],[0x27,0x25])
         self.assertEqual(struct.unpack_from('>I',outputs[0][1][0][1],27)[0],1)
+        # Прыжок пешком: снимок27 с позой3, затем траектория (раньше только27 — рывками).
         movement['points'][0]['bytes']=(0,22,0)
         outputs,_=rooms.move(a,(100,200,300),100,10.01,movement)
-        self.assertEqual([code for code,_ in outputs[0][1]],[0x27])
+        self.assertEqual([code for code,_ in outputs[0][1]],[0x27,0x25])
+        self.assertEqual(struct.unpack_from('>I',outputs[0][1][0][1],27)[0],3)
 
     def test_points_between_throttled_sends_are_kept_in_trajectory(self):
         # C2S2a каждые ~80мс по2 точки: за0,24с в одну SC25 должны попасть все6.

@@ -12,13 +12,13 @@ from roe_scene_2023 import decode_bc_move
 
 class PeerMotionTests(unittest.TestCase):
     def test_stop_uses_native_fast_commit_branch_and_preserves_pose_through_wrap(self):
-        for pose,event in ((0,1),(1,2),(2,3),(50,40),(51,40),(53,40),(58,48),(59,48),(60,48)):
+        for pose,event in ((0,1),(1,2),(2,3),(3,1),(9,1),(50,40),(51,40),(53,40),(58,48),(59,48),(60,48)):
             body=encode_peer_stop(123,(10,20,30),42,0xffffffff,pose,(1.,0.,0.))
             decoded=decode_bc_move(body)
             self.assertEqual((decoded['word_0'],decoded['count'],decoded['bytes']),(0,1,(event,0)))
             self.assertEqual(decoded['points'],[(0,0,0,0,0,0)])
             self.assertEqual(decoded['tail'],(0,32768,32768,42))
-        with self.assertRaises(ValueError):encode_peer_stop(1,(10,20,30),1,1,9,(1.,0.,0.))
+        with self.assertRaises(ValueError):encode_peer_stop(1,(10,20,30),1,1,11,(1.,0.,0.))
 
     def movement(self):
         return dict(points=[dict(position=(360233,543119,259507),bytes=(0,1,13),value=100),

@@ -14,6 +14,12 @@ from death_parcel_2022 import replace_name
 # Предел участников комнаты (как shared_loot_2022): оригинальный матч iPlayerNum=60.
 ROOM_LIMIT = 60
 
+# Позы, в которых другим уходит траектория SC25, а не только снимок27 раз в0,2с.
+# Прыжок пешком (JUMP_UP3, LAND9) снимками шёл рывками: игрок пролетал ~1м между ними
+# (опыт28/10, сессия20261028T222921); с прыжком лыж53 траектория уже давала плавность.
+TRAJECTORY_POSES = (0,1,2,3,9,50,51,53,58,59,60)
+
+
 class PeerAvatarRooms:
     def __init__(self,fixture,replicate_health=False,replicate_trajectories=False,replicate_equipment=False):
         self.fixture = fixture
@@ -299,7 +305,7 @@ class PeerAvatarRooms:
             member['last_emit'] = now
             final = None
             points,member['pending_points'] = pending,[]
-            if self.replicate_trajectories and movement is not None and member.get('pose',0) in (0,1,2,50,51,53,58,59,60):
+            if self.replicate_trajectories and movement is not None and member.get('pose',0) in TRAJECTORY_POSES:
                 sequence = (member.get('motion_sequence',struct.unpack_from('>I',self.fixture.movement,23)[0])+1)&0xffffffff
                 try:
                     try:

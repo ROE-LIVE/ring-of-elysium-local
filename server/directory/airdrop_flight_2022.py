@@ -38,7 +38,10 @@ OWNER_PERIOD = 2.0
 # Игра27/10 01:06: статус3 (≈6с после посадки) — шар загорелся и разрушился (как разрушенный
 # транспорт); 1 и2 видимого эффекта не дали, 4..6 пришли уже после разрушения. Ищем отцепление
 # без3, с интервалом10с.
-RELEASE_STATUSES = (4, 5, 6, 7, 8, 2, 1)
+# Игра27/10 01:24 (7 ящиков в ряд, по одному статусу): лучший — iStatus5. По памяти игрока, в
+# оригинале шар не ставит ящик на землю, а бросает его с высоты легковушки (RELEASE_HEIGHT).
+RELEASE_STATUSES = (5,)
+RELEASE_HEIGHT = 180          # см над землёй
 RELEASE_PERIOD = 10.0
 # Посторонний «водитель» ящика: префикс аватаров комнаты0x2040000100000, номер вне выдачи.
 GHOST_OWNER = 0x20400001fffff
@@ -73,6 +76,7 @@ class AirdropFlight:
         self.release_statuses = tuple(release_statuses)
         self.uid, self.x, self.y, self.ground_z = uid, x, y, ground_z
         self.top_z = ground_z + HOVER_HEIGHT
+        self.release_z = ground_z + RELEASE_HEIGHT
         self.started = now
         self.notice = None
         self.phase = 'hover'
@@ -102,7 +106,7 @@ class AirdropFlight:
         elapsed = now - self.started
         if elapsed < HOVER_SECONDS:
             return self.top_z
-        return max(self.ground_z, round(self.top_z - DESCENT_SPEED*(elapsed - HOVER_SECONDS)))
+        return max(self.release_z, round(self.top_z - DESCENT_SPEED*(elapsed - HOVER_SECONDS)))
 
     def step(self, now, tick):
         elapsed = now - self.started
@@ -115,14 +119,14 @@ class AirdropFlight:
             self.next_send = now
             return packets, 'descent'
         z = round(self.top_z - DESCENT_SPEED*(elapsed - HOVER_SECONDS))
-        if z > self.ground_z:
+        if z > self.release_z:
             self.next_send = now + DESCENT_PERIOD
             return [(0x6575, move_bc(self.uid, (self.x, self.y, z), -DESCENT_SPEED, tick))], None
         if self.phase == 'descent':
             self.phase = 'release'
             self.release_index = 0
             self.next_send = now
-            return [(0x6575, move_bc(self.uid, (self.x, self.y, self.ground_z), 0, tick))], 'landed'
+            return [(0x6575, move_bc(self.uid, (self.x, self.y, self.release_z), 0, tick))], 'landed'
         if self.release_index >= len(self.release_statuses):
             self.phase = 'done'
             return [], 'released'

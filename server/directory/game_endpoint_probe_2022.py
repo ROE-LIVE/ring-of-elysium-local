@@ -1905,12 +1905,12 @@ class Endpoint(asyncio.DatagramProtocol):
                     # Игра27/10 00:16: с «чужим» владельцем ящик спустился ровно, но шар не отцепился
                     # по PART_SYNC. Опыт: вернуть владение клиенту на земле — пусть его физика
                     # аирдропа (как в оригинале) отцепит шар.
-                    packets.append(owner_sync(flight.uid, (flight.x, flight.y, flight.ground_z), state['actor_uid']))
+                    packets.append(owner_sync(flight.uid, (flight.x, flight.y, flight.release_z), state['actor_uid']))
                 if packets:
                     self.send_application_batch(anchor[0], anchor[1], state, packets)
                 if phase:
                     self.capture.record('airdrop_flight', synthetic=True, phase=phase, uid=hex(flight.uid),
-                                        position=[flight.x, flight.y, flight.ground_z if phase == 'landed' else flight.top_z],
+                                        position=[flight.x, flight.y, flight.release_z if phase == 'landed' else flight.top_z],
                                         remote=anchor[1], original_rule_verified=False)
                 if flight.phase == 'done':
                     state['airdrop_flights'].remove(flight)

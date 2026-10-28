@@ -36,7 +36,7 @@ class AirdropFlightTests(unittest.TestCase):
         packets, phase = flight.poll(landing + 1, 1)
         self.assertEqual(phase, 'landed')
         self.assertEqual([code for code, _ in packets], [0x6575])
-        self.assertEqual(struct.unpack_from('>3i', packets[0][1], 13), (100, 200, 250000))
+        self.assertEqual(struct.unpack_from('>3i', packets[0][1], 13), (100, 200, 250000+flight_module.RELEASE_HEIGHT))   # para à altura de um carro
         moment = landing + 1
         for status in flight_module.RELEASE_STATUSES:
             packets, phase = flight.poll(moment, 1)

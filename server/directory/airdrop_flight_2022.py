@@ -16,7 +16,9 @@ iStatus разрушенной части не найден: берём3 (как
 Игра27/10: без владельца клиент сам симулировал падение (слал MOVE_REQ0x6549) и игнорировал
 MOVE_BC. Поэтому сразу и каждые OWNER_PERIOD секунд — OWNER_SYNC0x656D с владельцем0
 (декодер140C9AAA0, формат как в shared_vehicle_2022.owner_packet): гипотеза «без владельца
-клиент не ведёт физику».
+клиент не ведёт физику». Игра27/10 00:00: с владельцем0 клиент продолжал MOVE_REQ (~12/с) —
+опровергнуто. Теперь владелец — посторонний UID (как у машины другого игрока в shared_vehicle:
+не-водитель следует MOVE_BC): GHOST_OWNER, не совпадает ни с аккаунтом, ни с аватаром комнаты.
 """
 import struct
 
@@ -29,6 +31,8 @@ HOVER_PERIOD = 0.5
 DESCENT_PERIOD = 0.2
 PART_BALOON, PART_BALOON_FIRE = 3, 4
 OWNER_PERIOD = 2.0
+# Посторонний «водитель» ящика: префикс аватаров комнаты0x2040000100000, номер вне выдачи.
+GHOST_OWNER = 0x20400001fffff
 DESTROYED_STATUS = 3
 
 
@@ -40,7 +44,7 @@ def move_bc(uid, position, velocity_z, tick):
     return bytes(body)
 
 
-def owner_sync(uid, position, owner=0):
+def owner_sync(uid, position, owner=GHOST_OWNER):
     return (0x656d, struct.pack('>QIQ', uid, 0, owner) + struct.pack('>iiiB', *position, 0)
             + struct.pack('>4f', 0, 0, 0, 1) + bytes(3))
 

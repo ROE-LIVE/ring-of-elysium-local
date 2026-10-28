@@ -23,8 +23,8 @@ class AirdropFlightTests(unittest.TestCase):
         flight = AirdropFlight(7, 100, 200, 250000, 0)
         flight.notice = (0x4a6, b'notice')
         packets, phase = flight.poll(0, 1)
-        self.assertEqual(([c for c, _ in packets], phase), ([0x656d, 0x6575], None))   # sem dono, depois posição
-        self.assertEqual(struct.unpack_from('>QIQ', packets[0][1]), (7, 0, 0))
+        self.assertEqual(([c for c, _ in packets], phase), ([0x656d, 0x6575], None))   # dono fantasma, depois posição
+        self.assertEqual(struct.unpack_from('>QIQ', packets[0][1]), (7, 0, flight_module.GHOST_OWNER))
         self.assertEqual(struct.unpack_from('>3i', packets[1][1], 13), (100, 200, 250000+flight_module.HOVER_HEIGHT))
         self.assertEqual(flight.poll(0.1, 1), ([], None))          # не чаще HOVER_PERIOD
         flight.next_owner = 10**9

@@ -9,7 +9,7 @@ from dataclasses import replace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'server/directory'))
-from weapon_probe_2022 import GUN_PROFILES, GunInstance, LootFixture, WeaponFixture, WeaponState, equipment_record
+from weapon_probe_2022 import ABILITY_ATTRIBUTES, GUN_PROFILES, GunInstance, LootFixture, WeaponFixture, WeaponState, equipment_record
 from attachment_probe_2022 import AttachmentInstance
 
 
@@ -487,12 +487,15 @@ class WeaponStateTests(unittest.TestCase):
 
     def test_each_winter_kit_enables_only_its_ability_and_own_capacity(self):
         # Три разных RAW_ATR, несмотря на другой порядок E_ABILITY в таблице.
-        for definition, selected, capacity in [(200906,3,225),(200907,2,150),(200904,4,300)]:
+        # Vera/Europa: ISLAND_PARACHUTE13, BMX14, GRAPPLING15 (+заряды16), MOTOR39 (+заряды джета17 у планера).
+        charges = {200903: [(16, 3)], 200901: [(17, 1)]}
+        for definition, selected, capacity in [(200906,3,225),(200907,2,150),(200904,4,300),
+                                               (200901,13,225),(200902,14,225),(200903,15,225),(200908,39,225)]:
             state = WeaponState(WeaponFixture(bytes(82),bytes(60),
                                 starting_equipment=(definition,)),42)
             replies = state.kit_sync()
             raw = [struct.unpack('>II', body) for code, body in replies if code == 0x10d0]
-            self.assertEqual(raw, [(i,int(i == selected)) for i in (2,3,4)])
+            self.assertEqual(raw, [(i,int(i == selected)) for i in ABILITY_ATTRIBUTES] + charges.get(definition, []))
             self.assertEqual(struct.unpack('>HBII', dict(replies)[0x516]), (1,5,capacity,capacity))
         self.assertEqual(self.weapon.kit_sync(), [])
 
@@ -505,7 +508,7 @@ class WeaponStateTests(unittest.TestCase):
         replies,event = state.handle(0x3b63,request)
         self.assertEqual(state.equipment[11],200904)
         self.assertEqual([struct.unpack('>II',b) for c,b in replies if c == 0x10d0],
-                         [(2,0),(3,0),(4,1)])
+                         [(i,int(i == 4)) for i in ABILITY_ATTRIBUTES])
         self.assertEqual(struct.unpack('>HBII',dict(replies)[0x516]),(1,5,300,300))
         duplicate,event = state.handle(0x3b63,request)
         self.assertEqual(event['action'],'duplicate_pickup')

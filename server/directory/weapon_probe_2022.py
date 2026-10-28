@@ -20,12 +20,22 @@ from attachment_probe_2022 import (
 # Позиции equipment и определения из TableBin/A89; проверка wire в опыте20261007.
 EQUIPMENT_SLOTS = {201001: 12, 201002: 12, 201003: 12, 201004: 12,
                    200101: 10, 200102: 10, 200103: 10, 200104: 10,
-                   200904: 11, 200906: 11, 200907: 11}
+                   200904: 11, 200906: 11, 200907: 11,
+                   # Mochilas de transporte de Vera/Europa (A89 szPosition BACKPACK).
+                   200901: 11, 200902: 11, 200903: 11, 200908: 11}
 
 # TableBin/A89: способность и вместимость зимних наборов. Индексы RAW_ATR
 # подтверждены публичными descriptor142d94e88/eb8/ee8 и handler140eaee10.
 # Вместимость — EU attribute5; это отдельная синхронизация, не свойство5fb.
-WINTER_KITS = {200907: (2, 150), 200906: (3, 225), 200904: (4, 300)}
+WINTER_KITS = {200907: (2, 150), 200906: (3, 225), 200904: (4, 300),
+               # Vera/Europa: A89 szAbility → ATR_INIT_ABILITY_* (descritores 142d95098/0c8/0f8/578):
+               # ISLAND_PARACHUTE13, BMX14, GRAPPLING15, MOTOR39; nExtWeight 225. Опыт: клиент сам
+               # исполняет способность, сервер только включает атрибут.
+               200901: (13, 225), 200902: (14, 225), 200903: (15, 225), 200908: (39, 225)}
+ABILITY_ATTRIBUTES = tuple(sorted({index for index, _ in WINTER_KITS.values()}))
+# Заряды: ATR_MOVE_GRAPPLE_LEFT_COUNT16 (восстановление buff3000 за 10 с), ATR_MOVE_JET_LEFT_COUNT17
+# (buff3001, 60 с). Максимум в таблицах не найден — стартовые значения опытные.
+KIT_CHARGES = {200903: ((16, 3),), 200901: ((17, 1),)}
 
 
 # TableBin/A89 nDurableValue; wire record+32 -> native item+9e -> obj+3c.
@@ -700,9 +710,10 @@ class WeaponState:
         if definition not in WINTER_KITS:
             return []
         selected, capacity = WINTER_KITS[definition]
-        # При смене зимнего набора старые способности должны выключаться.
+        # При смене набора старые способности должны выключаться.
         responses = [(0x10d0, struct.pack('>II', index, int(index == selected)))
-                     for index in (2, 3, 4)]
+                     for index in ABILITY_ATTRIBUTES]
+        responses += [(0x10d0, struct.pack('>II', index, count)) for index, count in KIT_CHARGES.get(definition, ())]
         responses.append((0x516, struct.pack('>HBII', 1, 5, capacity, capacity)))
         return responses
 

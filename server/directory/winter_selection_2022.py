@@ -142,12 +142,26 @@ DESERT_WEAPONS = {
 }
 DESERT_DEFAULT = {1: 2, 3: 1}
 STAGED_DEFAULTS = {16021: DESERT_DEFAULT, 16007: {1: 1, 3: 1}}
-# Индекс RAW_ATTR этапа по живому клиенту16021 (сессии20261026T015031/015748):
-# передвижение1, тактика20 (значения1/3/7 есть только в тактике), оружие31 (клик Citori=3
-# во время выбора). 18 приходит до начала выбора со значением1 — принимается как оружие,
-# но обычно отклоняется как ранний. Вывод из наблюдения, не из таблицы атрибутов.
-STAGE_BY_ATTR = {1: 1, 20: 2, 31: 3, 18: 3}
+# Индекс RAW_ATTR этапа: ATR_INIT_EQUIP_1/2/3 = 1/20/31 (дескрипторы ATR_ с 0x142d94e58).
+STAGE_BY_ATTR = {1: 1, 20: 2, 31: 3}
 ATTR_BY_STAGE = {1: 1, 2: 20, 3: 31}
+# Настройки самого клиента через тот же RAW_ATTR_SET_REQ: 18 ATR_SHOW_EMISSIVE_EFFECT
+# (приходит при загрузке), 40 ATR_SKIP_TRAINING, 42 ATR_NEWBIE_BIT (подсказки новичка),
+# 45 ATR_NOVICE_AFTER_PRACTICE. Отказ (0x10CD с кодом1) клиент показывает баннером
+# «Warning1»: 0x140F63720 ищет текст кода ошибки и без него пишет UI_CODE_ERROR_CODE_UNKNOWN+код.
+CLIENT_ATTRIBUTES = {18: 'ATR_SHOW_EMISSIVE_EFFECT', 40: 'ATR_SKIP_TRAINING',
+                     42: 'ATR_NEWBIE_BIT', 45: 'ATR_NOVICE_AFTER_PRACTICE'}
+
+
+def client_attribute(command, payload):
+    """Принять собственную настройку клиента: эхо 0x10D0 и 0x10CD с кодом0; иначе None."""
+    if command != 0x10cc or len(payload) != 8:
+        return None
+    attr, value = struct.unpack('>II', payload)
+    if attr not in CLIENT_ATTRIBUTES:
+        return None
+    return [(0x10d0, payload), (0x10cd, payload + struct.pack('>I', 0))], {
+        'action': 'client_attribute', 'attr_index': attr, 'name': CLIENT_ATTRIBUTES[attr], 'value': value}
 
 
 def staged_fixture(fixture, loadout, map_id=16021):

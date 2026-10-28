@@ -58,7 +58,7 @@ from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
 from reliable_udp_2022 import ReliableSender, ReliableReceiver, FrameStream
 from movement_validation_2022 import MovementState
-from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, STAGED_DEFAULTS, staged_fixture, choose_staged, ATTR_BY_STAGE
+from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, STAGED_DEFAULTS, staged_fixture, choose_staged, ATTR_BY_STAGE, client_attribute
 
 
 def encode_datagram(source, destination, sequence, acknowledgement, flags, clock, echoed, data=b''):
@@ -589,7 +589,12 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 (0x11e2, struct.pack('>III', 2, 0, 0)),
                                                 (0x10d0, struct.pack('>II', 1, state['winter_choice'])),
                                             ])
-                                if self.staged_loadout and default_choice(self.weapon_fixture) is not None and message.command == 0x10cc:
+                                attribute = client_attribute(message.command, message.payload)
+                                if attribute is not None:
+                                    replies, event = attribute
+                                    self.send_application_batch(d, remote, state, replies)
+                                    self.capture.record('winter_selection', synthetic=True, **event)
+                                elif self.staged_loadout and default_choice(self.weapon_fixture) is not None and message.command == 0x10cc:
                                     result = choose_staged(message.command, message.payload,
                                         time.monotonic()-self.started, state.get('selection_deadline'), 'weapon' in state, self.room_map)
                                     if result is not None:

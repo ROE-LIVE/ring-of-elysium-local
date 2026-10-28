@@ -109,3 +109,16 @@ class StagedLoadoutTests(unittest.TestCase):
         raw = [struct.unpack('>II', body) for code, body in WeaponState(sdv, 42).kit_sync() if code == 0x10d0]
         self.assertIn((19, 1), raw)
         self.assertNotIn((20, 1), raw)                         # 20 = INIT_EQUIP_2, não contador do SDV
+
+    def test_client_preference_attributes_are_acknowledged(self):
+        """ATR_NEWBIE_BIT (42) e ATR_SHOW_EMISSIVE_EFFECT (18): recusa com código 1 virava «Warning1»."""
+        from winter_selection_2022 import client_attribute, choose_staged
+        for attr, value in ((42, 2), (18, 1)):
+            body = struct.pack('>II', attr, value)
+            replies, event = client_attribute(0x10cc, body)
+            self.assertEqual(replies, [(0x10d0, body), (0x10cd, body + struct.pack('>I', 0))])
+            self.assertEqual(event['attr_index'], attr)
+        self.assertIsNone(client_attribute(0x10cc, struct.pack('>II', 20, 1)))   # etapa 2 segue em choose_staged
+        self.assertIsNone(client_attribute(0x10cc, bytes(7)))
+        # 18 não é mais tratado como arma da etapa 3.
+        self.assertIsNone(choose_staged(0x10cc, struct.pack('>II', 18, 1), 1, 10, False, 16007)[0])

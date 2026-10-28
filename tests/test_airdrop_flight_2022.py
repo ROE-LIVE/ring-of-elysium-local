@@ -35,9 +35,17 @@ class AirdropFlightTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('>i', packets[0][1], 21)[0], 250000+flight_module.HOVER_HEIGHT-250)
         packets, phase = flight.poll(landing + 1, 1)
         self.assertEqual(phase, 'landed')
-        self.assertEqual([code for code, _ in packets], [0x6575, 0x6546, 0x6546])
+        self.assertEqual([code for code, _ in packets], [0x6575])
         self.assertEqual(struct.unpack_from('>3i', packets[0][1], 13), (100, 200, 250000))
-        self.assertEqual(flight.poll(landing + 5, 1), ([], None))
+        moment = landing + 1
+        for status in flight_module.RELEASE_STATUSES:
+            packets, phase = flight.poll(moment, 1)
+            self.assertEqual(phase, 'release_status_%d' % status)
+            self.assertEqual([code for code, _ in packets], [0x653c, 0x6546])
+            self.assertEqual(struct.unpack('>QBIIIIB', packets[0][1]), (7, 3, 1, status, 0, 0, 3))
+            moment += flight_module.RELEASE_PERIOD
+        self.assertEqual(flight.poll(moment, 1), ([], 'released'))
+        self.assertEqual(flight.poll(moment + 5, 1), ([], None))
 
     def test_endpoint_starts_flight_only_with_ground_notice(self):
         endpoint = Endpoint.__new__(Endpoint)

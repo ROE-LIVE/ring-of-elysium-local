@@ -33,6 +33,10 @@ HOVER_PERIOD = 0.5
 DESCENT_PERIOD = 0.2
 PART_BALOON, PART_BALOON_FIRE = 3, 4
 OWNER_PERIOD = 2.0
+# Опыт отцепления шара: после посадки по очереди iStatus 1..6 части1 (BALOON) — PART_OP_DETAIL_SYNC
+# 0x653C (U64 rid, U8 bPart_type, PART_INFO) и PART_SYNC0x6546; интервал RELEASE_PERIOD, время — в журнал.
+RELEASE_STATUSES = (1, 2, 3, 4, 5, 6)
+RELEASE_PERIOD = 3.0
 # Посторонний «водитель» ящика: префикс аватаров комнаты0x2040000100000, номер вне выдачи.
 GHOST_OWNER = 0x20400001fffff
 DESTROYED_STATUS = 3
@@ -49,6 +53,12 @@ def move_bc(uid, position, velocity_z, tick):
 def owner_sync(uid, position, owner=GHOST_OWNER):
     return (0x656d, struct.pack('>QIQ', uid, 0, owner) + struct.pack('>iiiB', *position, 0)
             + struct.pack('>4f', 0, 0, 0, 1) + bytes(3))
+
+
+def part_op_detail(uid, part_id, part_type, status, hp=0):
+    """0x653C EU_VEHICLE_PART_OP_DETAIL_SYNC (блок140c9db96 → 140c97a60): U64 rid, U8 тип,
+    PART_INFO (U32 id, U32 status, U32 hp, U32 bullet, U8 тип); для BALOON(3) доп. блока нет."""
+    return struct.pack('>QBIIIIB', uid, part_type, part_id, status, hp, 0, part_type)
 
 
 def part_sync(uid, part_id, part_type, hp=0, status=DESTROYED_STATUS):
@@ -76,7 +86,7 @@ class AirdropFlight:
         if self.phase == 'done':
             return [], None
         owner = []
-        if now >= self.next_owner:
+        if now >= self.next_owner and self.phase in ('hover', 'descent'):
             self.next_owner = now + OWNER_PERIOD
             owner = [owner_sync(self.uid, (self.x, self.y, self.current_z(now)))]
         if now < self.next_send:
@@ -104,7 +114,17 @@ class AirdropFlight:
         if z > self.ground_z:
             self.next_send = now + DESCENT_PERIOD
             return [(0x6575, move_bc(self.uid, (self.x, self.y, z), -DESCENT_SPEED, tick))], None
-        self.phase = 'done'
-        return [(0x6575, move_bc(self.uid, (self.x, self.y, self.ground_z), 0, tick)),
-                (0x6546, part_sync(self.uid, 1, PART_BALOON)),
-                (0x6546, part_sync(self.uid, 2, PART_BALOON_FIRE))], 'landed'
+        if self.phase == 'descent':
+            self.phase = 'release'
+            self.release_index = 0
+            self.next_send = now
+            return [(0x6575, move_bc(self.uid, (self.x, self.y, self.ground_z), 0, tick))], 'landed'
+        if self.release_index >= len(RELEASE_STATUSES):
+            self.phase = 'done'
+            return [], 'released'
+        status = RELEASE_STATUSES[self.release_index]
+        self.release_index += 1
+        self.next_send = now + RELEASE_PERIOD
+        self.last_release_status = status
+        return [(0x653c, part_op_detail(self.uid, 1, PART_BALOON, status)),
+                (0x6546, part_sync(self.uid, 1, PART_BALOON, status=status))], 'release_status_%d' % status

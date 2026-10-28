@@ -71,7 +71,8 @@ def encode_peer_stop(uid, position, sequence, tick, pose, direction):
     """
     # Лыжи/сноуборд (E_EU_ST50/51/53) останавливаются событием GROUND_SKI40: иначе исключение
     # прерывало таймер комнат (сессия27/10, 20:31:22).
-    events = {0:1, 1:2, 2:3, 50:40, 51:40, 53:40}
+    # BMX (E_EU_ST58/59/60) — так же событием GROUND_BIKE48.
+    events = {0:1, 1:2, 2:3, 50:40, 51:40, 53:40, 58:48, 59:48, 60:48}
     if pose not in events:
         raise ValueError('Поза вне проверенного подмножества остановки')
     movement = dict(points=[dict(position=position,bytes=(0,0,0),value=tick),

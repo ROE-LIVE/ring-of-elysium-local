@@ -271,7 +271,9 @@ class PeerAvatarRooms:
         # События = E_EU_AT_*, статусы = E_EU_ST_* (регистрация имён клиента2022, analises/dados).
         # Лыжи/сноуборд (опыт27/10, в журнале были события40/43): GROUND_SKI40→50,
         # INAIR_SKI41→51, SKI_JUMP43→53. Траектория и в прыжке (51/53): без неё прыжок шёл рывками.
-        mapping = {1:0,2:1,3:2,22:3,4:9,40:50,41:51,43:53}
+        # BMX (опыт28/10, в журнале были события48/50): GROUND_BIKE48→58, INAIR_BIKE49→59,
+        # JUMP_BIKE50→60. Слезть с велосипеда — снова событие1→0.
+        mapping = {1:0,2:1,3:2,22:3,4:9,40:50,41:51,43:53,48:58,49:59,50:60}
         if movement is not None:
             for point in movement['points']:
                 event = point['bytes'][1]
@@ -286,7 +288,7 @@ class PeerAvatarRooms:
         if now-member['last_emit'] >= .2 or packets:
             member['last_emit'] = now
             final = None
-            if self.replicate_trajectories and movement is not None and member.get('pose',0) in (0,1,2,50,51,53):
+            if self.replicate_trajectories and movement is not None and member.get('pose',0) in (0,1,2,50,51,53,58,59,60):
                 sequence = (member.get('motion_sequence',struct.unpack_from('>I',self.fixture.movement,23)[0])+1)&0xffffffff
                 try:
                     body = encode_peer_trajectory(member['avatar'],movement,sequence,tick)

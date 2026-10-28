@@ -85,6 +85,26 @@ class PeerAvatarTests(unittest.TestCase):
         movement['points'][0]['bytes']=(0,22,0)
         outputs,_=rooms.move(a,(100,200,300),100,10.01,movement)
         self.assertEqual([code for code,_ in outputs[0][1]],[0x27])
+
+    def test_points_between_throttled_sends_are_kept_in_trajectory(self):
+        # C2S2a каждые ~80мс по2 точки: за0,24с в одну SC25 должны попасть все6.
+        rooms=self.fixture();rooms.replicate_trajectories=True
+        a,b=self.state(10),self.state(20)
+        rooms.admit(a,1);rooms.admit(b,1)
+        def movement(first,height):
+            return dict(points=[dict(position=(100+i,200,height+i),bytes=(0,0,i),value=first)
+                                for i in (0,1)],word_1=500,bytes=(1,1,0),floats=(1.,0.,0.))
+        outputs,_=rooms.move(a,(101,200,300),100,10,movement(100,300))
+        self.assertEqual(outputs[0][1][-1][0],0x25)
+        self.assertEqual(rooms.move(a,(101,200,330),102,10.08,movement(102,330)),([],[]))
+        self.assertEqual(rooms.move(a,(101,200,360),104,10.16,movement(104,360)),([],[]))
+        outputs,events=rooms.move(a,(101,200,390),106,10.24,movement(106,390))
+        code,body=outputs[0][1][-1]
+        self.assertEqual(code,0x25);self.assertTrue(events[0]['trajectory_replicated'])
+        self.assertEqual(body[28],5)
+        self.assertEqual(struct.unpack_from('>iii',body,10),(100,200,330))
+        self.assertEqual(rooms.members[(1,10)]['pending_points'],[])
+
     def test_health_tracks_one_authoritative_world_and_snapshot_uses_unit_uid(self):
         rooms = self.fixture(); rooms.replicate_health = True
         a, b, c = self.state(10), self.state(20), self.state(30, 2)

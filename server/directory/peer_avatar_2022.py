@@ -285,13 +285,25 @@ class PeerAvatarRooms:
                         transitions.append(dict(client_event=event,server_status=pose))
                 elif event:
                     unknown.append(event)
+        # Клиент шлёт C2S2a каждые ~80мс по2 точки, а другим уходит не чаще раза в0,2с.
+        # Точки между отправками копятся: без них в траектории оставалась треть пути,
+        # и прыжок BMX у других шёл рывками (опыт28/10, сессия20261028T212826).
+        pending = member.setdefault('pending_points',[])
+        if movement is not None:
+            pending.extend(movement['points'])
+            del pending[:-20]
         if now-member['last_emit'] >= .2 or packets:
             member['last_emit'] = now
             final = None
+            points,member['pending_points'] = pending,[]
             if self.replicate_trajectories and movement is not None and member.get('pose',0) in (0,1,2,50,51,53,58,59,60):
                 sequence = (member.get('motion_sequence',struct.unpack_from('>I',self.fixture.movement,23)[0])+1)&0xffffffff
                 try:
-                    body = encode_peer_trajectory(member['avatar'],movement,sequence,tick)
+                    try:
+                        body = encode_peer_trajectory(member['avatar'],dict(movement,points=points),sequence,tick)
+                    except ValueError:
+                        # Накопленные точки вне окна часов/предела — как раньше, только текущие.
+                        body = encode_peer_trajectory(member['avatar'],movement,sequence,tick)
                 except (ValueError,KeyError,TypeError,OverflowError,struct.error) as error:
                     trajectory_error = str(error)
                 else:

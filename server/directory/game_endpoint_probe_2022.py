@@ -40,7 +40,7 @@ from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
 from fall_damage_2022 import FallTracker, ski_hurt
-from airdrop_flight_2022 import AirdropFlight
+from airdrop_flight_2022 import AirdropFlight, owner_sync
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -1901,6 +1901,11 @@ class Endpoint(asyncio.DatagramProtocol):
                 continue
             for flight in list(state.get('airdrop_flights', ())):
                 packets, phase = flight.poll(now, tick)
+                if phase == 'landed':
+                    # Игра27/10 00:16: с «чужим» владельцем ящик спустился ровно, но шар не отцепился
+                    # по PART_SYNC. Опыт: вернуть владение клиенту на земле — пусть его физика
+                    # аирдропа (как в оригинале) отцепит шар.
+                    packets.append(owner_sync(flight.uid, (flight.x, flight.y, flight.ground_z), state['actor_uid']))
                 if packets:
                     self.send_application_batch(anchor[0], anchor[1], state, packets)
                 if phase:

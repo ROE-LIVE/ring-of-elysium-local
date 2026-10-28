@@ -131,6 +131,31 @@ def shared_selection_deadline(table, key, now, seconds):
     return now + seconds, seconds
 
 
+class BanList:
+    """runtime/banidos.json ({"contas": ["0x…"]}), escrito pelo painel; relido quando muda.
+
+    Arquivo ausente ou inválido = ninguém banido (não derruba a partida).
+    """
+
+    def __init__(self, path=ROOT/'runtime'/'banidos.json'):
+        self.path, self.stamp, self.accounts = Path(path), None, frozenset()
+
+    def banned(self, account):
+        try:
+            stamp = self.path.stat().st_mtime_ns
+        except OSError:
+            self.stamp, self.accounts = None, frozenset()
+            return False
+        if stamp != self.stamp:
+            self.stamp = stamp
+            try:
+                rows = json.loads(self.path.read_text(encoding='utf-8')).get('contas', [])
+                self.accounts = frozenset(int(str(row), 0) for row in rows)
+            except (OSError, ValueError, TypeError, AttributeError):
+                self.accounts = frozenset()
+        return account in self.accounts
+
+
 class Endpoint(asyncio.DatagramProtocol):
     def __init__(self, capture, handshake=False, ident=False, grant=False, auth=False, room_template=None, scene_rules=None, scene_clock=False, selection_seconds=None, weapon_fixture=None, live_commands=None, world_fixture=None, actor_fixture=None, evacuation_delay=None, parcel_fixture=None, evacuation_result_fixture=None, loot_catalog=None, environment_fixture=None, reliable_udp=False, idle_handoff=False, diagnostic_vehicle_pellet_damage=None, peer_avatar_fixture=None, shared_ground_loot=False, shared_world_clock=False, shared_peer_health=False, peer_avatar_trajectories=False, peer_spectator=False, shared_evacuation=False, shared_vehicles=False, peer_equipment=False, peer_pellet_damage=None, shared_death_loot=False, door_fixture=None, breakable_fixture=None, spawn_points_file=None):
         self.capture = capture
@@ -459,6 +484,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                 if ('weapon' in state and message.command in (0x49e, 0x49c, 0x11da, 0x3b63, 0x3e80, 0x1004, 0x1007, 0x6f57)
                                         and not self.accept_inventory_action(state, message, remote)):
                                     continue
+                                if (message.command == 0x1f49 and 'world' in state
+                                        and self.ban_list().banned(state['actor_uid'])):
+                                    self.kick_player(state, d, remote, 'banned')
+                                    continue
                                 if self.live_commands and message.command == 0x1f49:
                                     control = self.live_control_for(state)
                                     elapsed = time.monotonic() - self.started
@@ -476,6 +505,12 @@ class Endpoint(asyncio.DatagramProtocol):
                                             if code is None:
                                                 # Общая комната: разрешён только teleport (запрос пользователя27/10,
                                                 # обычно с recipient_actor_uid); прочие действия меняют общий баланс.
+                                                if payload['action'] == 'kick':
+                                                    self.kick_player(state, d, remote, 'kicked')
+                                                    control.acknowledge(name)
+                                                    self.capture.record('live_state_action',id=name,recipient_actor_uid=hex(state['actor_uid']),
+                                                                        synthetic=True,action='kick',accepted=True,administrative=True)
+                                                    break
                                                 if payload['action'] == 'airdrop':
                                                     packets,event = self.live_airdrop(state,payload['position'],name,payload.get('release_status'))
                                                 elif self.shared_loot and payload['action'] != 'teleport':
@@ -1261,6 +1296,40 @@ class Endpoint(asyncio.DatagramProtocol):
         self.finish_gameplay(state, remote, event['cause'])
         self.capture.record('match_result', synthetic=True, remote=remote, **event)
         return True
+
+    def ban_list(self):
+        # Criada sob demanda: os testes montam Endpoint sem __init__.
+        if getattr(self, '_ban_list', None) is None:
+            self._ban_list = BanList()
+        return self._ban_list
+
+    def kick_player(self, state, d, remote, cause):
+        """Expulsão pelo administrador: jornal de «não resgatado», fim da partida e saída da sala.
+
+        Mesmas mensagens de resultado do fim de partida (sem resgate); o cliente volta ao lobby
+        pelo jornal. O avatar some para os outros como numa saída normal.
+        """
+        if state.get('match_finished'):
+            return
+        fixture, statistics = self.evacuation_result_fixture, state.get('match_statistics')
+        packets = []
+        if fixture is not None and statistics is not None:
+            report = statistics.snapshot(time.monotonic())
+            report['rescued'] = 0
+            packets.extend(fixture.messages(state['actor_uid'], state.get('room_uid', 1), report,
+                                            state.get('actor_display_name', self.room_display_name)))
+            packets.append((0x6589, struct.pack('>BQ', 0, 0)))
+            statistics.finish(time.monotonic(), rescued=False)
+        state['match_terminal_packets'] = tuple(packets)
+        if packets:
+            self.send_application_batch(d, remote, state, packets)
+        if self.peer_avatars:
+            self.emit_peer_avatars(*self.peer_avatars.detach(state, cause))
+        if self.shared_loot:
+            self.shared_loot.detach(state)
+        self.finish_gameplay(state, remote, cause)
+        self.capture.record('player_kicked', synthetic=True, account_uid=hex(state['actor_uid']), cause=cause,
+                            result_messages=len(packets))
 
     def finish_gameplay(self, state, remote, cause):
         """Сохраняет итог, отменяет pending действия; transport доставляет ACK/retry."""

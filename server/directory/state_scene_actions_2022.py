@@ -23,6 +23,11 @@ def validate_state_action(row):
         if status is not None:
             result['release_status'] = status
         return result
+    if action == 'kick':
+        # Администратор (панель): итог «не спасён» и выход в лобби; не исходная команда ROE.
+        if set(row)-{'id','action','recipient_actor_uid'}:
+            raise ValueError('State action не принимает wire payload/неизвестные поля')
+        return dict(action=action)
     if action == 'teleport':
         # Локальный перенос своего actor через server27; не исходная команда ROE.
         if set(row)-{'id','action','recipient_actor_uid','position'}:

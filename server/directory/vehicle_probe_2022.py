@@ -148,9 +148,15 @@ class EvacuationUIFixture:
                 # «смещение×100», чтобы по экрану итогов сопоставить подписи (Rank/Kill/Damage/
                 # Victory Points, Exp, Coins). Раскладка декодера140c47a73: 6×U32 (24..44),
                 # 2×U64 (48 урон, 56), 11×U32 (64..104).
-                for offset in (32, 36, 44, 64, 68, 72, 76, 80, 96, 100, 104):
+                # Игра28/10 (сессия20261028T033614): Rank Points=64, Kill Points=44, Damage Points=56,
+                # Victory Point=72 (смещение×100); Exp = сумма этих четырёх. «Extra bonus» 38000 —
+                # сумма нескольких меток, неоднозначно. Остальные поля теперь получают степени двойки
+                # ×100: любая сумма однозначно называет свои смещения.
+                for offset in (44, 64, 72):
                     struct.pack_into('>I', outcome, offset, offset*100)
                 struct.pack_into('>Q', outcome, 56, 5600)
+                for bit, offset in enumerate((32, 36, 68, 76, 80, 96, 100, 104)):
+                    struct.pack_into('>I', outcome, offset, (1 << bit)*100)
             terminal = terminal[:8]+struct.pack('>I', len(encoded)+1)+encoded+b'\0'+terminal[16:]
             outcome = outcome[:16]+struct.pack('>I', len(encoded)+1)+encoded+b'\0'+outcome[24:]
         return [(0x106e, bytes(terminal)), (0xd62, bytes(outcome))]

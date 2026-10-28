@@ -96,6 +96,12 @@ def relay_body(command, payload, entity, memo=None):
         size = struct.unpack_from('>i', payload)[0]
         if not 0 <= size <= 1024 or len(payload) != 4+size:
             return None
+        # BMX: блок0x1159 из33байт с подтипом2 (байт32) приходит ровно с событием JUMP_BIKE50
+        # (сессия20261028T232713, все8 образцов в пределах1мс). Другой клиент по нему прыгает
+        # сам (MoveCfgTable bike_jump_add_height) поверх траектории, где высота уже есть, —
+        # велосипед взлетал на несколько метров выше. Такой блок не пересылаем.
+        if command == 0x1159 and size == 33 and payload[32] == 2:
+            return None
         actor = memo.get('actor')
         if actor is not None:
             # Замер: внутри блока UID записан little-endian (тип3 = SET_HAND, тип4 = после бинта).

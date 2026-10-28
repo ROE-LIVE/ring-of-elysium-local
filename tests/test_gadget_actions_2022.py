@@ -62,6 +62,26 @@ class GadgetTests(unittest.TestCase):
         self.assertEqual(sorted(uid for uid, _ in e.out), [5, 6])
         self.assertTrue(all(packets[0][0] == 0x74cf for _, packets in e.out))
 
+    def test_scanner_use_spends_charge_and_mark_notifies_marked_player(self):
+        e = self.endpoint()
+        e.emitted = []
+        e.emit_peer_avatars = lambda outputs, events: e.emitted.extend(outputs)
+        a, b = self.state(5, ((37, 1),)), self.state(6, ())
+        e.peer_avatars = SimpleNamespace(members={(1, 5): dict(state=a, avatar=0x9005),
+                                                  (1, 6): dict(state=b, avatar=0x9006)})
+        e.use_scanner(None, None, a)
+        own = dict(e.out[0][1])
+        self.assertEqual(own[0x10d0], struct.pack('>II', 38, 0))
+        self.assertEqual(own[0x1162], struct.pack('>QI', 5, 1) + struct.pack('>III', 9, 0, 0))
+        e.scanner_mark(a, struct.pack('>Q', 0x9006))
+        self.assertEqual(e.emitted, [(b, [(0x1168, struct.pack('>Q', 0x9006))])])
+        # Sem uso: nada é mandado; marca de unidade desconhecida (NPC) só vai para o log.
+        e.out.clear(); e.emitted.clear()
+        e.use_scanner(None, None, a)
+        e.scanner_mark(a, struct.pack('>Q', 0x1234))
+        self.assertEqual((e.out, e.emitted), ([], []))
+        self.assertEqual(gadget.eu_action(struct.pack('>I', 72)), gadget.AT_USE_SCANNER)
+
     def test_player_without_barrier_tactic_is_refused(self):
         e = self.endpoint()
         b = self.state(6, ())

@@ -42,7 +42,8 @@ from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encod
 from fall_damage_2022 import FallTracker, ski_hurt
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
-                                 BARRIER_ABILITY, BARRIER_COUNT)
+                                 BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER,
+                                 decode_scanner_mark, eu_action)
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -136,7 +137,7 @@ def shared_selection_deadline(table, key, now, seconds):
 # Pedidos de gadget/habilidade (roe_trace): marcação/scanner, cura, uso de barreira/isca,
 # liberação de habilidade e obstáculos. Formatos ainda em estudo; amostras no log.
 GADGET_REQUESTS = frozenset((0x1164, 0x1167, 0x1173, 0x1175, 0x117b, 0x1180, 0x6591, 0x6594,
-                             0x74d2, 0x74d3, 0x74d7, 0x74d8, 0x74e0, 0x10cc))
+                             0x74d2, 0x74d3, 0x74d7, 0x74d8, 0x74e0, 0x10cc, 0x536, 0x11c9))
 
 
 class BanList:
@@ -960,6 +961,11 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.poll_gadgets(time.monotonic())
                                 if message.command == 0x74e0 and 'weapon' in state:
                                     self.use_barrier(d, remote, state, message.payload)
+                                    continue
+                                if message.command == 0x536 and 'weapon' in state and eu_action(message.payload) == AT_USE_SCANNER:
+                                    self.use_scanner(d, remote, state)
+                                if message.command == 0x1167 and 'weapon' in state:
+                                    self.scanner_mark(state, message.payload)
                                     continue
                                 if 'vehicles' in state and message.command == 0x1f49:
                                     now=time.monotonic()
@@ -2076,6 +2082,41 @@ class Endpoint(asyncio.DatagramProtocol):
                             point=list(request['point']), extra=request['extra'], yaw=request['yaw'],
                             rotation=list(request['rotation']), recipients=1 + len(others),
                             left=counts[BARRIER_ABILITY], format_verified=False)
+
+    def use_scanner(self, d, remote, state):
+        """0x536 ação 72 (hipótese): gasta o uso do scanner e atualiza o contador do HUD."""
+        counts = state.setdefault('gadget_counts', dict(state['weapon'].fixture.tactical))
+        if counts.get(SCANNER_ABILITY, 0) <= 0 or getattr(state.get('world'), 'dead', False):
+            self.capture.record('gadget_scanner', synthetic=True, accepted=False, reason='no_charge_or_dead',
+                                account_uid=hex(state['actor_uid']))
+            return
+        counts[SCANNER_ABILITY] -= 1
+        state['scanner_marks'] = 0
+        self.send_application_batch(d, remote, state, [
+            (0x10d0, struct.pack('>II', SCANNER_COUNT, counts[SCANNER_ABILITY])),
+            (0x1162, encode_ability_cd_sync(state['actor_uid'], [(ABILITY_CD_TYPES[SCANNER_ABILITY], counts[SCANNER_ABILITY], 0)]))])
+        self.capture.record('gadget_scanner', synthetic=True, accepted=True, account_uid=hex(state['actor_uid']),
+                            left=counts[SCANNER_ABILITY], format_verified=False)
+
+    def scanner_mark(self, state, payload):
+        """0x1167: avisa o jogador marcado (0x1168, corpo = unit marcado; o cliente o ignora)."""
+        try:
+            unit = decode_scanner_mark(payload)
+        except ValueError as error:
+            self.capture.record('gadget_scanner_mark', synthetic=True, accepted=False, reason=str(error))
+            return
+        state['scanner_marks'] = state.get('scanner_marks', 0) + 1
+        targets = []
+        if self.peer_avatars:
+            room = state.get('room_uid')
+            targets = [other['state'] for key, other in self.peer_avatars.members.items()
+                       if key[0] == room and other['state'] is not state
+                       and unit in (other['avatar'], other['state'].get('actor_uid'))]
+        if targets:
+            self.emit_peer_avatars([(target, [(0x1168, struct.pack('>Q', unit))]) for target in targets], [])
+        self.capture.record('gadget_scanner_mark', synthetic=True, accepted=bool(targets), unit=hex(unit),
+                            account_uid=hex(state['actor_uid']), notified=len(targets),
+                            marks_since_use=state['scanner_marks'], format_verified=False)
 
     def poll_gadgets(self, now):
         for uid, obstacle in self.gadget_rooms().expired(now):

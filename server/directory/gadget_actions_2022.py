@@ -20,6 +20,28 @@ OBSTACLE_BARRIER = 1
 BARRIER_ABILITY, BARRIER_COUNT = 27, 28        # ATR_INIT_ABILITY_BARRIER / ATR_BARRIER_LEFT_COUNT
 OBSTACLE_UID_BASE = 0x7600000000000             # faixa própria, fora dos UIDs de atores e veículos
 
+# Scanner (EuTacticalScanSystem, tabela EuTacticalScanConfigTable): a varredura é do cliente
+# (cone de 150°, mScanAbortDistance 2500, marca some em ~10,5–11 s). Para cada unidade viva
+# não aliada no cone (1412d2994 → 1412d2b40) ele manda 0x11C9 BC_CLIENT_DATA_REQ tipo 15
+# (U32 tipo, U8, U32 n, n bytes: U64 id + 3×U32 posição) e 0x1167 SCANNER_MARK_REQ (U64 unit).
+# 0x1168 SCANNER_MARKED_STATUS_NTF (tratador 1412d2d90) ignora o corpo: toca
+# QSConfig.RadarCfg.DetectedFx e o aviso de "detectado" — vai para o jogador marcado.
+# O gasto do uso não tem mensagem própria conhecida; hipótese: 0x536 ACTOR_EU_ACTION_REQ com
+# E_EU_AT_USE_SCANNER = 72 (registro de nomes 1406256da; barricada 68 usa 0x74E0 direto).
+SCANNER_ABILITY, SCANNER_COUNT = 37, 38        # ATR_INIT_ABILITY_SCANNER / ATR_SCANNER_LEFT_COUNT
+AT_USE_SCANNER = 72
+
+
+def decode_scanner_mark(payload):
+    if len(payload) != 8:
+        raise ValueError('SCANNER_MARK_REQ espera 8 bytes')
+    return struct.unpack('>Q', payload)[0]
+
+
+def eu_action(payload):
+    """0x536 ACTOR_EU_ACTION_REQ: U32 E_EU_AT_* no início (resto ignorado)."""
+    return struct.unpack_from('>I', payload)[0] if len(payload) >= 4 else None
+
 
 def decode_barrier_request(payload):
     if len(payload) != 46:

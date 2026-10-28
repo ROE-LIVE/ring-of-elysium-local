@@ -816,6 +816,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             [point['position'] for point in movement['points']])
                                         state['last_movement_position'] = movement['points'][-1]['position']
                                         state['weapon'].update_position(state['last_movement_position'])
+                                        self.record_player_position(state)
                                         if self.peer_avatars:
                                             now = time.monotonic()
                                             outputs, events = self.peer_avatars.move(state,state['last_movement_position'],int((now-self.started)*25)&0xffffffff,now,movement)
@@ -989,6 +990,21 @@ class Endpoint(asyncio.DatagramProtocol):
         if self.match_timer is not None:
             self.match_timer.cancel()
             self.match_timer = None
+
+    def record_player_position(self, state, period=2.0, min_step=100):
+        """Posição do jogador no log a cada 2 s (se andou ≥1 m), também sozinho: painel/admin.
+
+        peer_avatar_move só existe com outro membro na sala; o painel precisa da posição para
+        suprimento e teleporte mesmo no modo sozinho.
+        """
+        now, position = time.monotonic(), state['last_movement_position']
+        last = state.get('position_logged')
+        if last and (now - last[0] < period or math.dist(last[1], position) < min_step):
+            return
+        state['position_logged'] = (now, tuple(position))
+        world = state.get('world')
+        self.capture.record('player_position', synthetic=True, account_uid=hex(state['actor_uid']),
+                            position=list(position), hp=getattr(world, 'hp', None))
 
     def stop_peer_timer(self):
         if self.peer_timer is not None:

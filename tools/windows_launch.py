@@ -103,7 +103,10 @@ def extract_region(client, target):
     target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
 
 
-EXPERIMENTAL_MAPS = (16007, 16009, 16011, 16012, 16014, 16017, 16020, 16021, 16022, 16023, 16024, 16030, 16031)
+EXPERIMENTAL_MAPS = (16007, 16009, 16011, 16012, 16014, 16017, 16020, 16021, 16022, 16023, 16024, 16031)
+# Варианты на рельефе EU_IceLand_4096 (EuMapConfig): тот же рельеф и сценарий16010 — меняется только
+# объявленная карта; двери, окна, зона и клетки рождения остаются данными16010. 16015 — Sniper Assassin.
+ICELAND_VARIANTS = (16008, 16015, 16016, 16030)
 
 
 ICELAND_SCENE_ANCHOR = (365100, 544000, 259107)  # стартовая 0x27 сценария16010
@@ -381,6 +384,27 @@ def shared_room_endpoint(command, configs, pvp_damage=None):
     return result
 
 
+def declare_map(configs, run, map_id):
+    """JOIN unknown_28 и room m644: карта, которую загрузит клиент."""
+    from roe_room_2023 import decode_enter_room_response
+    join = json.loads(configs['join'].read_text())
+    if join['notification']['unknown_28'] != 16010:
+        raise ValueError('JOIN fixture без ожидаемой карты16010')
+    join['notification']['unknown_28'] = map_id
+    configs['join'].write_text(json.dumps(join, ensure_ascii=False, indent=2), encoding='utf-8')
+    room = json.loads(configs['room'].read_text())
+    body = bytearray(Path(room['room_file']).read_bytes())
+    fields = {f['name']: f for f in decode_enter_room_response(bytes(body))['fields']}
+    offset = fields['profile.base.m644']['offset']
+    if struct.unpack_from('>I', body, offset)[0] != 16010:
+        raise ValueError('Room fixture без ожидаемой карты16010')
+    struct.pack_into('>I', body, offset, map_id)
+    target = run/'wire'/('room-map%d.bin' % map_id)
+    target.write_bytes(bytes(body))
+    room['room_file'] = str(target)
+    configs['room'].write_text(json.dumps(room, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
 def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=False, anchor=None, spawn_cells=None,
                        zone_profile=None, zone_index=None, zone_seed=None):
     """Локальный опыт: меняет только объявленную карту (JOIN unknown_28 и room m644).
@@ -399,8 +423,27 @@ def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=
             target.write_bytes(Path(spawn_cells).read_bytes())
             configs['spawn-cells'] = target
         return
+    if map_id in ICELAND_VARIANTS:
+        if anchor is not None or zone_profile is not None:
+            raise ValueError('Вариант Iceland использует сценарий и зону16010 без MapAnchor/MapZone')
+        declare_map(configs, run, map_id)
+        from winter_selection_2022 import load_spawn_points
+        cells = json.loads(Path(spawn_cells).read_text(encoding='utf-8')) if spawn_cells is not None else             json.loads((ROOT/'server/directory/winter_spawn_points_2022.json').read_text(encoding='utf-8'))
+        if cells.get('map_id') != 16010:
+            raise ValueError('Вариант Iceland требует каталог клеток16010')
+        cells['map_id'] = map_id   # endpoint сверяет каталог с объявленной картой
+        target = run/'spawn-cells.json'
+        target.write_text(json.dumps(cells, ensure_ascii=False, indent=2), encoding='utf-8')
+        load_spawn_points(target, map_id)
+        configs['spawn-cells'] = target
+        summary_path = run/'launch-summary.json'
+        if summary_path.is_file():
+            summary = json.loads(summary_path.read_text(encoding='utf-8-sig'))
+            summary.update(map_override=map_id, map_override_verified=False, map_variant_of=16010)
+            summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+        return
     if map_id not in EXPERIMENTAL_MAPS:
-        raise ValueError('MapId: 16010 или опытная карта из EuMapConfig')
+        raise ValueError('MapId: 16010, вариант Iceland или опытная карта из EuMapConfig')
     # IDs дверей/окон другой карты назначаются при загрузке и не закреплены:
     # пустой каталог accept_unknown подтверждает запрошенное клиентом состояние
     # (подход MLVP/roe_server_previw, door/breakable_state_2022.py).
@@ -416,23 +459,7 @@ def apply_map_override(configs, run, map_id, winter_doors=False, winter_windows=
         target.write_text(json.dumps(dict(map=map_id, accept_unknown=True, interaction_radius_cm=750,
                                           provenance=note, entities=[]), indent=2), encoding='utf-8')
         configs['winter-breakables'] = target
-    from roe_room_2023 import decode_enter_room_response
-    join = json.loads(configs['join'].read_text())
-    if join['notification']['unknown_28'] != 16010:
-        raise ValueError('JOIN fixture без ожидаемой карты16010')
-    join['notification']['unknown_28'] = map_id
-    configs['join'].write_text(json.dumps(join, ensure_ascii=False, indent=2), encoding='utf-8')
-    room = json.loads(configs['room'].read_text())
-    body = bytearray(Path(room['room_file']).read_bytes())
-    fields = {f['name']: f for f in decode_enter_room_response(bytes(body))['fields']}
-    offset = fields['profile.base.m644']['offset']
-    if struct.unpack_from('>I', body, offset)[0] != 16010:
-        raise ValueError('Room fixture без ожидаемой карты16010')
-    struct.pack_into('>I', body, offset, map_id)
-    target = run/'wire'/('room-map%d.bin' % map_id)
-    target.write_bytes(bytes(body))
-    room['room_file'] = str(target)
-    configs['room'].write_text(json.dumps(room, ensure_ascii=False, indent=2), encoding='utf-8')
+    declare_map(configs, run, map_id)
     relocated = relocate_scene(configs, anchor) if anchor is not None else 0
     # region_grid — AREAINDEX Iceland: на другой карте даёт урон закрытой зоны в
     # «безопасных» местах. Без него world_probe не наносит урон зоны (стадии остаются).

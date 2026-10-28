@@ -36,6 +36,9 @@ ABILITY_ATTRIBUTES = tuple(sorted({index for index, _ in WINTER_KITS.values()}))
 # Заряды: ATR_MOVE_GRAPPLE_LEFT_COUNT16 (восстановление buff3000 за 10 с), ATR_MOVE_JET_LEFT_COUNT17
 # (buff3001, 60 с). Максимум в таблицах не найден — стартовые значения опытные.
 KIT_CHARGES = {200903: ((16, 3),), 200901: ((17, 1),)}
+# Тактика этапа2 (A81 категория35, szAbility): ATR_INIT_ABILITY_* и *_LEFT_COUNT = индекс+1.
+# SDV19, HEAL_GUN21, DRONE23, REFIT25, BARRIER27, BAIT29, STEALTH35, SCANNER37 (у SDV счётчика нет).
+TACTICAL_ABILITY_ATTRIBUTES = (19, 21, 23, 25, 27, 29, 35, 37)
 
 
 # TableBin/A89 nDurableValue; wire record+32 -> native item+9e -> obj+3c.
@@ -238,6 +241,7 @@ class WeaponFixture:
     cosmetics_config_file: Path | None = None
     winter_starter_inventory: bool = False
     starter_items: tuple = ()
+    tactical: tuple = ()          # ((ATR_INIT_ABILITY_*, заряды),) выбранной тактики этапа2
 
     @property
     def all_loot(self):
@@ -708,13 +712,24 @@ class WeaponState:
         """Инициализация собственного набора обычными сообщениями2022."""
         definition = self.equipment.get(11)
         if definition not in WINTER_KITS:
-            return []
+            return self.tactical_sync()
         selected, capacity = WINTER_KITS[definition]
         # При смене набора старые способности должны выключаться.
         responses = [(0x10d0, struct.pack('>II', index, int(index == selected)))
                      for index in ABILITY_ATTRIBUTES]
         responses += [(0x10d0, struct.pack('>II', index, count)) for index, count in KIT_CHARGES.get(definition, ())]
         responses.append((0x516, struct.pack('>HBII', 1, 5, capacity, capacity)))
+        return responses + self.tactical_sync()
+
+    def tactical_sync(self):
+        """Способность тактики этапа2 и её заряды; остальные тактические выключены."""
+        if not self.fixture.tactical:
+            return []
+        selected = {index for index, _ in self.fixture.tactical}
+        responses = [(0x10d0, struct.pack('>II', index, int(index in selected)))
+                     for index in TACTICAL_ABILITY_ATTRIBUTES]
+        responses += [(0x10d0, struct.pack('>II', index + 1, count))
+                      for index, count in self.fixture.tactical if index != 19]
         return responses
 
     def inventory_records(self):

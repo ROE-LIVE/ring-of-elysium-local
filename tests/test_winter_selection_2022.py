@@ -81,3 +81,31 @@ class WinterSelectionTests(unittest.TestCase):
         for code, body in ((0x10cc, bytes(7)), (0xbfc, bytes(5))):
             with self.assertRaises(ValueError):
                 choose(code, body, 10, 11, False)
+
+
+class StagedLoadoutTests(unittest.TestCase):
+    """Vera/Europa: mochila escolhida sem troca e habilidade tática da etapa 2."""
+
+    def fixture(self):
+        return WeaponFixture(bytes(82), bytes(60), winter_starter_inventory=True)
+
+    def test_traversal_choice_is_delivered_as_chosen(self):
+        from winter_selection_2022 import staged_fixture
+        for choice, item in ((1, 200908), (2, 200901), (3, 200902), (4, 200903)):
+            self.assertEqual(staged_fixture(self.fixture(), {1: choice, 3: 1}, 16021).starting_equipment, (item,))
+
+    def test_tactical_choice_enables_only_its_ability_with_one_charge(self):
+        from winter_selection_2022 import staged_fixture, choose_staged
+        from weapon_probe_2022 import TACTICAL_ABILITY_ATTRIBUTES
+        fixture = staged_fixture(self.fixture(), {1: 2, 2: 1, 3: 1}, 16021)
+        self.assertEqual(fixture.tactical, ((27, 1),))           # barricada
+        raw = [struct.unpack('>II', body) for code, body in WeaponState(fixture, 42).kit_sync() if code == 0x10d0]
+        tactical = [r for r in raw if r[0] in TACTICAL_ABILITY_ATTRIBUTES or r[0] == 28]
+        self.assertEqual(tactical, [(i, int(i == 27)) for i in TACTICAL_ABILITY_ATTRIBUTES] + [(28, 1)])
+        # Vera não tem modkit (4) nem SDV (6); Europa tem os oito.
+        self.assertIsNone(choose_staged(0x10cc, struct.pack('>II', 20, 4), 1, 10, False, 16021)[0])
+        self.assertEqual(choose_staged(0x10cc, struct.pack('>II', 20, 4), 1, 10, False, 16007)[0], (2, 4))
+        sdv = staged_fixture(self.fixture(), {1: 1, 2: 6, 3: 1}, 16007)
+        raw = [struct.unpack('>II', body) for code, body in WeaponState(sdv, 42).kit_sync() if code == 0x10d0]
+        self.assertIn((19, 1), raw)
+        self.assertNotIn((20, 1), raw)                         # 20 = INIT_EQUIP_2, não contador do SDV

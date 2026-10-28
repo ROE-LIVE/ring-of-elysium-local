@@ -131,6 +131,12 @@ def shared_selection_deadline(table, key, now, seconds):
     return now + seconds, seconds
 
 
+# Pedidos de gadget/habilidade (roe_trace): marcação/scanner, cura, uso de barreira/isca,
+# liberação de habilidade e obstáculos. Formatos ainda em estudo; amostras no log.
+GADGET_REQUESTS = frozenset((0x1164, 0x1167, 0x1173, 0x1175, 0x117b, 0x1180, 0x6591, 0x6594,
+                             0x74d2, 0x74d3, 0x74d7, 0x74d8, 0x74e0, 0x10cc))
+
+
 class BanList:
     """runtime/banidos.json ({"contas": ["0x…"]}), escrito pelo painel; relido quando muda.
 
@@ -412,6 +418,7 @@ class Endpoint(asyncio.DatagramProtocol):
                         for message in messages:
                             self.capture.record('application',command=hex(message.command),body_length=len(message.payload),
                                                 application_sequence=message.sequence, stamp=message.stamp, remote=remote)
+                            self.sample_client_payload(state, message)
                             if self.auth and message.command==0x406 and not state['auth_sent']:
                                 auth=decode_conn_auth_request(message.payload)
                                 if auth['word_1']!=1 or auth['token']!=bytes(16):
@@ -1296,6 +1303,21 @@ class Endpoint(asyncio.DatagramProtocol):
         self.finish_gameplay(state, remote, event['cause'])
         self.capture.record('match_result', synthetic=True, remote=remote, **event)
         return True
+
+    def sample_client_payload(self, state, message):
+        """Amostras (hex) das mensagens do cliente para decifrar formatos com um teste só.
+
+        Primeiras 3 de cada código; até 40 dos pedidos de gadget/habilidade. AUTH (0x406) fica fora.
+        """
+        if message.command == 0x406:
+            return
+        counts = state.setdefault('payload_samples', {})
+        limit = 40 if message.command in GADGET_REQUESTS else 3
+        if counts.get(message.command, 0) >= limit:
+            return
+        counts[message.command] = counts.get(message.command, 0) + 1
+        self.capture.record('client_payload_sample', synthetic=True, command=hex(message.command),
+                            payload_hex=message.payload[:256].hex(), account_uid=hex(state.get('actor_uid') or 0))
 
     def ban_list(self):
         # Criada sob demanda: os testes montam Endpoint sem __init__.

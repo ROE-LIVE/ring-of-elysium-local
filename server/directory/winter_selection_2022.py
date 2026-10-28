@@ -126,6 +126,14 @@ DESERT_TRAVERSAL = {1: (200908, 200908), 2: (200901, 200901), 3: (200902, 200902
 # InitItem map16007: 1 Glider200901, 2 BMX200902, 3 Grappling200903 (без мотоцикла).
 KILLZONE_TRAVERSAL = {1: (200901, 200901), 2: (200902, 200902), 3: (200903, 200903)}
 TRAVERSAL_BY_MAP = {16021: DESERT_TRAVERSAL, 16007: KILLZONE_TRAVERSAL}
+# Этап2 InitItem (16021 без4 и6; 16007 все8): выбор → (предмет, ATR_INIT_ABILITY_*).
+# 1 баррикада70020, 2 дрон70022, 3 голограмма70021, 4 модкит70023, 5 медпушка20006+70024,
+# 6 SDV70007, 7 сканер70025, 8 плащ70026. Включается способность с одним зарядом (nUseNum1);
+# сам предмет и обработка использования (0x74E0/0x74D3/0x117B/0x1167…) — следующий шаг.
+TACTICAL_CHOICES = {1: (70020, 27), 2: (70022, 23), 3: (70021, 29), 4: (70023, 25),
+                    5: (70024, 21), 6: (70007, 19), 7: (70025, 37), 8: (70026, 35)}
+TACTICAL_BY_MAP = {16021: {k: v for k, v in TACTICAL_CHOICES.items() if k not in (4, 6)},
+                   16007: TACTICAL_CHOICES}
 STAGED_MAPS = tuple(TRAVERSAL_BY_MAP)
 DESERT_WEAPONS = {
     1: ((20002, 1), (30003, 30), (70001, 5)),
@@ -148,10 +156,12 @@ def staged_fixture(fixture, loadout, map_id=16021):
         return fixture
     table, defaults = TRAVERSAL_BY_MAP[map_id], STAGED_DEFAULTS[map_id]
     traversal, weapon = loadout.get(1, defaults[1]), loadout.get(3, defaults[3])
+    tactical = TACTICAL_BY_MAP[map_id].get(loadout.get(2))
     kit = table.get(traversal, table[defaults[1]])[1]
     items = DESERT_WEAPONS.get(weapon, DESERT_WEAPONS[DESERT_DEFAULT[3]]) + ((kit, 1),)
     reserve = dict(items).get(30004, 0) if weapon == 3 else 0
-    return replace(fixture, starting_equipment=(kit,), gun_on_start=True, reserve=reserve, starter_items=items)
+    return replace(fixture, starting_equipment=(kit,), gun_on_start=True, reserve=reserve, starter_items=items,
+                   tactical=((tactical[1], 1),) if tactical else ())
 
 
 def choose_staged(command, payload, now, deadline, inventory_started, map_id=16021):
@@ -163,14 +173,17 @@ def choose_staged(command, payload, now, deadline, inventory_started, map_id=160
     attr, value = struct.unpack('>II', payload)
     stage = STAGE_BY_ATTR.get(attr)
     valid = {1: TRAVERSAL_BY_MAP[map_id], 3: DESERT_WEAPONS}.get(stage)
-    known = valid is not None and value in valid or stage == 2 and 1 <= value <= 8
+    known = valid is not None and value in valid or stage == 2 and value in TACTICAL_BY_MAP[map_id]
     accepted = known and deadline is not None and now < deadline and not inventory_started
     replies = [(0x10d0, struct.pack('>II', attr, value))] if accepted else []
     replies.append((0x10cd, payload + struct.pack('>I', int(not accepted))))
     event = {'action': 'staged_loadout_choice' if accepted else 'staged_loadout_rejected',
              'stage': stage, 'attr_index': attr, 'choice': value, 'inventory_started': inventory_started,
              'reason': None if accepted else ('choice' if not known else 'closed'),
-             'supported': stage != 2, 'original_starter_inventory': False}
+             'supported': True, 'original_starter_inventory': False}
+    if stage == 2 and value in TACTICAL_BY_MAP[map_id]:
+        event.update(tactical_item=TACTICAL_BY_MAP[map_id][value][0], ability_attribute=TACTICAL_BY_MAP[map_id][value][1],
+                     item_delivered=False)
     if stage == 1 and value in TRAVERSAL_BY_MAP[map_id]:
         event.update(original_item=TRAVERSAL_BY_MAP[map_id][value][0], substitute_item=TRAVERSAL_BY_MAP[map_id][value][1])
     return (stage, value) if accepted else None, replies, event

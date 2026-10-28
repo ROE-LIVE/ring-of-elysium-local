@@ -2019,7 +2019,9 @@ class Endpoint(asyncio.DatagramProtocol):
                 names = json.loads(path.read_text(encoding='utf-8'))
             except (OSError, ValueError):
                 names = None
-            if (isinstance(names, dict) and len(names) <= 8
+            # Хост + до60 гостей (lan2..lan60, ROOM_LIMIT60); прежний предел8 отбрасывал весь файл
+            # (61 имя) и в сводке убийств у всех было «LOCAL».
+            if (isinstance(names, dict) and len(names) <= 128
                     and all(isinstance(v, str) and 0 < len(v.strip()) <= 32 for v in names.values())):
                 self.player_names = {k.lower(): v.strip() for k, v in names.items()}
         return self.player_names

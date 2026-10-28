@@ -43,7 +43,7 @@ from fall_damage_2022 import FallTracker, ski_hurt
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
                                  BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER,
-                                 decode_scanner_mark, eu_action)
+                                 decode_scanner_mark, eu_action, decode_client_data, encode_client_data_ntf)
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -978,6 +978,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                     self.use_scanner(d, remote, state)
                                 if message.command == 0x1167 and 'weapon' in state:
                                     self.scanner_mark(state, message.payload)
+                                    continue
+                                if message.command == 0x11c9 and 'weapon' in state:
+                                    self.client_data(d, remote, state, message.payload)
                                     continue
                                 if 'vehicles' in state and message.command == 0x1f49:
                                     now=time.monotonic()
@@ -2129,6 +2132,20 @@ class Endpoint(asyncio.DatagramProtocol):
         self.capture.record('gadget_scanner_mark', synthetic=True, accepted=bool(targets), unit=hex(unit),
                             account_uid=hex(state['actor_uid']), notified=len(targets),
                             marks_since_use=state['scanner_marks'], format_verified=False)
+
+    def client_data(self, d, remote, state, payload):
+        """0x11C9 → 0x11CA para a equipe do remetente. Equipes são solo: só ele recebe (a marca do
+        scanner no HUD sai do NTF, hipótese do teste de 28/10, em que a onda saiu sem marca)."""
+        try:
+            request = decode_client_data(payload)
+        except ValueError as error:
+            self.capture.record('client_data', synthetic=True, accepted=False, reason=str(error))
+            return
+        self.send_application_batch(d, remote, state, [
+            (0x11ca, encode_client_data_ntf(state['actor_uid'], request['kind'], request['data']))])
+        self.capture.record('client_data', synthetic=True, accepted=True, account_uid=hex(state['actor_uid']),
+                            data_type=request['kind'], bc_type=request['bc_type'], to_ob=request['to_ob'],
+                            count=len(request['data']), recipients=1, format_verified=False)
 
     def poll_gadgets(self, now):
         for uid, obstacle in self.gadget_rooms().expired(now):

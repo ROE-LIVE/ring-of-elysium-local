@@ -26,10 +26,30 @@ OBSTACLE_UID_BASE = 0x7600000000000             # faixa própria, fora dos UIDs 
 # (U32 tipo, U8, U32 n, n bytes: U64 id + 3×U32 posição) e 0x1167 SCANNER_MARK_REQ (U64 unit).
 # 0x1168 SCANNER_MARKED_STATUS_NTF (tratador 1412d2d90) ignora o corpo: toca
 # QSConfig.RadarCfg.DetectedFx e o aviso de "detectado" — vai para o jogador marcado.
-# O gasto do uso não tem mensagem própria conhecida; hipótese: 0x536 ACTOR_EU_ACTION_REQ com
-# E_EU_AT_USE_SCANNER = 72 (registro de nomes 1406256da; barricada 68 usa 0x74E0 direto).
+# O gasto do uso vem em 0x536 ACTOR_EU_ACTION_REQ com E_EU_AT_USE_SCANNER = 72 (confirmado no
+# teste de dois PCs de 28/10; barricada 68 usa 0x74E0 direto).
+#
+# Campos pelos acessores Lua do cliente (BC_CLIENT_DATA_*_get, 14142f650… e 141430bb0…):
+#   0x11C9 BC_CLIENT_DATA_REQ: U32 iType, U8 bBc_type, U32 iCount, szData[iCount], U8 bBc_to_ob.
+#   0x11CA BC_CLIENT_DATA_NTF: U64 ullActor_rid, U32 iType, U32 iCount, szData[iCount].
+# O NTF não tem tratador C++ (só os acessores Lua): a marca do scanner no HUD sai do script.
+# Tipo 15 (scanner): szData = U64 unit + 3×F32 posição, em little-endian (cópia crua da memória).
 SCANNER_ABILITY, SCANNER_COUNT = 37, 38        # ATR_INIT_ABILITY_SCANNER / ATR_SCANNER_LEFT_COUNT
 AT_USE_SCANNER = 72
+CLIENT_DATA_SCANNER = 15
+
+
+def decode_client_data(payload):
+    if len(payload) < 10:
+        raise ValueError('BC_CLIENT_DATA_REQ curto')
+    kind, bc_type, count = struct.unpack_from('>IBI', payload)
+    if count > 700 or len(payload) != 10 + count:
+        raise ValueError('BC_CLIENT_DATA_REQ com iCount inválido')
+    return dict(kind=kind, bc_type=bc_type, data=payload[9:9 + count], to_ob=payload[9 + count])
+
+
+def encode_client_data_ntf(actor, kind, data):
+    return struct.pack('>QII', actor, kind, len(data)) + data
 
 
 def decode_scanner_mark(payload):

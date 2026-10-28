@@ -82,6 +82,19 @@ class GadgetTests(unittest.TestCase):
         self.assertEqual((e.out, e.emitted), ([], []))
         self.assertEqual(gadget.eu_action(struct.pack('>I', 72)), gadget.AT_USE_SCANNER)
 
+    def test_client_data_from_scanner_returns_to_sender_as_ntf(self):
+        # Amostra real do PC2 (28/10): tipo 15, unit do host + posição, bBc_to_ob 1.
+        sample = bytes.fromhex('0000000f0100000014010010000004020040b29848c0b9e748004f154701')
+        r = gadget.decode_client_data(sample)
+        self.assertEqual((r['kind'], r['bc_type'], r['to_ob']), (gadget.CLIENT_DATA_SCANNER, 1, 1))
+        self.assertEqual(struct.unpack_from('<Q', r['data'])[0], 0x0002040000100001)
+        with self.assertRaises(ValueError):
+            gadget.decode_client_data(sample[:-1])
+        e = self.endpoint()
+        a = self.state(5, ((37, 1),))
+        e.client_data(None, None, a, sample)
+        self.assertEqual(e.out, [(5, [(0x11ca, struct.pack('>QII', 5, 15, 20) + r['data'])])])
+
     def test_player_without_barrier_tactic_is_refused(self):
         e = self.endpoint()
         b = self.state(6, ())

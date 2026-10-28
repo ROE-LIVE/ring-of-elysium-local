@@ -9,17 +9,22 @@ import struct
 SEATS = 4
 
 
+# ICELAND_S.LUA stage04: DoDelayEvent(2400) → stage05 «финальный расчёт» для всех оставшихся.
+MATCH_SECONDS = 2400
+
+
 class SharedEvacuationRooms:
-    def __init__(self, delay_seconds, depart_after=60):
+    def __init__(self, delay_seconds, match_seconds=MATCH_SECONDS):
         if (type(delay_seconds) not in (int, float)
                 or not math.isfinite(delay_seconds) or not 2 <= delay_seconds <= 60):
             raise ValueError('Ожидание общей эвакуации: 2..60 секунд')
-        if type(depart_after) not in (int, float) or not 10 <= depart_after <= 600:
-            raise ValueError('Отлёт после первой посадки: 10..600 секунд')
+        if type(match_seconds) not in (int, float) or not 60 <= match_seconds <= 7200:
+            raise ValueError('Предел матча: 60..7200 секунд')
         self.delay = delay_seconds
-        # Вертолёт не ждёт всех: через depart_after после первой посадки улетает,
-        # матч заканчивается для всей комнаты (оставшиеся — не спасены, со статистикой).
-        self.depart_after = depart_after
+        # Вертолёт ждёт: улетает, когда заняты 4 места или сели все живые; иначе по пределу
+        # матча (от начала боя комнаты) улетает с теми, кто внутри (возможно пустым) — остальные
+        # не спасены. Прежнее правило «через 60 с после первой посадки» было нашим, не исходным.
+        self.match_seconds = match_seconds
         self.rooms = {}
 
     def sync(self, avatars):
@@ -110,10 +115,14 @@ class SharedEvacuationRooms:
             seated = set(room['seats'])
             if not seated:
                 room['boarded_at'] = None
+            starts = [state['match_statistics'].started_at for state in members.values()
+                      if state.get('match_statistics') is not None
+                      and state['match_statistics'].started_at is not None]
+            deadline = min(starts) + self.match_seconds if starts else None
             reason = ('no_survivors' if not alive else
                       'four_seats' if len(seated) == 4 else
                       'all_boarded' if seated and alive <= seated else
-                      'departure' if seated and room.get('boarded_at') is not None else None)
+                      'timeout' if deadline is not None and now >= deadline else None)
             if reason is None:
                 if room['due'] is not None:
                     events.append(dict(action='shared_evacuation_wait_cancelled',room_uid=hex(room_uid)))
@@ -122,7 +131,7 @@ class SharedEvacuationRooms:
             if room['due'] is None or room['reason'] != reason:
                 room['reason'] = reason
                 room['due'] = (now if reason == 'no_survivors' else
-                               room['boarded_at']+self.depart_after if reason == 'departure' else now+self.delay)
+                               deadline if reason == 'timeout' else now+self.delay)
                 events.append(dict(action='shared_evacuation_wait', room_uid=hex(room_uid),
                                    reason=reason, alive=len(alive), occupied=len(seated)))
             if now < room['due']:

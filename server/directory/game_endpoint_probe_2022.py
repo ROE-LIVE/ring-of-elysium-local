@@ -531,7 +531,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                                     break
                                                 if payload['action'] == 'airdrop':
                                                     packets,event = self.live_airdrop(state,payload['position'],name,payload.get('release_status'))
-                                                elif self.shared_loot and payload['action'] != 'teleport':
+                                                # Sala compartilhada: munição só mexe na mochila de quem recebe e a vida
+                                                # já é repassada aos outros pelo peer_avatars.health (world.hp); os alvos
+                                                # de treino (damage_npc) não são compartilhados e seguem só no modo sozinho.
+                                                elif self.shared_loot and payload['action'] not in ('teleport', 'give_ammo', 'set_own_health'):
                                                     packets,event = [],dict(action=payload['action'],accepted=False,reason='solo_action_only')
                                                 else:
                                                     try:

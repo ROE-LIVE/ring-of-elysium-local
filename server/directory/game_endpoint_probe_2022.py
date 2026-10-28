@@ -41,6 +41,8 @@ from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encod
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
 from fall_damage_2022 import FallTracker, ski_hurt
 from airdrop_flight_2022 import AirdropFlight, owner_sync
+from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
+                                 BARRIER_ABILITY, BARRIER_COUNT)
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
@@ -942,6 +944,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                         state['target_roster'].note_fire(message.payload, event)
                                 if message.command == 0x1f49 and not self.peer_avatars:
                                     self.poll_airdrop_flights(time.monotonic())
+                                    self.poll_gadgets(time.monotonic())
+                                if message.command == 0x74e0 and 'weapon' in state:
+                                    self.use_barrier(d, remote, state, message.payload)
+                                    continue
                                 if 'vehicles' in state and message.command == 0x1f49:
                                     now=time.monotonic()
                                     responses, events = state['vehicles'].poll(now,int((now-self.started)*25)&0xffffffff)
@@ -1070,6 +1076,7 @@ class Endpoint(asyncio.DatagramProtocol):
 
     def poll_peer_rooms_once(self):
         self.poll_airdrop_flights(time.monotonic())
+        self.poll_gadgets(time.monotonic())
         if self.peer_avatars:
             now = time.monotonic()
             self.emit_peer_avatars(*self.peer_avatars.equipment(now))
@@ -1998,6 +2005,57 @@ class Endpoint(asyncio.DatagramProtocol):
         self.capture.record('airdrop_flight', synthetic=True, phase='hover', uid=hex(uid),
                             position=[x, y, flight.top_z], ground_z=ground, original_rule_verified=False)
         return flight.hover_entity(payload)
+
+    def gadget_rooms(self):
+        if getattr(self, '_gadget_rooms', None) is None:
+            self._gadget_rooms = GadgetRooms()
+        return self._gadget_rooms
+
+    def room_sessions(self, room_uid):
+        """Sessões ativas da sala com endereço conhecido (para avisos a todos)."""
+        return [st for st in getattr(self, 'sessions', {}).values()
+                if st.get('room_uid') == room_uid and st.get('peer_avatar_anchor')
+                and not st.get('match_finished') and not st.get('transport_retired')]
+
+    def use_barrier(self, d, remote, state, payload):
+        """0x74E0: coloca a barricada se a tática escolhida for ela e ainda houver uso."""
+        weapon = state['weapon']
+        counts = state.setdefault('gadget_counts', dict(weapon.fixture.tactical))
+        try:
+            request = decode_barrier_request(payload)
+        except ValueError as error:
+            self.capture.record('gadget_barrier', synthetic=True, accepted=False, reason=str(error))
+            return
+        if counts.get(BARRIER_ABILITY, 0) <= 0 or getattr(state.get('world'), 'dead', False):
+            self.send_application_batch(d, remote, state, [(0x74e1, struct.pack('>I', 1))])
+            self.capture.record('gadget_barrier', synthetic=True, accepted=False, reason='no_charge_or_dead',
+                                account_uid=hex(state['actor_uid']))
+            return
+        counts[BARRIER_ABILITY] -= 1
+        now = time.monotonic()
+        uid = self.gadget_rooms().place_barrier(state.get('room_uid'), state['actor_uid'], request, now)
+        self.send_application_batch(d, remote, state, [
+            (0x74e1, struct.pack('>I', 0)),
+            (0x10d0, struct.pack('>II', BARRIER_COUNT, counts[BARRIER_ABILITY])),
+            (0x74d0, encode_obstacle_sync(uid, state['actor_uid'], request['position'], request['rotation'], True))])
+        others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
+        for other in others:
+            anchor = other['peer_avatar_anchor']
+            self.send_application_batch(anchor[0], anchor[1], other, [
+                (0x74d0, encode_obstacle_sync(uid, state['actor_uid'], request['position'], request['rotation'], False))])
+        self.capture.record('gadget_barrier', synthetic=True, accepted=True, uid=hex(uid),
+                            account_uid=hex(state['actor_uid']), position=list(request['position']),
+                            point=list(request['point']), extra=request['extra'], yaw=request['yaw'],
+                            rotation=list(request['rotation']), recipients=1 + len(others),
+                            left=counts[BARRIER_ABILITY], format_verified=False)
+
+    def poll_gadgets(self, now):
+        for uid, obstacle in self.gadget_rooms().expired(now):
+            members = self.room_sessions(obstacle['room'])
+            for member in members:
+                anchor = member['peer_avatar_anchor']
+                self.send_application_batch(anchor[0], anchor[1], member, [(0x74cf, encode_obstacle_leave(uid))])
+            self.capture.record('gadget_barrier_expired', synthetic=True, uid=hex(uid), recipients=len(members))
 
     def poll_airdrop_flights(self, now):
         """Шаг серверного полёта аирдропа для каждой сессии (зависание, спуск, посадка)."""

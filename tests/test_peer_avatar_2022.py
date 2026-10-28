@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'server/directory'))
-from peer_avatar_2022 import PeerAvatarRooms
+from peer_avatar_2022 import PeerAvatarRooms, ROOM_LIMIT
 from game_endpoint_probe_2022 import Endpoint
 from listener import Capture
 
@@ -199,10 +199,10 @@ class PeerAvatarTests(unittest.TestCase):
         self.assertIs(rooms.members[(1,10)]['state'],b)
     def test_room_capacity_does_not_leak_members(self):
         rooms=self.fixture()
-        for account in range(1,9):rooms.admit(self.state(account),1)
-        out,event=rooms.admit(self.state(9),2)
+        for account in range(1,ROOM_LIMIT+1):rooms.admit(self.state(account),1)
+        out,event=rooms.admit(self.state(ROOM_LIMIT+1),2)
         self.assertEqual(out,[]);self.assertEqual(event[0]['action'],'peer_avatar_room_limit')
-        self.assertNotIn((1,9),rooms.members)
+        self.assertNotIn((1,ROOM_LIMIT+1),rooms.members)
 
     def test_leave_sends_native583_once_and_keeps_other_room(self):
         rooms = self.fixture()

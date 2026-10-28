@@ -11,6 +11,9 @@ from peer_equipment_2022 import encode_peer_equipment
 from death_parcel_2022 import replace_name
 
 
+# Предел участников комнаты (как shared_loot_2022): оригинальный матч iPlayerNum=60.
+ROOM_LIMIT = 60
+
 class PeerAvatarRooms:
     def __init__(self,fixture,replicate_health=False,replicate_trajectories=False,replicate_equipment=False):
         self.fixture = fixture
@@ -141,7 +144,7 @@ class PeerAvatarRooms:
             previous['state'] = state
             member = previous
         else:
-            if sum(k[0]==room for k in self.members) >= 8:
+            if sum(k[0]==room for k in self.members) >= ROOM_LIMIT:
                 return [],[dict(action='peer_avatar_room_limit',room_uid=hex(room))]
             member = dict(avatar=self.next_avatar,state=state,
                           position=tuple(state.get('last_movement_position',state['scene_position'])),last_emit=-10,pose=0)

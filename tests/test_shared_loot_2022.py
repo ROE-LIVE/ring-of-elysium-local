@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 import test_weapon_probe_2022 as weapon_tests
-from shared_loot_2022 import SharedLootRooms
+from shared_loot_2022 import SharedLootRooms, ROOM_LIMIT
 from game_endpoint_probe_2022 import Endpoint, encode_datagram
 from listener import Capture
 from roe_protocol_2022 import encrypt, decrypt
@@ -145,9 +145,11 @@ class SharedLootTests(unittest.TestCase):
         self.assertEqual(self.rooms.handle(self.b, 0x3b63, request)[1]['quantity'], 5)
 
     def test_room_and_member_limits(self):
-        for account in range(108, 132, 4):
+        account = 108
+        while len(self.rooms.room(dict(room_uid=1))['members']) < ROOM_LIMIT:
             self.assertTrue(self.rooms.attach(dict(actor_uid=account, room_uid=1)))
-        self.assertFalse(self.rooms.attach(dict(actor_uid=132, room_uid=1)))
+            account += 4
+        self.assertFalse(self.rooms.attach(dict(actor_uid=account, room_uid=1)))
         for room in range(2, 33):
             self.rooms.room(dict(room_uid=room))
         with self.assertRaises(ValueError):

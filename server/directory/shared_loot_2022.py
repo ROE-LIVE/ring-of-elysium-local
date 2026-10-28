@@ -6,6 +6,9 @@
 import struct
 from death_parcel_2022 import DeathParcelState
 
+# Предел участников комнаты: оригинальный матч EuMatchCfgTable iPlayerNum=60.
+ROOM_LIMIT = 60
+
 
 class SharedLootRooms:
     def __init__(self, fixture, share_death_parcels=False, catalog=None):
@@ -70,7 +73,7 @@ class SharedLootRooms:
         old = room['members'].get(account)
         if old is not None and old is not state and not state.get('gameplay_resumed'):
             return False
-        if old is None and len(room['members']) >= 8:
+        if old is None and len(room['members']) >= ROOM_LIMIT:
             return False
         room['members'][account] = state
         if self.share_death_parcels:

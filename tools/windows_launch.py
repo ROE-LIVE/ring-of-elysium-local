@@ -237,9 +237,12 @@ def build_zone(world, profile, index_target, seed):
 
 
 def shared_room_uids(account):
-    """UID по порядку соединений лобби: свой профиль + lan2..lan4 (та же формула профилей)."""
+    """UID по порядку соединений лобби: свой профиль + lan2..lan60 (та же формула профилей).
+
+    60 участников, как iPlayerNum оригинального матча; вертолёт эвакуации берёт 4.
+    """
     from local_account_2022 import local_account
-    return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in (2, 3, 4)]
+    return [account['actor_uid']] + [local_account(ROOT/'runtime', 'lan%d' % n)['actor_uid'] for n in range(2, 61)]
 
 
 def apply_airdrop_position(configs, run, points_path, seed=None):

@@ -22,7 +22,7 @@ from roe_room_2023 import decode_enter_room_response
 from room_cosmetics_2022 import apply_room_cosmetics
 from roe_protocol_2022 import encrypt, decrypt
 from listener import Capture
-from weapon_probe_2022 import WeaponFixture, WeaponState
+from weapon_probe_2022 import WeaponFixture, WeaponState, ABILITY_CD_TYPES, encode_ability_cd_sync
 from medical_probe_2022 import MedicalState
 from live_scene_probe_2022 import LiveSceneCommands
 from door_state_2022 import DoorFixture, DoorState
@@ -2064,6 +2064,7 @@ class Endpoint(asyncio.DatagramProtocol):
         self.send_application_batch(d, remote, state, [
             (0x74e1, struct.pack('>I', 0)),
             (0x10d0, struct.pack('>II', BARRIER_COUNT, counts[BARRIER_ABILITY])),
+            (0x1162, encode_ability_cd_sync(state['actor_uid'], [(ABILITY_CD_TYPES[BARRIER_ABILITY], counts[BARRIER_ABILITY], 0)])),
             (0x74d0, encode_obstacle_sync(uid, state['actor_uid'], request['position'], request['rotation'], True))])
         others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
         for other in others:

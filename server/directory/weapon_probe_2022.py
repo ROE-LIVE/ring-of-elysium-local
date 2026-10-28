@@ -39,6 +39,18 @@ KIT_CHARGES = {200903: ((16, 3),), 200901: ((17, 1),)}
 # Тактика этапа2 (A81 категория35, szAbility): ATR_INIT_ABILITY_* и *_LEFT_COUNT = индекс+1.
 # SDV19, HEAL_GUN21, DRONE23, REFIT25, BARRIER27, BAIT29, STEALTH35, SCANNER37 (у SDV счётчика нет).
 TACTICAL_ABILITY_ATTRIBUTES = (19, 21, 23, 25, 27, 29, 35, 37)
+# Счётчик на HUD (qs.GetItemAbilityCount) берётся не из *_LEFT_COUNT, а из 0x1162
+# ABILITY_CD_SYNC: U64 actor, U32 n<=10, n×(U32 iType, U32 iLeft_count, U32 iCd_left_ms) —
+# порядок полей по геттерам Lua (+0/+4/+8). E_ABILITY_CD_TYPE: GRAPPLE1 JET2 HEAL_GUN3 DRONE4
+# REFIT5 BARRIER6 BAIT7 STEALTH8 SCANNER9. У SDV типа нет.
+ABILITY_CD_TYPES = {21: 3, 23: 4, 25: 5, 27: 6, 29: 7, 35: 8, 37: 9}
+
+
+def encode_ability_cd_sync(actor_uid, entries):
+    """0x1162: [(cd_type, left_count, cd_left_ms)], не больше 10."""
+    if len(entries) > 10:
+        raise ValueError('ABILITY_CD_SYNC: максимум 10 записей')
+    return struct.pack('>QI', actor_uid, len(entries)) + b''.join(struct.pack('>III', *e) for e in entries)
 
 
 # TableBin/A89 nDurableValue; wire record+32 -> native item+9e -> obj+3c.
@@ -730,6 +742,10 @@ class WeaponState:
                      for index in TACTICAL_ABILITY_ATTRIBUTES]
         responses += [(0x10d0, struct.pack('>II', index + 1, count))
                       for index, count in self.fixture.tactical if index != 19]
+        entries = [(ABILITY_CD_TYPES[index], count, 0) for index, count in self.fixture.tactical
+                   if index in ABILITY_CD_TYPES]
+        if entries:
+            responses.append((0x1162, encode_ability_cd_sync(self.actor_uid, entries)))
         return responses
 
     def inventory_records(self):

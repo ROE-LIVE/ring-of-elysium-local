@@ -50,6 +50,7 @@ class GadgetTests(unittest.TestCase):
         own = dict(e.out[0][1])
         self.assertEqual(own[0x74e1], struct.pack('>I', 0))
         self.assertEqual(own[0x10d0], struct.pack('>II', 28, 0))
+        self.assertEqual(own[0x1162], struct.pack('>QI', 5, 1) + struct.pack('>III', 6, 0, 0))
         self.assertEqual(struct.unpack_from('>I', own[0x74d0], 73)[0], 1)
         other = dict(e.out[1][1])
         self.assertEqual((e.out[1][0], struct.unpack_from('>I', other[0x74d0], 73)[0]), (6, 0))

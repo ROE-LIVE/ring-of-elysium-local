@@ -1291,6 +1291,13 @@ def main():
             for name,service in watched:
                 if service.poll() is not None:raise RuntimeError(f'{name} завершился, см. {run}')
             if game and game.poll() is not None:
+                # Комната: клиент хоста иногда закрывается сам (код0, 28.10, вероятно антибот);
+                # гости продолжают матч, сервисы живут до конца длительности или Ctrl+C/Parar.
+                if getattr(args,'shared_room',False):
+                    print(f'Клиент хоста завершился (код {game.returncode}); сервисы комнаты продолжают работу до конца сеанса. '
+                          'Остановите сеанс кнопкой Parar/Ctrl+C.',flush=True)
+                    game=None
+                    continue
                 if game.returncode:raise RuntimeError(f'Клиент завершился с кодом {game.returncode}; см. {run}')
                 break
             time.sleep(.5)

@@ -110,9 +110,10 @@ def load_scene_rules(path):
         if type(after_selection) is not bool:
             raise ValueError('after_selection должен быть boolean')
         delay = rule.get('after_selection_delay_seconds', 0)
-        if (type(delay) not in (int, float) or not 0 <= delay <= 1800
+        # Предел7200 с: при исходном темпе зон (CycleScale10) уход вертолёта эвакуации = 2200 с.
+        if (type(delay) not in (int, float) or not 0 <= delay <= 7200
                 or (delay and not after_selection)):
-            raise ValueError('Задержка 0..1800 секунд требует after_selection')
+            raise ValueError('Задержка 0..7200 секунд требует after_selection')
         batch = rule.get('batch_responses', False)
         if type(batch) is not bool:
             raise ValueError('batch_responses должен быть boolean')

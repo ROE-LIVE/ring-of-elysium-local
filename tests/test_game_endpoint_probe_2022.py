@@ -991,7 +991,11 @@ class RoomEndpointTests(unittest.TestCase):
                    'responses': [{'command': '0x6589', 'payload_hex': '00'}]}
             path.write_text(json.dumps([row]))
             self.assertEqual(load_scene_rules(path)[0][3], 240)
-            for value in (1801, -1, float('nan')):
+            # Ritmo original das zonas (CycleScale 10): o helicóptero sai aos 2200 s.
+            row['after_selection_delay_seconds'] = 2200
+            path.write_text(json.dumps([row]))
+            self.assertEqual(load_scene_rules(path)[0][3], 2200)
+            for value in (7201, -1, float('nan')):
                 row['after_selection_delay_seconds'] = value
                 path.write_text(json.dumps([row]))
                 with self.assertRaises(ValueError):

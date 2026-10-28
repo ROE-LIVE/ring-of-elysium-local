@@ -14,7 +14,12 @@ import struct
 SOURCE_SHA256 = frozenset((
     '4e28f2c6654fb8643821a612ce102719f3e70150f0f730d9a42bcb43d882097c',
     '8332fe282b7949acbe717b256638543c6aa32398744b84cfdfe25d7735467d6f',
+    # KillZone16007 W_64: World_EU_KILLZONE_4096_RemainingFiles1.sfc запись13646, 2624×2624.
+    '871ece8a28cfa041d6ada7bd052e41f2deac03f10fa5136247408e4a42d3dd44',
 ))
+# Смещения полей в PXBIN (одинаковы у IceLand и KillZone): размеры, heightScale, row/column scale,
+# поза актора (кватернион + позиция). Отсчёты с6464, после них хвост116байт.
+DIMENSIONS_OFFSET, SCALE_OFFSET, POSE_OFFSET, SAMPLES_OFFSET, TAIL = 1984, 6184, 6432, 6464, 116
 
 
 def interpolate_height(samples, row_fraction, column_fraction):
@@ -52,18 +57,22 @@ class HeightField:
     @classmethod
     def load(cls, path):
         path=Path(path)
-        if path.stat().st_size != 17848756:
-            raise ValueError('Нужен извлечённый IceLand2022 Linux/Win64 PXBIN17848756байт')
         with path.open('rb') as source:
             if hashlib.file_digest(source,'sha256').hexdigest() not in SOURCE_SHA256:
                 raise ValueError('Неизвестный SHA исходного рельефа2022')
             source.seek(0);header=source.read(52)
-            source.seek(1952+32);dimensions=source.read(8)
+            source.seek(DIMENSIONS_OFFSET);dimensions=source.read(8)
+            source.seek(SCALE_OFFSET);scales=source.read(12)
+            source.seek(POSE_OFFSET);pose=source.read(28)
+        rows,columns=struct.unpack('<2I',dimensions)
+        height_scale,row_scale,column_scale=struct.unpack('<3f',scales)
+        quaternion,position=struct.unpack('<4f',pose[:16]),struct.unpack('<3f',pose[16:])
         if (header[:4]!=b'SEBD' or struct.unpack_from('<I',header,4)[0]!=0x3030400
                 or struct.unpack_from('<I',header,32)[0]!=52
-                or struct.unpack('<2I',dimensions)!=(2112,2112)):
+                or path.stat().st_size!=SAMPLES_OFFSET+rows*columns*4+TAIL
+                or row_scale!=column_scale or quaternion!=(.5,.5,.5,.5)):
             raise ValueError('Поля PXBIN не соответствуют подтверждённому heightfield')
-        return cls(path)
+        return cls(path,rows,columns,SAMPLES_OFFSET,*position,row_scale,height_scale)
 
     def height_at(self, x, y):
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in (x,y)):

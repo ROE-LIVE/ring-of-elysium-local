@@ -850,15 +850,15 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.send_application(d, remote, state, command, payload)
                                         for event in events:
                                             self.capture.record('world_probe', synthetic=True, remote=remote, **event)
-                                            if event.get('action') == 'closed_zone_leave' and self.environment_fixture:
-                                                # Hipótese (Europa, 28/10): o cliente baixa ATR_TEMPERATURE sozinho na
-                                                # área fechada e o visual de cinzas segue a temperatura; ao voltar à zona
-                                                # segura ele ficava preso nas cinzas. Devolve a temperatura inicial.
-                                                self.send_application(d, remote, state, 0x10d0, struct.pack(
-                                                    '>Ii', 5, self.environment_fixture.temperature))
-                                                self.capture.record('zone_temperature_restored', synthetic=True, remote=remote,
-                                                                    temperature_raw=self.environment_fixture.temperature,
-                                                                    hypothesis=True)
+                                            if event.get('action') in ('closed_zone_enter', 'closed_zone_leave'):
+                                                # 0x479 SCENE_MSGID_SHRINK_IN_RANGE (SHRINK_POS_IN_RANGE: U32 iIn_range),
+                                                # só servidor → cliente. Sem ele o visual da área de risco ficava preso
+                                                # depois de voltar à zona segura (Europa, 28/10); devolver a temperatura
+                                                # (0x10D0 atributo 5) não resolveu. Valor: 1 dentro, 0 fora (hipótese).
+                                                inside = int(event['action'] == 'closed_zone_leave')
+                                                self.send_application(d, remote, state, 0x479, struct.pack('>I', inside))
+                                                self.capture.record('zone_in_range_sent', synthetic=True, remote=remote,
+                                                                    in_range=inside, hypothesis=True)
                                     if self.peer_avatars:
                                         self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
                                     self.emit_own_death_inventory(d, remote, state)

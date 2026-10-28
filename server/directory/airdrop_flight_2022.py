@@ -35,8 +35,11 @@ PART_BALOON, PART_BALOON_FIRE = 3, 4
 OWNER_PERIOD = 2.0
 # Опыт отцепления шара: после посадки по очереди iStatus 1..6 части1 (BALOON) — PART_OP_DETAIL_SYNC
 # 0x653C (U64 rid, U8 bPart_type, PART_INFO) и PART_SYNC0x6546; интервал RELEASE_PERIOD, время — в журнал.
-RELEASE_STATUSES = (1, 2, 3, 4, 5, 6)
-RELEASE_PERIOD = 3.0
+# Игра27/10 01:06: статус3 (≈6с после посадки) — шар загорелся и разрушился (как разрушенный
+# транспорт); 1 и2 видимого эффекта не дали, 4..6 пришли уже после разрушения. Ищем отцепление
+# без3, с интервалом10с.
+RELEASE_STATUSES = (4, 5, 6, 7, 8, 2, 1)
+RELEASE_PERIOD = 10.0
 # Посторонний «водитель» ящика: префикс аватаров комнаты0x2040000100000, номер вне выдачи.
 GHOST_OWNER = 0x20400001fffff
 DESTROYED_STATUS = 3

@@ -40,10 +40,11 @@ ST_SCOPE_AIMING, ST_STOP_AIM, ST_LOAD_BULLET = 39, 40, 41
 # 0x536 ACTOR_EU_ACTION_REQ: U32 E_EU_AT_* (AIM=16, DIS_AIM=17, STOP_USE_ITEM=20, SCOPE_AIM=35).
 ACTION_STATUS = {16: ST_AIMING, 35: ST_SCOPE_AIMING, 17: ST_STOP_AIM}
 # События сервера (weapon/medical) → статус удалённой модели.
-# Выстрел без прицела: клиент не шлёт0x536, и удалённая модель с опущенным оружием не играет
-# анимацию0x11D8 (сессия20261029T012734: с прицелом поза видна, без — нет). Поднимаем оружие
-# статусом AIMING перед выстрелом и опускаем STOP_AIM, если за это время не было новых выстрелов.
-HIP_FIRE_HOLD = 1.0
+# Выстрел без прицела: клиент не шлёт0x536, и удалённая модель вне статуса AIMING не играет
+# анимацию0x11D8 (сессия20261029T012734: с прицелом поза видна, без — нет; проверено в игре
+# 20261029T020542). AIMING перед выстрелом, STOP_AIM, если за это время не было новых выстрелов;
+# 1 с в игре — возврат в стойку покоя заметно запаздывал.
+HIP_FIRE_HOLD = 0.4
 EVENT_STATUS = {'reload_started': ST_LOAD_BULLET, 'reload': ST_NOT_USE_ITEM,
                 'medical_started': ST_MEDICAL, 'medical_finished': ST_NOT_USE_ITEM,
                 'medical_cancelled': ST_NOT_USE_ITEM}

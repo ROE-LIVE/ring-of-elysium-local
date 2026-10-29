@@ -43,9 +43,9 @@ class PeerActionTests(unittest.TestCase):
         sent = relay_packets(0x11d7, motion, uid, memo, tick=1, now=10.0)
         self.assertEqual([c for c, _ in sent], [0x2b, 0x11d8])
         self.assertEqual(struct.unpack('>QI', sent[0][1]), (uid, 24))
-        self.assertEqual([c for c, _ in relay_packets(0x11d7, motion, uid, memo, now=10.5)], [0x11d8])
-        self.assertEqual(hip_fire_release(uid, memo, 10.5+HIP_FIRE_HOLD-0.01), [])
-        (code, body), = hip_fire_release(uid, memo, 10.5+HIP_FIRE_HOLD)
+        self.assertEqual([c for c, _ in relay_packets(0x11d7, motion, uid, memo, now=10.2)], [0x11d8])
+        self.assertEqual(hip_fire_release(uid, memo, 10.2+HIP_FIRE_HOLD-0.01), [])
+        (code, body), = hip_fire_release(uid, memo, 10.2+HIP_FIRE_HOLD)
         self.assertEqual((code, struct.unpack('>QI', body)), (0x2b, (uid, 40)))
         self.assertEqual(hip_fire_release(uid, memo, 20.0), [])
         # Mirando, a arma já está erguida pelo 0x536: só o 0x11D8, sem STOP_AIM adiantado.

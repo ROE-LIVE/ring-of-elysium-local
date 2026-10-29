@@ -41,6 +41,20 @@ class StateActionsTests(unittest.TestCase):
         self.assertEqual(apply_state_action(self.state,dict(action='give_ammo',definition=30004,quantity=100))[0],[])
         self.assertEqual(weapon.inventory(),before)
 
+    def test_every_backpack_ammo_is_accepted_and_given(self):
+        # Painel: todas as munições da A81 (9mm, .50, .408, 5.7mm e RPG-7 além das quatro antigas).
+        from state_scene_actions_2022 import validate_state_action
+        from weapon_probe_2022 import AMMUNITION_SLOTS
+        for definition in AMMUNITION_SLOTS:
+            row=validate_state_action(dict(id='a',action='give_ammo',definition=definition,quantity=5))
+            self.assertEqual(row['definition'],definition)
+        with self.assertRaises(ValueError):
+            validate_state_action(dict(id='a',action='give_ammo',definition=70001,quantity=5))
+        weapon=self.fixture.player
+        packets,event=apply_state_action(self.state,dict(action='give_ammo',definition=30009,quantity=5))
+        self.assertTrue(event['accepted']);self.assertEqual(weapon.ammunition_quantity(30009),5)
+        self.assertEqual(packets[0][0],0x3e82)
+
     def test_npc_damage_death_cancels_motion_and_only_transfers_npc_items(self):
         bot=self.fixture.bot;bot.take(self.fixture.player,12)
         self.state['target_inventory']=bot.inventory

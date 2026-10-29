@@ -71,8 +71,10 @@ def validate_state_action(row):
         result['npc_uid'] = npc_uid
     if action == 'give_ammo':
         definition = row.get('definition')
-        if type(definition) is not int or definition not in (30004,30001,30002,30005):
-            raise ValueError('give_ammo: поддержаны12ga/5.56/7.62/.45')
+        # Todas as munições com slot na mochila (A81: 30001..30009, inclusive as do airdrop e a do RPG-7).
+        from weapon_probe_2022 import AMMUNITION_SLOTS
+        if type(definition) is not int or definition not in AMMUNITION_SLOTS:
+            raise ValueError('give_ammo: munição sem slot na mochila (30001..30009)')
         result['definition'] = definition
     return result
 

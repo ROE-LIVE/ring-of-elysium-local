@@ -30,7 +30,9 @@ def encode_peer_trajectory(uid, movement, sequence, tick):
     speed, flags = movement['word_1'], movement['bytes'][0]
     # Бит0x10 — прицеливание (замер27/10: 16, 19, 21, 23 при ходьбе с прицелом),
     # бит0x20 — бег (33 вперёд, 34/40 по диагонали W+A/W+D); младшие биты — направление0..8.
-    if (type(speed) is not int or not 0 <= speed <= 2000
+    # Скорость — U16 поля SC25. Прежний предел2000 отсекал полёт на дельтаплане (2009..2295 в
+    # сессии20261029T021108): 288 из328 движений уходили снимками27, у других полёт шёл рывками.
+    if (type(speed) is not int or not 0 <= speed <= 0xffff
             or not (flags & ~0x30) in range(9)):
         raise ValueError('Режим движения вне проверенного подмножества')
     anchor = points[0]['position']

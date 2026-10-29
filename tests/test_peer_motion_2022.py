@@ -60,6 +60,9 @@ class PeerMotionTests(unittest.TestCase):
             else:movement['points'][1]['position']=value
             with self.subTest(field=field),self.assertRaises(ValueError):
                 encode_peer_trajectory(1,movement,1,105)
+        # A asa-delta voa a ~2000-2300 cm/s (sessão 20261029T021108): continua trajetória.
+        movement=self.movement();movement['word_1']=2295
+        self.assertEqual(struct.unpack_from('>H',encode_peer_trajectory(1,movement,1,105),8)[0],2295)
 
     def test_observed_cardinal_flags_survive_without_facing_rotation(self):
         for flags in (*range(9),33,34,40,16,19,21,23,24):

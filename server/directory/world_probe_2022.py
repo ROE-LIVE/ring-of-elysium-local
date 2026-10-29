@@ -104,6 +104,8 @@ class WorldFixture:
     zone_damage_profile: str = 'diagnostic'
     zero_region_is_frozen: bool = False
     hazard_enabled: bool = True
+    # future_regions каждой стадии: регион из previous, но не из future, закроется следующей.
+    stage_future: tuple = ()
 
     @classmethod
     def load(cls, path):
@@ -122,7 +124,7 @@ class WorldFixture:
         damage, interval = h['damage'], h['interval_seconds']
         if type(damage) is not int or not 0 < damage <= 1000 or type(interval) not in (int, float) or not math.isfinite(interval) or not 0.2 <= interval <= 60:
             raise ValueError('Неверный урон/интервал')
-        stages, safe, last = [], [], -1
+        stages, safe, future_safe, last = [], [], [], -1
         if not isinstance(c['stages'], list) or len(c['stages']) > 16:
             raise ValueError('Неверная последовательность стадий')
         for row in c['stages']:
@@ -132,6 +134,7 @@ class WorldFixture:
             payload = encode_shrink(row['duration'], row['stage'], row['future_regions'], row['previous_regions'], row.get('elapsed_seconds', 0))
             stages.append((at, row['stage'], payload));last = at
             safe.append(frozenset(row['previous_regions']))
+            future_safe.append(frozenset(row['future_regions']))
         region = c.get('region_grid')
         grid = None
         if region:
@@ -190,7 +193,7 @@ class WorldFixture:
         movement_limits = None
         if 'movement_validation' in c:
             movement_limits = MovementLimits.load(c['movement_validation'])
-        return cls(hp, floor, box, damage, interval, tuple(stages), grid, zone_damage, tuple(safe), tuple(warnings), correction, restore, death, movement_limits, zone_interval, zone_profile, zero_frozen, hazard_enabled)
+        return cls(hp, floor, box, damage, interval, tuple(stages), grid, zone_damage, tuple(safe), tuple(warnings), correction, restore, death, movement_limits, zone_interval, zone_profile, zero_frozen, hazard_enabled, tuple(future_safe))
 
 
 class WorldState:
@@ -338,6 +341,34 @@ class WorldState:
             scheduled_at=at, original_duration=duration,
             remaining_seconds=remaining)
 
+    def _exposure(self, position):
+        regions = self.fixture.region_grid.regions(position)
+        if self.fixture.zero_region_is_frozen:
+            # Cold156: region2→0 включает native Frozen/Blizzard.
+            # Оригинальный attach buff915 не найден; здесь общая политика
+            # peer для Frozen. Вне сетки lookup не создаёт safe refuge.
+            region = self.fixture.region_grid.region_id(position)
+            if region in (None, 0):
+                regions = frozenset((0,))
+        return regions, bool(regions) and regions <= (self.closed | {0})
+
+    def zone_view(self, position):
+        """Состояние региона точки для клиента: 'closed', 'alert' (закроется следующей стадией) или 'safe'.
+
+        Клиент считает его в последней подтверждённой сервером позиции (27), а не в текущей
+        (сессии20261029T012734/021955). None — без сетки регионов или до первой стадии.
+        """
+        if not self.fixture.region_grid or not position or not self.stage_index:
+            return None
+        regions, exposed = self._exposure(position)
+        if exposed:
+            return 'closed'
+        future = (self.fixture.stage_future[self.stage_index-1]
+                  if len(self.fixture.stage_future) >= self.stage_index else None)
+        if future is not None and regions and not regions <= future:
+            return 'alert'
+        return 'safe'
+
     def poll(self, now, protected=False):
         responses, events = [], []
         zone_interval = self.fixture.zone_interval or self.fixture.interval
@@ -375,15 +406,7 @@ class WorldState:
                 responses.append((0x481, body))
                 events.append(dict(action='zone_warning_late', **timing))
         if self.fixture.region_grid and self.position:
-            regions = self.fixture.region_grid.regions(self.position)
-            if self.fixture.zero_region_is_frozen:
-                # Cold156: region2→0 включает native Frozen/Blizzard.
-                # Оригинальный attach buff915 не найден; здесь общая политика
-                # peer для Frozen. Вне сетки lookup не создаёт safe refuge.
-                region = self.fixture.region_grid.region_id(self.position)
-                if region in (None, 0):
-                    regions = frozenset((0,))
-            exposed = bool(regions) and regions <= (self.closed | {0})
+            regions, exposed = self._exposure(self.position)
             if exposed != self.zone_inside:
                 self.zone_inside = exposed
                 self.next_zone_damage = now+zone_interval if exposed else None

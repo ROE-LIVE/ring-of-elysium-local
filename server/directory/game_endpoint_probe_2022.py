@@ -39,7 +39,7 @@ from shared_evacuation_2022 import SharedEvacuationRooms, SEATS, encode_end_info
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
-from fall_damage_2022 import FallTracker, ski_hurt
+from fall_damage_2022 import FallTracker, ski_hurt, START_EVENTS, CANCEL_EVENTS
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
                                  BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER, SCANNER_MARK_SECONDS,
@@ -856,30 +856,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.send_application(d, remote, state, command, payload)
                                         for event in events:
                                             self.capture.record('world_probe', synthetic=True, remote=remote, **event)
-                                            if event.get('action') == 'closed_zone_leave':
-                                                # O cliente só recalcula o estado da região do jogador ao aplicar
-                                                # dados de região (0x481; 0x1411bb7a3 ← EVENT_POST_APPLY_REGION_DATA):
-                                                # quem estava numa região fechada e voltou à segura seguia com o
-                                                # visual de risco (29/10; o 0x479 tentado antes não tem tratador).
-                                                # Reenvia a fase atual, com o elapsed corrigido, ao sair.
-                                                # O estado parece calculado na última posição confirmada pelo servidor
-                                                # (0x27): quem ficou preso tinha o último teleporte/nascimento na região
-                                                # fechada; quem não ficou, não (sessão 20261029T012734). Confirma a
-                                                # posição atual antes de reaplicar a fase.
-                                                template = state.get('scene_position_sync')
-                                                current = state.get('last_movement_position')
-                                                if isinstance(template, bytes) and len(template) == 40 and current:
-                                                    confirm = bytearray(template)
-                                                    struct.pack_into('>Q3i', confirm, 0, state['actor_uid'], *current)
-                                                    struct.pack_into('>I', confirm, 31, int((time.monotonic()-self.started)*25) & 0xffffffff)
-                                                    self.send_application(d, remote, state, 0x27, bytes(confirm))
-                                                    self.register_fixture_entity(state, 0x27, bytes(confirm))
-                                                snapshot = world.stage_snapshot(time.monotonic())
-                                                if snapshot is not None:
-                                                    self.send_application(d, remote, state, 0x481, snapshot[0])
-                                                    self.capture.record('zone_stage_resent', synthetic=True, remote=remote,
-                                                                        reason='closed_zone_leave', hypothesis=True,
-                                                                        **snapshot[1])
+                                        self.sync_zone_view(d, remote, state, world, time.monotonic())
                                     if self.peer_avatars:
                                         self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
                                     self.emit_own_death_inventory(d, remote, state)
@@ -914,6 +891,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.emit_peer_avatars(outputs,events)
                                         self.apply_fall_damage(d, remote, state, movement)
                                         self.spend_jet_charge(d, remote, state, movement)
+                                        for point in movement['points']:
+                                            if point['bytes'][1]:
+                                                state['movement_event'] = point['bytes'][1]
                                 if self.peer_avatars and (message.command in PEER_ACTION_RELAY or message.command in PEER_ACTION_SAMPLES):
                                     self.relay_peer_action(state, message.command, message.payload)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
@@ -2321,6 +2301,47 @@ class Endpoint(asyncio.DatagramProtocol):
                 self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
             self.emit_own_death_inventory(d, remote, state)
             self.cancel_dead_actions(state, remote)
+
+    # Ни в воздухе, ни в воде, ни на лыжах/велосипеде: 27 там сбрасывает движение. Сессия
+    # 20261029T021955: 27 при выходе из закрытой зоны на дельтаплане (INAIR_FLY4) — следующий
+    # C2S2a уже FALL (статус9), скорость0, x/y замерли; планер закрылся, игрок упал.
+    ZONE_SYNC_BLOCKING_EVENTS = START_EVENTS | CANCEL_EVENTS | {70}
+    ZONE_SYNC_INTERVAL = 1.0
+
+    def sync_zone_view(self, d, remote, state, world, now):
+        """27 текущей позиции и повтор стадии481, когда клиент видит зону не там, где игрок.
+
+        Клиент считает состояние региона (риск, отсчёт закрытия) в последней подтверждённой
+        позиции 27 при применении481 (0x1411bb7a3 ← EVENT_POST_APPLY_REGION_DATA). Вариант d82d647
+        подтверждал только на closed_zone_leave и сразу: в полёте ронял дельтаплан, а точка на
+        краю области, закрывающейся следующей стадией, оставляла отсчёт и в безопасной области
+        (сессия20261029T021955: выход в регион60, потом32). Ждём земли и сравниваем состояния.
+        """
+        current = state.get('last_movement_position')
+        anchor = state.get('scene_position')
+        template = state.get('scene_position_sync')
+        if not current or not anchor or not isinstance(template, bytes) or len(template) != 40:
+            return
+        view = world.zone_view(current)
+        if view is None or view == world.zone_view(anchor):
+            return
+        vehicles = state.get('vehicles')
+        if (state.get('movement_event') in self.ZONE_SYNC_BLOCKING_EVENTS
+                or (vehicles is not None and vehicles.seated)
+                or now-state.get('zone_view_synced_at', -10) < self.ZONE_SYNC_INTERVAL):
+            return
+        snapshot = world.stage_snapshot(now)
+        if snapshot is None:
+            return
+        state['zone_view_synced_at'] = now
+        confirm = bytearray(template)
+        struct.pack_into('>Q3i', confirm, 0, state['actor_uid'], *current)
+        struct.pack_into('>I', confirm, 31, int((now-self.started)*25) & 0xffffffff)
+        self.send_application(d, remote, state, 0x27, bytes(confirm))
+        self.register_fixture_entity(state, 0x27, bytes(confirm))
+        self.send_application(d, remote, state, 0x481, snapshot[0])
+        self.capture.record('zone_stage_resent', synthetic=True, remote=remote, reason='zone_view_sync',
+                            view=view, position=tuple(current), hypothesis=True, **snapshot[1])
 
     def apply_fall_damage(self, d, remote, state, movement):
         """Экспериментальный урон от падения пешком (fall_damage_2022); смерть — общими путями."""

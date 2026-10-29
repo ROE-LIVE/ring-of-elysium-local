@@ -25,6 +25,12 @@ BIKE_AIR_POSES = (59,60)
 SPIKE_LIMIT = 50
 
 
+def point_after(point, other):
+    """Точка позже другой по (тик, доля тика); тик сравнивается с переносом через2**32."""
+    delta = ((point.get('value',0)-other.get('value',0)+2**31) % 2**32)-2**31
+    return delta > 0 or (delta == 0 and point['bytes'][2] > other['bytes'][2])
+
+
 def smooth_air_spikes(before, points, after):
     """Точка выше обеих соседних больше чем на SPIKE_LIMIT см опускается до большей из них."""
     sequence = ([before] if before else [])+list(points)+([after] if after else [])
@@ -316,9 +322,16 @@ class PeerAvatarRooms:
         # Клиент шлёт C2S2a каждые ~80мс по2 точки, а другим уходит не чаще раза в0,2с.
         # Точки между отправками копятся: без них в траектории оставалась треть пути,
         # и прыжок BMX у других шёл рывками (опыт28/10, сессия20261028T212826).
+        # Вторая точка C2S2a — прогноз на4тика вперёд, а пакеты идут каждые2тика внахлёст:
+        # (t,t+4), (t+2,t+6) (сессия20261029T002815, по тику и доле в point_heights). Прогноз
+        # заменяется настоящей точкой, когда она приходит; иначе точки шли не по порядку,
+        # SC25 отвергалась, и уходил только текущий пакет. Прогноз на взлёте BMX и был «пиком».
         pending = member.setdefault('pending_points',[])
         if movement is not None:
-            pending.extend(movement['points'])
+            for point in movement['points']:
+                while pending and not point_after(point,pending[-1]):
+                    pending.pop()
+                pending.append(point)
             del pending[:-20]
         if now-member['last_emit'] >= .2 or packets:
             member['last_emit'] = now
@@ -326,6 +339,10 @@ class PeerAvatarRooms:
             # BMX в воздухе: последняя точка ждёт следующую (~80мс), чтобы срезать одиночный пик.
             held = pending[-1:] if member.get('pose',0) in BIKE_AIR_POSES and len(pending) >= 2 else []
             points,member['pending_points'] = pending[:len(pending)-len(held)],held
+            # Уже отправленный прогноз не повторяем точками раньше него (шаг назад у других).
+            sent = member.get('last_sent_point')
+            if sent is not None:
+                points = [p for p in points if point_after(p,sent)]
             if member.get('pose',0) in BIKE_AIR_POSES:
                 points = smooth_air_spikes(member.get('last_sent_point'),points,held[0] if held else None)
             if points:

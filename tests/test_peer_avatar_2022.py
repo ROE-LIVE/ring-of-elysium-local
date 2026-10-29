@@ -169,6 +169,25 @@ class PeerAvatarTests(unittest.TestCase):
         outputs,events=rooms.move(a,(101,200,300),17,10.35,movement([48]))
         self.assertEqual(events[0]['point_heights'],[[None,0,300]])
 
+    def test_forecast_point_is_replaced_by_real_one_and_trajectory_stays_ordered(self):
+        # 0x2A real: (t, t+4) a cada 2 ticks; o segundo ponto é previsão (sessão 20261029T002815).
+        rooms=self.fixture();rooms.replicate_trajectories=True
+        a,b=self.state(10),self.state(20)
+        rooms.admit(a,1);rooms.admit(b,1)
+        def movement(tick,z,forecast):
+            return dict(points=[dict(position=(100+tick,200,1000+z),bytes=(0,0,7),value=tick),
+                                dict(position=(104+tick,200,1000+forecast),bytes=(0,0,7),value=tick+4)],
+                        word_1=500,bytes=(1,1,0),floats=(1.,0.,0.))
+        rooms.move(a,(104,200,1000),100,10,movement(100,0,0))
+        rooms.move(a,(106,200,1000),102,10.08,movement(102,0,0))
+        rooms.move(a,(108,200,1000),104,10.16,movement(104,0,0))
+        self.assertEqual([p['value'] for p in rooms.members[(1,10)]['pending_points']],[102,104,108])
+        outputs,events=rooms.move(a,(110,200,1000),106,10.24,movement(106,0,0))
+        body=outputs[0][1][-1][1]
+        self.assertTrue(events[0]['trajectory_replicated'])
+        # Já tinha ido o 104 (previsão); seguem só pontos depois dele: 106 e a previsão 110.
+        self.assertEqual((struct.unpack_from('>I',body,24)[0],body[28]),(106,1))
+
     def test_bike_jump_spike_is_cut_with_one_held_point(self):
         # Pulo real (sessão 20261029T001008, z acima do chão por tick): 0, 222, 358, 250, 218, 155, 56, 0.
         rooms=self.fixture();rooms.replicate_trajectories=True

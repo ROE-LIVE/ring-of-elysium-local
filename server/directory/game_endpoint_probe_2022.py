@@ -862,6 +862,18 @@ class Endpoint(asyncio.DatagramProtocol):
                                                 # quem estava numa região fechada e voltou à segura seguia com o
                                                 # visual de risco (29/10; o 0x479 tentado antes não tem tratador).
                                                 # Reenvia a fase atual, com o elapsed corrigido, ao sair.
+                                                # O estado parece calculado na última posição confirmada pelo servidor
+                                                # (0x27): quem ficou preso tinha o último teleporte/nascimento na região
+                                                # fechada; quem não ficou, não (sessão 20261029T012734). Confirma a
+                                                # posição atual antes de reaplicar a fase.
+                                                template = state.get('scene_position_sync')
+                                                current = state.get('last_movement_position')
+                                                if isinstance(template, bytes) and len(template) == 40 and current:
+                                                    confirm = bytearray(template)
+                                                    struct.pack_into('>Q3i', confirm, 0, state['actor_uid'], *current)
+                                                    struct.pack_into('>I', confirm, 31, int((time.monotonic()-self.started)*25) & 0xffffffff)
+                                                    self.send_application(d, remote, state, 0x27, bytes(confirm))
+                                                    self.register_fixture_entity(state, 0x27, bytes(confirm))
                                                 snapshot = world.stage_snapshot(time.monotonic())
                                                 if snapshot is not None:
                                                     self.send_application(d, remote, state, 0x481, snapshot[0])

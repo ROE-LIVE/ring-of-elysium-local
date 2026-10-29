@@ -534,6 +534,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                                     break
                                                 if payload['action'] == 'airdrop':
                                                     packets,event = self.live_airdrop(state,payload['position'],name,payload.get('release_status'))
+                                                    if event['accepted']:
+                                                        event['recipients'] = 1 + self.share_live_airdrop(
+                                                            state,payload['position'],name,payload.get('release_status'))
                                                 # Sala compartilhada: munição só mexe na mochila de quem recebe e a vida
                                                 # já é repassada aos outros pelo peer_avatars.health (world.hp); os alvos
                                                 # de treino (damage_npc) não são compartilhados e seguem só no modo sozinho.
@@ -2227,6 +2230,20 @@ class Endpoint(asyncio.DatagramProtocol):
         return [(0x654b, flight.hover_entity(bytes(body)))], dict(
             action='airdrop', accepted=True, uid=hex(uid), position=list(position),
             release_status=release_status, experimental=True)
+
+    def share_live_airdrop(self, state, position, name, release_status=None):
+        """Sala compartilhada: o suprimento do painel também para os outros jogadores da sala.
+        Antes só o destinatário do comando o via (teste de 29/10). Mesmo nome → mesmo UID; cada
+        sessão tem o próprio voo, como o airdrop da cena. Devolve quantos outros receberam."""
+        if not getattr(self, 'shared_loot', None) or 'room_uid' not in state:
+            return 0
+        others = [st for st in self.room_sessions(state['room_uid']) if st is not state]
+        for other in others:
+            packets, event = self.live_airdrop(other, position, name, release_status)
+            if event['accepted']:
+                anchor = other['peer_avatar_anchor']
+                self.send_application_batch(anchor[0], anchor[1], other, packets)
+        return len(others)
 
     def apply_ski_hurt(self, d, remote, state, payload):
         """Урон от жёсткого приземления на лыжах/сноуборде по скорости, присланной клиентом."""

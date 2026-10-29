@@ -81,6 +81,26 @@ class AirdropFlightTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('>3i', body, 20), (100, 200, 258000+flight_module.HOVER_HEIGHT))
         self.assertEqual(state['airdrop_flights'][0].notice[0], 0x4a6)
 
+    def test_live_airdrop_reaches_whole_shared_room(self):
+        endpoint = Endpoint.__new__(Endpoint)
+        entity = bytearray(117)
+        struct.pack_into('>QI', entity, 0, 9, 501)
+        endpoint.scene_rules = [(0x1f49, [(0x654b, bytes(entity))])]
+        endpoint.shared_loot = object()
+        sent = []
+        endpoint.send_application_batch = lambda d, remote, state, packets: sent.append((remote, packets))
+        alvo = dict(room_uid=1, peer_avatar_anchor=('d', 'a'))
+        outro = dict(room_uid=1, peer_avatar_anchor=('d', 'b'))
+        fora = dict(room_uid=2, peer_avatar_anchor=('d', 'c'))
+        endpoint.sessions = {1: alvo, 2: outro, 3: fora}
+        packets, _ = endpoint.live_airdrop(alvo, [100, 200, 258000], 'painel-x')
+        self.assertEqual(endpoint.share_live_airdrop(alvo, [100, 200, 258000], 'painel-x'), 1)
+        self.assertEqual([remote for remote, _ in sent], ['b'])                     # só a mesma sala
+        self.assertEqual(sent[0][1][0][1][:8], packets[0][1][:8])                    # mesmo UID para todos
+        self.assertEqual((len(outro['airdrop_flights']), 'airdrop_flights' in fora), (1, False))
+        endpoint.shared_loot = None                                                  # modo sozinho: nada a repassar
+        self.assertEqual(endpoint.share_live_airdrop(alvo, [1, 2, 3], 'painel-y'), 0)
+
     def test_single_release_status_per_flight(self):
         flight = AirdropFlight(7, 0, 0, 0, 0, (5,))
         flight.phase, flight.release_index = 'release', 0

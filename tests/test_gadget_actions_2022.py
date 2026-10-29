@@ -67,6 +67,31 @@ class GadgetTests(unittest.TestCase):
         self.assertEqual(sorted(uid for uid, _ in e.out), [5, 6])
         self.assertTrue(all(packets[0][0] == 0x74cf for _, packets in e.out))
 
+    def test_jet_trigger_spends_glider_charge_and_poll_recharges_it(self):
+        # O cliente só avisa o jato pelo evento JET_TRIGGER 70 do 0x2A (sessão 20261029T021955).
+        e = self.endpoint()
+        a = self.state(5, ())
+        a['weapon'].equipment[11] = 200901
+        e.sessions = {1: a}
+        jet = dict(points=[dict(bytes=(0, 70, 0)), dict(bytes=(0, 70, 0))])
+        e.spend_jet_charge(None, None, a, jet)
+        own = dict(e.out[0][1])
+        self.assertEqual(own[0x10d0], struct.pack('>II', 17, 0))
+        self.assertEqual(struct.unpack('>QIIII', own[0x1162])[:4], (5, 1, 2, 0))
+        e.out.clear()
+        e.spend_jet_charge(None, None, a, jet)                 # repetição do mesmo toque: ignorada
+        a['jet_triggered_at'] -= 5
+        e.spend_jet_charge(None, None, a, jet)                 # sem carga: nada a mandar
+        e.spend_jet_charge(None, None, a, dict(points=[dict(bytes=(0, 24, 0))]))
+        self.assertEqual(e.out, [])
+        self.assertEqual([r[1]['spent'] for r in e.records if r[0] == 'kit_jet_trigger'], [True, False])
+        e.poll_gadgets(time.monotonic() + 59)
+        self.assertEqual(e.out, [])
+        e.poll_gadgets(time.monotonic() + 61)
+        own = dict(e.out[0][1])
+        self.assertEqual(own[0x10d0], struct.pack('>II', 17, 1))
+        self.assertEqual(own[0x1162], struct.pack('>QI', 5, 1) + struct.pack('>III', 2, 1, 0))
+
     def test_scanner_use_spends_charge_and_mark_notifies_marked_player(self):
         e = self.endpoint()
         e.emitted = []

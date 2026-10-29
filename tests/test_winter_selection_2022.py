@@ -105,6 +105,17 @@ class StagedLoadoutTests(unittest.TestCase):
         # Contador do HUD numa mensagem só: JET 2 do planador (1 carga) + BARRIER 6, 1 uso, sem recarga.
         cd = [body for code, body in WeaponState(fixture, 42).kit_sync() if code == 0x1162]
         self.assertEqual(cd, [struct.pack('>QI', 42, 2) + struct.pack('>III', 2, 1, 0) + struct.pack('>III', 6, 1, 0)])
+        # Jato (sessão 20261029T021955: três usos em 16 s): gasta a carga e volta em 60 s.
+        weapon = WeaponState(fixture, 42)
+        self.assertTrue(weapon.use_kit_charge(17, 100.0))
+        self.assertFalse(weapon.use_kit_charge(17, 101.0))
+        self.assertEqual(weapon.kit_counts(130.0), [(17, 0)])
+        self.assertEqual(struct.unpack_from('>III', weapon.ability_cd_sync(now=130.0)[1], 12), (2, 0, 30000))
+        self.assertEqual(weapon.kit_recharged(159.9), [])
+        self.assertEqual(weapon.kit_recharged(160.0), [17])
+        self.assertEqual(weapon.kit_recharged(161.0), [])
+        self.assertEqual(weapon.kit_counts(160.0), [(17, 1)])
+        self.assertFalse(weapon.use_kit_charge(16, 160.0))       # o planador não tem gancho
         # Vera não tem modkit (4) nem SDV (6); Europa tem os oito.
         self.assertIsNone(choose_staged(0x10cc, struct.pack('>II', 20, 4), 1, 10, False, 16021)[0])
         self.assertEqual(choose_staged(0x10cc, struct.pack('>II', 20, 4), 1, 10, False, 16007)[0], (2, 4))

@@ -47,6 +47,9 @@ ABILITY_CD_TYPES = {21: 3, 23: 4, 25: 5, 27: 6, 29: 7, 35: 8, 37: 9}
 # Заряды набора в том же 0x1162: ATR_MOVE_GRAPPLE_LEFT_COUNT16 → GRAPPLE1, ATR_MOVE_JET_LEFT_COUNT17 → JET2.
 # Без них «E — реактивный рывок» планера острова не срабатывал (29.10): HUD берёт заряды из 0x1162.
 KIT_CD_TYPES = {16: 1, 17: 2}
+# Восстановление заряда (buff3000/3001). Клиент сообщает о рывке только событием JET_TRIGGER70
+# в C2S2a (сессия20261029T021955: три рывка за16с, 0x536 рядом нет) — сервер сам тратит заряд.
+KIT_RECHARGE = {16: 10.0, 17: 60.0}
 
 
 def encode_ability_cd_sync(actor_uid, entries):
@@ -378,6 +381,8 @@ class WeaponState:
         self.attachments = {}
         self.known_attachment_slots = set()
         self.hand_slot = 0
+        # Атрибут заряда набора → моменты (monotonic) восстановления потраченных зарядов.
+        self.kit_recharges = {}
         self.shots = deque(maxlen=64)
         self.loot_available = False
         self.loot_picked = False
@@ -732,21 +737,62 @@ class WeaponState:
         # При смене набора старые способности должны выключаться.
         responses = [(0x10d0, struct.pack('>II', index, int(index == selected)))
                      for index in ABILITY_ATTRIBUTES]
-        responses += [(0x10d0, struct.pack('>II', index, count)) for index, count in KIT_CHARGES.get(definition, ())]
+        responses += [(0x10d0, struct.pack('>II', index, count)) for index, count in self.kit_counts()]
         responses.append((0x516, struct.pack('>HBII', 1, 5, capacity, capacity)))
-        kit = [(KIT_CD_TYPES[index], count, 0) for index, count in KIT_CHARGES.get(definition, ())
-               if index in KIT_CD_TYPES]
-        return responses + self.tactical_sync(kit)
+        return responses + self.tactical_sync(self.kit_entries())
 
-    def ability_cd_sync(self, tactical_counts=None):
+    def kit_pending(self, index, now):
+        return sorted(due for due in self.kit_recharges.get(index, ()) if due > now)
+
+    def kit_counts(self, now=None):
+        """[(атрибут заряда, осталось)] текущего набора."""
+        now = time.monotonic() if now is None else now
+        return [(index, max(0, count-len(self.kit_pending(index, now))))
+                for index, count in KIT_CHARGES.get(self.equipment.get(11), ())]
+
+    def kit_entries(self, now=None):
+        """Записи0x1162 набора: (тип, осталось, мс до следующего заряда)."""
+        now = time.monotonic() if now is None else now
+        entries = []
+        for index, left in self.kit_counts(now):
+            if index in KIT_CD_TYPES:
+                pending = self.kit_pending(index, now)
+                entries.append((KIT_CD_TYPES[index], left, round((pending[0]-now)*1000) if pending else 0))
+        return entries
+
+    def use_kit_charge(self, index, now):
+        """Тратит заряд набора; False, если зарядов нет или у набора их нет.
+
+        Заряды восстанавливаются по одному: следующий начинает отсчёт после предыдущего.
+        """
+        full = dict(KIT_CHARGES.get(self.equipment.get(11), ())).get(index)
+        pending = self.kit_pending(index, now)
+        if full is None or len(pending) >= full:
+            return False
+        pending.append(max([now]+pending)+KIT_RECHARGE[index])
+        self.kit_recharges[index] = pending
+        return True
+
+    def kit_recharged(self, now):
+        """Атрибуты, у которых к now восстановился заряд (одноразово)."""
+        done = []
+        for index, dues in list(self.kit_recharges.items()):
+            pending = [due for due in dues if due > now]
+            if len(pending) != len(dues):
+                done.append(index)
+            if pending:
+                self.kit_recharges[index] = pending
+            else:
+                del self.kit_recharges[index]
+        return done
+
+    def ability_cd_sync(self, tactical_counts=None, now=None):
         """0x1162 completo (o cliente substitui a lista inteira): cargas do набора + тактика.
 
         tactical_counts: {атрибут тактики: оставшиеся заряды}; по умолчанию — из fixture.
         """
         counts = dict(self.fixture.tactical) if tactical_counts is None else tactical_counts
-        kit = [(KIT_CD_TYPES[index], count, 0) for index, count in KIT_CHARGES.get(self.equipment.get(11), ())
-               if index in KIT_CD_TYPES]
-        entries = kit + [(ABILITY_CD_TYPES[index], counts.get(index, 0), 0) for index, _ in self.fixture.tactical
+        entries = self.kit_entries(now) + [(ABILITY_CD_TYPES[index], counts.get(index, 0), 0) for index, _ in self.fixture.tactical
                          if index in ABILITY_CD_TYPES]
         return 0x1162, encode_ability_cd_sync(self.actor_uid, entries)
 

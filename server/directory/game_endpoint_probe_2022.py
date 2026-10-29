@@ -913,6 +913,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                             outputs, events = self.peer_avatars.move(state,state['last_movement_position'],int((now-self.started)*25)&0xffffffff,now,movement)
                                             self.emit_peer_avatars(outputs,events)
                                         self.apply_fall_damage(d, remote, state, movement)
+                                        self.spend_jet_charge(d, remote, state, movement)
                                 if self.peer_avatars and (message.command in PEER_ACTION_RELAY or message.command in PEER_ACTION_SAMPLES):
                                     self.relay_peer_action(state, message.command, message.payload)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
@@ -2191,7 +2192,42 @@ class Endpoint(asyncio.DatagramProtocol):
             self._scanner_marked = {}
         return self._scanner_marked
 
+    JET_TRIGGER = 70
+    JET_ATTRIBUTE = 17
+
+    def kit_charge_sync(self, state, now):
+        """Заряды набора (10D0) и полный 0x1162 с текущими зарядами тактики."""
+        weapon = state['weapon']
+        return ([(0x10d0, struct.pack('>II', index, left)) for index, left in weapon.kit_counts(now)]
+                + [weapon.ability_cd_sync(state.get('gadget_counts'), now)])
+
+    def spend_jet_charge(self, d, remote, state, movement):
+        """JET_TRIGGER70 в C2S2a — рывок планера: тратит заряд, восстановление в poll_gadgets.
+
+        Точки2a идут внахлёст (вторая — прогноз), поэтому повтор события за1с не считается.
+        """
+        if not any(point['bytes'][1] == self.JET_TRIGGER for point in movement['points']):
+            return
+        now = time.monotonic()
+        if now-state.get('jet_triggered_at', -10) < 1:
+            return
+        state['jet_triggered_at'] = now
+        spent = state['weapon'].use_kit_charge(self.JET_ATTRIBUTE, now)
+        if spent:
+            self.send_application_batch(d, remote, state, self.kit_charge_sync(state, now))
+        self.capture.record('kit_jet_trigger', synthetic=True, account_uid=hex(state['actor_uid']), spent=spent,
+                            charges=dict(state['weapon'].kit_counts(now)), hypothesis=True)
+
     def poll_gadgets(self, now):
+        for state in list(getattr(self, 'sessions', {}).values()):
+            anchor = state.get('peer_avatar_anchor')
+            if 'weapon' not in state or not anchor or state.get('match_finished') or state.get('transport_retired'):
+                continue
+            recharged = state['weapon'].kit_recharged(now)
+            if recharged:
+                self.send_application_batch(anchor[0], anchor[1], state, self.kit_charge_sync(state, now))
+                self.capture.record('kit_charge_recharged', synthetic=True, account_uid=hex(state['actor_uid']),
+                                    attributes=recharged, charges=dict(state['weapon'].kit_counts(now)))
         marked = self.scanner_marked()
         for key, (target, until) in list(marked.items()):
             if now >= until:

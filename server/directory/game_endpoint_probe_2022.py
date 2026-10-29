@@ -40,6 +40,7 @@ from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
 from fall_damage_2022 import FallTracker, ski_hurt, START_EVENTS, CANCEL_EVENTS
+from drowning_2022 import BreathTracker, encode_power, OXYGEN_MAX, POWER_OXYGEN, REASON_DROWN
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
                                  BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER, SCANNER_MARK_SECONDS,
@@ -891,9 +892,12 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.emit_peer_avatars(outputs,events)
                                         self.apply_fall_damage(d, remote, state, movement)
                                         self.spend_jet_charge(d, remote, state, movement)
+                                        self.apply_drowning(d, remote, state, movement)
                                         for point in movement['points']:
                                             if point['bytes'][1]:
                                                 state['movement_event'] = point['bytes'][1]
+                                if 'weapon' in state and message.command == 0x1f49:
+                                    self.apply_drowning(d, remote, state)
                                 if self.peer_avatars and (message.command in PEER_ACTION_RELAY or message.command in PEER_ACTION_SAMPLES):
                                     self.relay_peer_action(state, message.command, message.payload)
                                 if self.loot_catalog and 'weapon' in state and message.command == 0x1f49:
@@ -2184,6 +2188,47 @@ class Endpoint(asyncio.DatagramProtocol):
         weapon = state['weapon']
         return ([(0x10d0, struct.pack('>II', index, left)) for index, left in weapon.kit_counts(now)]
                 + [weapon.ability_cd_sync(state.get('gadget_counts'), now)])
+
+    def apply_drowning(self, d, remote, state, movement=None):
+        """Кислород и удушье (drowning_2022): 2a — вода/глубина, heartbeat1f49 — время."""
+        world = state.get('world')
+        if world is None:
+            return
+        tracker = state.setdefault('breath_tracker', BreathTracker())
+        uid = state['actor_uid']
+        if world.dead:
+            self.send_application_batch(d, remote, state,
+                                        [(command, struct.pack('>QI', uid, status)) for command, status in tracker.reset()])
+            return
+        vehicles = state.get('vehicles')
+        if vehicles is not None and vehicles.seated:
+            tracker.leave_water()
+        elif movement is not None:
+            tracker.observe(movement['points'])
+        result = tracker.poll(time.monotonic())
+        if result is None:
+            return
+        oxygen, damage, statuses = result
+        packets = [(command, struct.pack('>QI', uid, status)) for command, status in statuses]
+        packets.append((0x1069, encode_power(uid, REASON_DROWN, [(POWER_OXYGEN, oxygen, OXYGEN_MAX)])))
+        event = dict(action='breath', oxygen=oxygen, underwater=tracker.underwater,
+                     depth_cm=tracker.surface-tracker.z if tracker.in_water else None,
+                     statuses=[[hex(command), status] for command, status in statuses],
+                     validation='buff3_buff4_rates', original_rule_verified=False)
+        if damage:
+            hp_packets, hit = world.apply_damage(damage, uid)
+            # Тот же0x1069, но bReason7 DROWN (buff4): ветка HP запоминает причину.
+            health = bytearray(hp_packets[0][1])
+            health[8] = REASON_DROWN
+            packets += [(0x1069, bytes(health)), *hp_packets[1:]]
+            event.update(action='drowning_damage', damage=hit['damage'], hp=hit['hp'])
+        self.send_application_batch(d, remote, state, packets)
+        self.capture.record('world_probe', synthetic=True, remote=remote, **event)
+        if damage:
+            if self.peer_avatars:
+                self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
+            self.emit_own_death_inventory(d, remote, state)
+            self.cancel_dead_actions(state, remote)
 
     def spend_jet_charge(self, d, remote, state, movement):
         """JET_TRIGGER70 или JET_UP55 в C2S2a — рывок планера: тратит заряд, восстановление в poll_gadgets.

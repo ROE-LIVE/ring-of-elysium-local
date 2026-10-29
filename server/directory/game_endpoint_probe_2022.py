@@ -42,7 +42,7 @@ from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encod
 from fall_damage_2022 import FallTracker, ski_hurt
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
-                                 BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER,
+                                 BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER, SCANNER_MARK_SECONDS,
                                  decode_scanner_mark, eu_action, decode_client_data, encode_client_data_ntf)
 from shared_vehicle_2022 import SharedVehicleRooms
 from shared_combat_2022 import SharedCombatRooms
@@ -2131,7 +2131,12 @@ class Endpoint(asyncio.DatagramProtocol):
                        if key[0] == room and other['state'] is not state
                        and unit in (other['avatar'], other['state'].get('actor_uid'))]
         if targets:
-            self.emit_peer_avatars([(target, [(0x1168, struct.pack('>Q', unit))]) for target in targets], [])
+            marked = self.scanner_marked()
+            until = time.monotonic() + SCANNER_MARK_SECONDS
+            for target in targets:
+                marked[id(target)] = (target, until)
+            self.emit_peer_avatars([(target, [(0x1168, struct.pack('>Q', unit)), (0x1166, b'\x01')])
+                                    for target in targets], [])
         self.capture.record('gadget_scanner_mark', synthetic=True, accepted=bool(targets), unit=hex(unit),
                             account_uid=hex(state['actor_uid']), notified=len(targets),
                             marks_since_use=state['scanner_marks'], format_verified=False)
@@ -2150,7 +2155,20 @@ class Endpoint(asyncio.DatagramProtocol):
                             data_type=request['kind'], bc_type=request['bc_type'], to_ob=request['to_ob'],
                             count=len(request['data']), recipients=1, format_verified=False)
 
+    def scanner_marked(self):
+        """Jogadores com o aviso de detectado ligado (0x1166): id(state) → (state, fim)."""
+        if getattr(self, '_scanner_marked', None) is None:
+            self._scanner_marked = {}
+        return self._scanner_marked
+
     def poll_gadgets(self, now):
+        marked = self.scanner_marked()
+        for key, (target, until) in list(marked.items()):
+            if now >= until:
+                del marked[key]
+                self.emit_peer_avatars([(target, [(0x1166, b'\x00')])], [])
+                self.capture.record('gadget_scanner_mark_expired', synthetic=True,
+                                    account_uid=hex(target.get('actor_uid') or 0))
         for uid, obstacle in self.gadget_rooms().expired(now):
             members = self.room_sessions(obstacle['room'])
             for member in members:

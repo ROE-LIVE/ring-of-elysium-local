@@ -34,9 +34,15 @@ OBSTACLE_UID_BASE = 0x7600000000000             # faixa própria, fora dos UIDs 
 #   0x11CA BC_CLIENT_DATA_NTF: U64 ullActor_rid, U32 iType, U32 iCount, szData[iCount].
 # O NTF não tem tratador C++ (só os acessores Lua): a marca do scanner no HUD sai do script.
 # Tipo 15 (scanner): szData = U64 unit + 3×F32 posição, em little-endian (cópia crua da memória).
+#
+# O aviso no detectado não vem do 0x1168 (testado: nada aparece), e sim do 0x1166
+# ACTOR_MARKED_STATUS_NTF (U8 bStatus): tratador 1412e7c50 → EuPlayerDetectedSystem liga/desliga o
+# bit 2 e, na transição, chama OnPlayerBeDetected(bStatus) no Lua + DetectedFx. O bit só desliga
+# com bStatus 0, então o servidor manda 1 na marca e 0 ao fim de mMarkCloseTime (11 s).
 SCANNER_ABILITY, SCANNER_COUNT = 37, 38        # ATR_INIT_ABILITY_SCANNER / ATR_SCANNER_LEFT_COUNT
 AT_USE_SCANNER = 72
 CLIENT_DATA_SCANNER = 15
+SCANNER_MARK_SECONDS = 11
 
 
 def decode_client_data(payload):

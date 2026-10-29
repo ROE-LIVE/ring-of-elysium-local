@@ -74,7 +74,14 @@ class GadgetTests(unittest.TestCase):
         self.assertEqual(own[0x10d0], struct.pack('>II', 38, 0))
         self.assertEqual(own[0x1162], struct.pack('>QI', 5, 1) + struct.pack('>III', 9, 0, 0))
         e.scanner_mark(a, struct.pack('>Q', 0x9006))
-        self.assertEqual(e.emitted, [(b, [(0x1168, struct.pack('>Q', 0x9006))])])
+        self.assertEqual(e.emitted, [(b, [(0x1168, struct.pack('>Q', 0x9006)), (0x1166, b'\x01')])])
+        # O aviso de detectado (0x1166) desliga ao fim de mMarkCloseTime, só uma vez.
+        e.emitted.clear()
+        e.poll_gadgets(time.monotonic() + 1)
+        self.assertEqual(e.emitted, [])
+        e.poll_gadgets(time.monotonic() + gadget.SCANNER_MARK_SECONDS + 1)
+        e.poll_gadgets(time.monotonic() + gadget.SCANNER_MARK_SECONDS + 2)
+        self.assertEqual(e.emitted, [(b, [(0x1166, b'\x00')])])
         # Sem uso: nada é mandado; marca de unidade desconhecida (NPC) só vai para o log.
         e.out.clear(); e.emitted.clear()
         e.use_scanner(None, None, a)

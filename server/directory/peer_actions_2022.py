@@ -6,7 +6,9 @@
   0x30  BC_TURN_AROUND_SIMPLE 140c58bf0: U64 entity, U16 yaw, U16 pitch, U32, U32 (версия >= 0x57)
   0x11D6 SHOOT_IK_SYNC:   U64 entity, 3f, U32 tick, U32 счётчик выстрелов
   0x11D4 SHOOT_FIRE_SYNC: U64 entity, 6f (начало, конец), U8 режим, U32 tick, U32 счётчик
-  0x11D8 MOTION_SYNC:     U8, U64 entity
+  0x11D8 MOTION_SYNC:     U8, U64 entity, U32 tick, U32 счётчик (декодер 140c3f310 требует оба
+                          U32: 9 байт как у бота возвращают -2, и клиент выбрасывает пакет —
+                          без него у других нет позы/отдачи выстрела, только звук и вспышка 0x11D4)
 Запрос 0x2F (замер в игре): 3 float — единичный вектор взгляда (x, y, z); его
 упаковка такая же, как направление движения SC25 (packed_direction).
 Запрос 0x11D5 (сборка 140e7d4e0 ← 140e7cf40): первый float — смещение анимации из
@@ -112,5 +114,7 @@ def relay_body(command, payload, entity, memo=None):
         status = ACTION_STATUS.get(struct.unpack('>I', payload)[0])
         return None if status is None else status_body(entity, status)
     if command == 0x11d7 and len(payload) == 1:
-        return 0x11d8, payload + struct.pack('>Q', entity)
+        # Клиент шлёт только U8; tick и счётчик — как у 0x11D6 (текущий tick сцены, последний выстрел).
+        return 0x11d8, payload + struct.pack('>QII', entity, memo.get('now_tick', memo.get('tick', 0)),
+                                              memo.get('counter', 0))
     return None

@@ -26,8 +26,12 @@ class PeerActionTests(unittest.TestCase):
         self.assertEqual(struct.unpack('>Q6fBII', body), (uid, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 0, 9, 7))
         code, body = relay_body(0x11d5, struct.pack('>3f', 0.5, 0, 0), uid, memo)
         self.assertEqual(struct.unpack('>Q3fII', body), (uid, 0.5, 0.0, 0.0, 9, 7))
-        code, body = relay_body(0x11d7, b'', uid)
-        self.assertEqual((code, body), (0x11d8, struct.pack('>BQ', 5, uid)))
+        # 0x11D8: o decodificador 140c3f310 lê U8, U64 e dois U32 (17 bytes); com 9 o cliente descarta.
+        code, body = relay_body(0x11d7, b'\x05', uid, memo)
+        self.assertEqual((code, body), (0x11d8, struct.pack('>BQII', 5, uid, 9, 7)))
+        (code, body), = relay_packets(0x11d7, b'\x00', uid, memo, tick=1234)
+        self.assertEqual((code, len(body)), (0x11d8, 17))
+        self.assertEqual(struct.unpack('>BQII', body), (0, uid, 1234, 7))
         self.assertIsNone(relay_body(0x11d5, bytes(11), uid))
         self.assertIsNone(relay_body(0x2f, struct.pack('>3f', float('nan'), 0, 0), uid))
 

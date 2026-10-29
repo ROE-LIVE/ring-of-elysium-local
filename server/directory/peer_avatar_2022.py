@@ -18,6 +18,27 @@ ROOM_LIMIT = 60
 # Прыжок пешком (JUMP_UP3, LAND9) снимками шёл рывками: игрок пролетал ~1м между ними
 # (опыт28/10, сессия20261028T222921); с прыжком лыж53 траектория уже давала плавность.
 TRAJECTORY_POSES = (0,1,2,3,9,50,51,53,58,59,60)
+# BMX в воздухе (INAIR_BIKE59, JUMP_BIKE60). В каждом прыжке вторая точка первого C2S2a в воздухе
+# выше соседних на ~1м (сессия20261029T001008: +222, +358, +250 см за тики2/6/8 — падение
+# 108см за80мс гравитация не даёт). Другие видели прыжок выше и рывками.
+BIKE_AIR_POSES = (59,60)
+SPIKE_LIMIT = 50
+
+
+def smooth_air_spikes(before, points, after):
+    """Точка выше обеих соседних больше чем на SPIKE_LIMIT см опускается до большей из них."""
+    sequence = ([before] if before else [])+list(points)+([after] if after else [])
+    offset = 1 if before else 0
+    result = list(points)
+    for index in range(len(points)):
+        at = index+offset
+        if not 0 < at < len(sequence)-1:
+            continue
+        left,right = sequence[at-1]['position'][2],sequence[at+1]['position'][2]
+        x,y,z = points[index]['position']
+        if z > max(left,right)+SPIKE_LIMIT:
+            result[index] = dict(points[index],position=(x,y,max(left,right)))
+    return result
 
 
 class PeerAvatarRooms:
@@ -302,7 +323,13 @@ class PeerAvatarRooms:
         if now-member['last_emit'] >= .2 or packets:
             member['last_emit'] = now
             final = None
-            points,member['pending_points'] = pending,[]
+            # BMX в воздухе: последняя точка ждёт следующую (~80мс), чтобы срезать одиночный пик.
+            held = pending[-1:] if member.get('pose',0) in BIKE_AIR_POSES and len(pending) >= 2 else []
+            points,member['pending_points'] = pending[:len(pending)-len(held)],held
+            if member.get('pose',0) in BIKE_AIR_POSES:
+                points = smooth_air_spikes(member.get('last_sent_point'),points,held[0] if held else None)
+            if points:
+                member['last_sent_point'] = points[-1]
             if self.replicate_trajectories and movement is not None and member.get('pose',0) in TRAJECTORY_POSES:
                 sequence = (member.get('motion_sequence',struct.unpack_from('>I',self.fixture.movement,23)[0])+1)&0xffffffff
                 try:
@@ -330,7 +357,8 @@ class PeerAvatarRooms:
                        server_status=member.get('pose',0),transitions=transitions,unknown_pose_events=unknown,
                        trajectory_replicated=trajectory,trajectory_fallback=trajectory_error,
                        # Диагностика прыжка: [tick, z] каждой точки C2S2a (в журнале была только последняя).
-                       point_heights=[[p.get('value'),p['position'][2]] for p in (movement or {}).get('points',())]
+                       point_heights=[[p.get('value'),p['bytes'][2],p['position'][2]]
+                                      for p in (movement or {}).get('points',())]
                                      if member.get('pose',0) in (3,9,58,59,60) else None,
                        # Диагностика прицеливания: режим и направление C2S2a.
                        movement_flags=(movement or {}).get('bytes',(None,))[0],

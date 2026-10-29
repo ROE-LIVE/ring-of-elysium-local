@@ -167,7 +167,31 @@ class PeerAvatarTests(unittest.TestCase):
         self.assertEqual(events[0]['unknown_pose_events'],[])
         # Diagnóstico do pulo: z de cada ponto quando a pose é de pulo/BMX.
         outputs,events=rooms.move(a,(101,200,300),17,10.35,movement([48]))
-        self.assertEqual(events[0]['point_heights'],[[None,300]])
+        self.assertEqual(events[0]['point_heights'],[[None,0,300]])
+
+    def test_bike_jump_spike_is_cut_with_one_held_point(self):
+        # Pulo real (sessão 20261029T001008, z acima do chão por tick): 0, 222, 358, 250, 218, 155, 56, 0.
+        rooms=self.fixture();rooms.replicate_trajectories=True
+        a,b=self.state(10),self.state(20)
+        rooms.admit(a,1);rooms.admit(b,1)
+        def movement(points,event=0):
+            return dict(points=[dict(position=(100+tick,200,1000+z),bytes=(0,event if i==0 else 0,0),value=tick)
+                                for i,(tick,z) in enumerate(points)],word_1=500,bytes=(1,1,0),floats=(1.,0.,0.))
+        def heights(outputs):
+            body=outputs[0][1][-1][1]
+            anchor=struct.unpack_from('>i',body,18)[0]
+            return [anchor]+[anchor+struct.unpack_from('>h',body,33+12*i)[0] for i in range(body[28])]
+        rooms.move(a,(124,200,1000),24,10,movement([(22,0),(24,0)],48))
+        outputs,_=rooms.move(a,(124,200,1000),24,10.01,movement([(24,0)],50))
+        self.assertEqual(rooms.members[(1,10)]['pose'],60)
+        outputs,_=rooms.move(a,(130,200,1358),30,10.3,movement([(26,222),(30,358)]))
+        self.assertEqual(heights(outputs),[1222])
+        self.assertEqual(rooms.move(a,(136,200,1218),36,10.38,movement([(32,250),(36,218)])),([],[]))
+        outputs,_=rooms.move(a,(142,200,1056),42,10.6,movement([(38,155),(42,56)]))
+        self.assertEqual(heights(outputs),[1250,1250,1218,1155])
+        outputs,_=rooms.move(a,(143,200,1000),43,10.61,movement([(43,0)],48))
+        self.assertEqual(heights(outputs),[1056,1000])
+        self.assertEqual(rooms.members[(1,10)]['pending_points'],[])
 
     def test_corpse_model_is_removed_for_others_after_delay(self):
         rooms=self.fixture();a,b=self.state(10),self.state(20)

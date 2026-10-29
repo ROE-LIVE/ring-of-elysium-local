@@ -853,15 +853,18 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.send_application(d, remote, state, command, payload)
                                         for event in events:
                                             self.capture.record('world_probe', synthetic=True, remote=remote, **event)
-                                            if event.get('action') in ('closed_zone_enter', 'closed_zone_leave'):
-                                                # 0x479 SCENE_MSGID_SHRINK_IN_RANGE (SHRINK_POS_IN_RANGE: U32 iIn_range),
-                                                # só servidor → cliente. Sem ele o visual da área de risco ficava preso
-                                                # depois de voltar à zona segura (Europa, 28/10); devolver a temperatura
-                                                # (0x10D0 atributo 5) não resolveu. Valor: 1 dentro, 0 fora (hipótese).
-                                                inside = int(event['action'] == 'closed_zone_leave')
-                                                self.send_application(d, remote, state, 0x479, struct.pack('>I', inside))
-                                                self.capture.record('zone_in_range_sent', synthetic=True, remote=remote,
-                                                                    in_range=inside, hypothesis=True)
+                                            if event.get('action') == 'closed_zone_leave':
+                                                # O cliente só recalcula o estado da região do jogador ao aplicar
+                                                # dados de região (0x481; 0x1411bb7a3 ← EVENT_POST_APPLY_REGION_DATA):
+                                                # quem estava numa região fechada e voltou à segura seguia com o
+                                                # visual de risco (29/10; o 0x479 tentado antes não tem tratador).
+                                                # Reenvia a fase atual, com o elapsed corrigido, ao sair.
+                                                snapshot = world.stage_snapshot(time.monotonic())
+                                                if snapshot is not None:
+                                                    self.send_application(d, remote, state, 0x481, snapshot[0])
+                                                    self.capture.record('zone_stage_resent', synthetic=True, remote=remote,
+                                                                        reason='closed_zone_leave', hypothesis=True,
+                                                                        **snapshot[1])
                                     if self.peer_avatars:
                                         self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
                                     self.emit_own_death_inventory(d, remote, state)

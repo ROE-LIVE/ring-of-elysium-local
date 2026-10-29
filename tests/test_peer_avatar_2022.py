@@ -161,11 +161,13 @@ class PeerAvatarTests(unittest.TestCase):
         self.assertEqual(rooms.members[(1,10)]['pose'],0)
         outputs,events=rooms.move(a,(101,200,300),15,10.33,movement([40,43,41,1]))
         self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[50,53,51,0,0])
-        # BMX: GROUND_BIKE48→58; JUMP_BIKE50 e INAIR_BIKE49→59 (o 60 faria o outro pular de novo);
-        # descer = evento1→0.
+        # BMX: GROUND_BIKE48→58, JUMP_BIKE50→60, INAIR_BIKE49→59; descer = evento1→0.
         outputs,events=rooms.move(a,(101,200,300),16,10.34,movement([48,50,49,1]))
-        self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[58,59,0,0])
+        self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[58,60,59,0,0])
         self.assertEqual(events[0]['unknown_pose_events'],[])
+        # Diagnóstico do pulo: z de cada ponto quando a pose é de pulo/BMX.
+        outputs,events=rooms.move(a,(101,200,300),17,10.35,movement([48]))
+        self.assertEqual(events[0]['point_heights'],[[None,300]])
 
     def test_corpse_model_is_removed_for_others_after_delay(self):
         rooms=self.fixture();a,b=self.state(10),self.state(20)

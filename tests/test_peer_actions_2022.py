@@ -56,13 +56,12 @@ class PeerActionTests(unittest.TestCase):
         # SCENE_AROUND_BROADCAST 0x1159 (snowboard): mesmo envelope e troca de UID, mesmo código.
         code, body = relay_body(0x1159, real, avatar, {'actor': actor})
         self.assertEqual((code, body[12:20]), (0x1159, struct.pack('<Q', avatar)))
-        # BMX (amostras reais do PC2): subtipo 3 passa; subtipo 2 vem com o pulo 50 e não é repassado.
+        # BMX (amostras reais do PC2): subtipos 3 e 2 (este vem com o pulo 50) passam com o UID trocado.
         bike = '000000210c000000110000007cc7598eb15b5100020000007f21000015000000'
         charlie = 0x515bb18e59c77c
-        code, body = relay_body(0x1159, bytes.fromhex(bike+'0300930100'), avatar, {'actor': charlie})
-        self.assertEqual((code, body[12:20]), (0x1159, struct.pack('<Q', avatar)))
-        self.assertIsNone(relay_body(0x1159, bytes.fromhex(bike+'0201000000'), avatar, {'actor': charlie}))
-        self.assertEqual(relay_body(0x11ec, bytes.fromhex(bike+'0201000000'), avatar, {})[0], 0x11ec)
+        for tail in ('0300930100', '0201000000'):
+            code, body = relay_body(0x1159, bytes.fromhex(bike+tail), avatar, {'actor': charlie})
+            self.assertEqual((code, body[12:20]), (0x1159, struct.pack('<Q', avatar)))
         # STOP_USE_ITEM (20) não vira estado para os outros; AIM/DIS_AIM/SCOPE_AIM viram.
         self.assertEqual(relay_packets(0x536, struct.pack('>I', 20), avatar, {}), [])
         for action, status in ((16, 24), (17, 40), (35, 39)):

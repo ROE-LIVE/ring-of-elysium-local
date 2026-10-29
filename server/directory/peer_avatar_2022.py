@@ -277,12 +277,10 @@ class PeerAvatarRooms:
         # События = E_EU_AT_*, статусы = E_EU_ST_* (регистрация имён клиента2022, analises/dados).
         # Лыжи/сноуборд (опыт27/10, в журнале были события40/43): GROUND_SKI40→50,
         # INAIR_SKI41→51, SKI_JUMP43→53. Траектория и в прыжке (51/53): без неё прыжок шёл рывками.
-        # BMX (опыт28/10, в журнале были события48/50): GROUND_BIKE48→58, INAIR_BIKE49→59.
-        # JUMP_BIKE50 другим уходит как INAIR_BIKE59: статус60 запускает у другого клиента
-        # собственный прыжок (MoveCfgTable bike_jump_add_height/_ms/_speed) поверх траектории,
-        # где высота уже есть (до +3,5м), — прыжок выходил заметно выше (опыт28/10,
-        # сессия20261028T214250). Слезть с велосипеда — снова событие1→0.
-        mapping = {1:0,2:1,3:2,22:3,4:9,40:50,41:51,43:53,48:58,49:59,50:59}
+        # BMX (опыт28/10, в журнале были события48/50): GROUND_BIKE48→58, INAIR_BIKE49→59,
+        # JUMP_BIKE50→60. Слезть с велосипеда — снова событие1→0. Замена60 на59 высоту
+        # прыжка у других не изменила (сессия20261028T235536) и вернута.
+        mapping = {1:0,2:1,3:2,22:3,4:9,40:50,41:51,43:53,48:58,49:59,50:60}
         if movement is not None:
             for point in movement['points']:
                 event = point['bytes'][1]
@@ -331,6 +329,9 @@ class PeerAvatarRooms:
                        position=member['position'],recipients=len(outputs),pose_replicated=True,
                        server_status=member.get('pose',0),transitions=transitions,unknown_pose_events=unknown,
                        trajectory_replicated=trajectory,trajectory_fallback=trajectory_error,
+                       # Диагностика прыжка: [tick, z] каждой точки C2S2a (в журнале была только последняя).
+                       point_heights=[[p.get('value'),p['position'][2]] for p in (movement or {}).get('points',())]
+                                     if member.get('pose',0) in (3,9,58,59,60) else None,
                        # Диагностика прицеливания: режим и направление C2S2a.
                        movement_flags=(movement or {}).get('bytes',(None,))[0],
                        movement_speed=(movement or {}).get('word_1'),

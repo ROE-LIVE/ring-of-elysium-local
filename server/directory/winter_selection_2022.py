@@ -37,6 +37,14 @@ def load_spawn_points(path=None, map_id=16010):
     return tuple(tuple(p) for p in points)
 
 
+def load_water_cells(path=None):
+    """Células sobre a água do catálogo (chave opcional water_cells: [[cx, cy], ...])."""
+    if not path:
+        return frozenset()
+    config = json.loads(Path(path).read_text(encoding='utf-8'))
+    return frozenset(tuple(c) for c in config.get('water_cells', ()) if isinstance(c, list) and len(c) == 2)
+
+
 def choose_cell(payload, actor_uid, now, deadline, inventory_started, points, taken=frozenset()):
     """taken: клетки, уже занятые другими участниками комнаты (исходный клиент не даёт
     двоим одну клетку; здесь второй получает ближайшую свободную)."""

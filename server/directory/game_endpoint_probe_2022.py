@@ -59,7 +59,7 @@ from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
 from reliable_udp_2022 import ReliableSender, ReliableReceiver, FrameStream
 from movement_validation_2022 import MovementState
-from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, STAGED_DEFAULTS, staged_fixture, choose_staged, ATTR_BY_STAGE, client_attribute
+from winter_selection_2022 import default_choice, selected_fixture, choose as choose_winter_kit, load_spawn_points, choose_cell, STAGED_MAPS, STAGED_DEFAULTS, staged_fixture, choose_staged, ATTR_BY_STAGE, client_attribute, load_water_cells
 
 
 def encode_datagram(source, destination, sequence, acknowledgement, flags, clock, echoed, data=b''):
@@ -268,6 +268,8 @@ class Endpoint(asyncio.DatagramProtocol):
         # Другая карта получает выбор клетки только из явного опытного каталога той же карты.
         self.spawn_points = (load_spawn_points(spawn_points_file, room_map) if room_map and (spawn_points_file or room_map == 16010)
                              else None)
+        # Células no mar (catálogo pelo relevo real): o sorteio de quem não escolheu evita a água.
+        self.water_cells = load_water_cells(spawn_points_file) if self.spawn_points else frozenset()
         # Desert: выбор в три этапа (InitItem); остальные карты — прежний один этап16010.
         self.staged_loadout = room_map in STAGED_MAPS
         self.room_map = room_map
@@ -2285,7 +2287,8 @@ class Endpoint(asyncio.DatagramProtocol):
         taken = {cell for account, cell in (cells or {}).items()
                  if account != state.get('actor_uid') and account in live}
         free = [p for p in self.spawn_points if tuple(p[:2]) not in taken] or list(self.spawn_points)
-        point = random.choice(free)
+        land = [p for p in free if tuple(p[:2]) not in getattr(self, 'water_cells', frozenset())]
+        point = random.choice(land or free)
         state['born_point'] = point
         if cells is not None:
             cells[state['actor_uid']] = tuple(point[:2])

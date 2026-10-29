@@ -2172,8 +2172,12 @@ class Endpoint(asyncio.DatagramProtocol):
             self._scanner_marked = {}
         return self._scanner_marked
 
-    JET_TRIGGER = 70
+    # JET_TRIGGER70 и JET_UP55. Сессия20261029T023648: сервер увидел70 лишь в двух из пяти рывков
+    # (подъёмы +32м в02:40:42 и +27м в02:42:30/36 прошли без него), заряд не тратился.
+    JET_EVENTS = (55, 70)
     JET_ATTRIBUTE = 17
+    # Обычные события2a (стоя/присед/лёжа/прыжок/падение/приземление) — в журнал не пишем.
+    ROUTINE_MOVE_EVENTS = (1, 2, 3, 4, 22, 29)
 
     def kit_charge_sync(self, state, now):
         """Заряды набора (10D0) и полный 0x1162 с текущими зарядами тактики."""
@@ -2182,11 +2186,17 @@ class Endpoint(asyncio.DatagramProtocol):
                 + [weapon.ability_cd_sync(state.get('gadget_counts'), now)])
 
     def spend_jet_charge(self, d, remote, state, movement):
-        """JET_TRIGGER70 в C2S2a — рывок планера: тратит заряд, восстановление в poll_gadgets.
+        """JET_TRIGGER70 или JET_UP55 в C2S2a — рывок планера: тратит заряд, восстановление в poll_gadgets.
 
         Точки2a идут внахлёст (вторая — прогноз), поэтому повтор события за1с не считается.
         """
-        if not any(point['bytes'][1] == self.JET_TRIGGER for point in movement['points']):
+        unusual = [point['bytes'][1] for point in movement['points']
+                   if point['bytes'][1] and point['bytes'][1] not in self.ROUTINE_MOVE_EVENTS]
+        if unusual:
+            # Диагностика: какие события приходят при рывке и других способностях.
+            self.capture.record('move_event_sample', synthetic=True, account_uid=hex(state['actor_uid']),
+                                events=unusual, z=movement['points'][-1]['position'][2])
+        if not any(event in self.JET_EVENTS for event in unusual):
             return
         now = time.monotonic()
         if now-state.get('jet_triggered_at', -10) < 1:

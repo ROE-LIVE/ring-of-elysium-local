@@ -73,7 +73,9 @@ class GadgetTests(unittest.TestCase):
         a = self.state(5, ())
         a['weapon'].equipment[11] = 200901
         e.sessions = {1: a}
-        jet = dict(points=[dict(bytes=(0, 70, 0)), dict(bytes=(0, 70, 0))])
+        def move(*events):
+            return dict(points=[dict(bytes=(0, event, 0), position=(1, 2, 3)) for event in events])
+        jet = move(70, 70)
         e.spend_jet_charge(None, None, a, jet)
         own = dict(e.out[0][1])
         self.assertEqual(own[0x10d0], struct.pack('>II', 17, 0))
@@ -82,8 +84,10 @@ class GadgetTests(unittest.TestCase):
         e.spend_jet_charge(None, None, a, jet)                 # repetição do mesmo toque: ignorada
         a['jet_triggered_at'] -= 5
         e.spend_jet_charge(None, None, a, jet)                 # sem carga: nada a mandar
-        e.spend_jet_charge(None, None, a, dict(points=[dict(bytes=(0, 24, 0))]))
+        e.spend_jet_charge(None, None, a, move(24, 1))
         self.assertEqual(e.out, [])
+        # Amostra do evento incomum (24) para identificar os jatos; o rotineiro (1) não entra.
+        self.assertEqual([r[1]['events'] for r in e.records if r[0] == 'move_event_sample'][-1], [24])
         self.assertEqual([r[1]['spent'] for r in e.records if r[0] == 'kit_jet_trigger'], [True, False])
         e.poll_gadgets(time.monotonic() + 59)
         self.assertEqual(e.out, [])
@@ -91,6 +95,11 @@ class GadgetTests(unittest.TestCase):
         own = dict(e.out[0][1])
         self.assertEqual(own[0x10d0], struct.pack('>II', 17, 1))
         self.assertEqual(own[0x1162], struct.pack('>QI', 5, 1) + struct.pack('>III', 2, 1, 0))
+        # JET_UP 55 (jato que não chegava como 70 na sessão 20261029T023648) também gasta.
+        e.out.clear()
+        a['jet_triggered_at'] -= 5
+        e.spend_jet_charge(None, None, a, move(0, 55))
+        self.assertEqual(dict(e.out[0][1])[0x10d0], struct.pack('>II', 17, 0))
 
     def test_scanner_use_spends_charge_and_mark_notifies_marked_player(self):
         e = self.endpoint()

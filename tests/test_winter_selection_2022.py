@@ -102,9 +102,9 @@ class StagedLoadoutTests(unittest.TestCase):
         raw = [struct.unpack('>II', body) for code, body in WeaponState(fixture, 42).kit_sync() if code == 0x10d0]
         tactical = [r for r in raw if r[0] in TACTICAL_ABILITY_ATTRIBUTES or r[0] == 28]
         self.assertEqual(tactical, [(i, int(i == 27)) for i in TACTICAL_ABILITY_ATTRIBUTES] + [(28, 1)])
-        # Contador do HUD: 0x1162 com tipo BARRIER 6, 1 uso, sem recarga.
+        # Contador do HUD numa mensagem só: JET 2 do planador (1 carga) + BARRIER 6, 1 uso, sem recarga.
         cd = [body for code, body in WeaponState(fixture, 42).kit_sync() if code == 0x1162]
-        self.assertEqual(cd, [struct.pack('>QI', 42, 1) + struct.pack('>III', 6, 1, 0)])
+        self.assertEqual(cd, [struct.pack('>QI', 42, 2) + struct.pack('>III', 2, 1, 0) + struct.pack('>III', 6, 1, 0)])
         # Vera não tem modkit (4) nem SDV (6); Europa tem os oito.
         self.assertIsNone(choose_staged(0x10cc, struct.pack('>II', 20, 4), 1, 10, False, 16021)[0])
         self.assertEqual(choose_staged(0x10cc, struct.pack('>II', 20, 4), 1, 10, False, 16007)[0], (2, 4))

@@ -44,6 +44,9 @@ TACTICAL_ABILITY_ATTRIBUTES = (19, 21, 23, 25, 27, 29, 35, 37)
 # порядок полей по геттерам Lua (+0/+4/+8). E_ABILITY_CD_TYPE: GRAPPLE1 JET2 HEAL_GUN3 DRONE4
 # REFIT5 BARRIER6 BAIT7 STEALTH8 SCANNER9. У SDV типа нет.
 ABILITY_CD_TYPES = {21: 3, 23: 4, 25: 5, 27: 6, 29: 7, 35: 8, 37: 9}
+# Заряды набора в том же 0x1162: ATR_MOVE_GRAPPLE_LEFT_COUNT16 → GRAPPLE1, ATR_MOVE_JET_LEFT_COUNT17 → JET2.
+# Без них «E — реактивный рывок» планера острова не срабатывал (29.10): HUD берёт заряды из 0x1162.
+KIT_CD_TYPES = {16: 1, 17: 2}
 
 
 def encode_ability_cd_sync(actor_uid, entries):
@@ -731,19 +734,34 @@ class WeaponState:
                      for index in ABILITY_ATTRIBUTES]
         responses += [(0x10d0, struct.pack('>II', index, count)) for index, count in KIT_CHARGES.get(definition, ())]
         responses.append((0x516, struct.pack('>HBII', 1, 5, capacity, capacity)))
-        return responses + self.tactical_sync()
+        kit = [(KIT_CD_TYPES[index], count, 0) for index, count in KIT_CHARGES.get(definition, ())
+               if index in KIT_CD_TYPES]
+        return responses + self.tactical_sync(kit)
 
-    def tactical_sync(self):
+    def ability_cd_sync(self, tactical_counts=None):
+        """0x1162 completo (o cliente substitui a lista inteira): cargas do набора + тактика.
+
+        tactical_counts: {атрибут тактики: оставшиеся заряды}; по умолчанию — из fixture.
+        """
+        counts = dict(self.fixture.tactical) if tactical_counts is None else tactical_counts
+        kit = [(KIT_CD_TYPES[index], count, 0) for index, count in KIT_CHARGES.get(self.equipment.get(11), ())
+               if index in KIT_CD_TYPES]
+        entries = kit + [(ABILITY_CD_TYPES[index], counts.get(index, 0), 0) for index, _ in self.fixture.tactical
+                         if index in ABILITY_CD_TYPES]
+        return 0x1162, encode_ability_cd_sync(self.actor_uid, entries)
+
+    def tactical_sync(self, kit=()):
         """Способность тактики этапа2 и её заряды; остальные тактические выключены."""
         if not self.fixture.tactical:
-            return []
+            # Список 0x1162 целиком заменяет прежний: заряды набора идут в одном сообщении с тактикой.
+            return [(0x1162, encode_ability_cd_sync(self.actor_uid, list(kit)))] if kit else []
         selected = {index for index, _ in self.fixture.tactical}
         responses = [(0x10d0, struct.pack('>II', index, int(index in selected)))
                      for index in TACTICAL_ABILITY_ATTRIBUTES]
         responses += [(0x10d0, struct.pack('>II', index + 1, count))
                       for index, count in self.fixture.tactical if index != 19]
-        entries = [(ABILITY_CD_TYPES[index], count, 0) for index, count in self.fixture.tactical
-                   if index in ABILITY_CD_TYPES]
+        entries = list(kit) + [(ABILITY_CD_TYPES[index], count, 0) for index, count in self.fixture.tactical
+                               if index in ABILITY_CD_TYPES]
         if entries:
             responses.append((0x1162, encode_ability_cd_sync(self.actor_uid, entries)))
         return responses

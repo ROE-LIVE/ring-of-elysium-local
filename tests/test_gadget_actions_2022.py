@@ -40,7 +40,12 @@ class GadgetTests(unittest.TestCase):
 
     def state(self, uid, tactical=((27, 1),)):
         return dict(actor_uid=uid, room_uid=1, peer_avatar_anchor=(None, ('h', uid)), world=SimpleNamespace(dead=False),
-                    weapon=SimpleNamespace(fixture=SimpleNamespace(tactical=tactical)))
+                    weapon=self.weapon(uid, tactical))
+
+    def weapon(self, uid, tactical):
+        # WeaponState real: o 0x1162 sai pelo ability_cd_sync (kit + táticos com os usos atuais).
+        from weapon_probe_2022 import WeaponState, WeaponFixture
+        return WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=tactical), uid)
 
     def test_barrier_once_then_rejected_and_removed_after_time(self):
         e = self.endpoint()

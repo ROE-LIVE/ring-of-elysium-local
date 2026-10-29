@@ -2118,7 +2118,7 @@ class Endpoint(asyncio.DatagramProtocol):
         self.send_application_batch(d, remote, state, [
             (0x74e1, struct.pack('>I', 0)),
             (0x10d0, struct.pack('>II', BARRIER_COUNT, counts[BARRIER_ABILITY])),
-            (0x1162, encode_ability_cd_sync(state['actor_uid'], [(ABILITY_CD_TYPES[BARRIER_ABILITY], counts[BARRIER_ABILITY], 0)])),
+            state['weapon'].ability_cd_sync(counts),
             (0x74d0, encode_obstacle_sync(uid, state['actor_uid'], request['position'], request['rotation'], True))])
         others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
         for other in others:
@@ -2142,7 +2142,7 @@ class Endpoint(asyncio.DatagramProtocol):
         state['scanner_marks'] = 0
         self.send_application_batch(d, remote, state, [
             (0x10d0, struct.pack('>II', SCANNER_COUNT, counts[SCANNER_ABILITY])),
-            (0x1162, encode_ability_cd_sync(state['actor_uid'], [(ABILITY_CD_TYPES[SCANNER_ABILITY], counts[SCANNER_ABILITY], 0)]))])
+            state['weapon'].ability_cd_sync(counts)])
         self.capture.record('gadget_scanner', synthetic=True, accepted=True, account_uid=hex(state['actor_uid']),
                             left=counts[SCANNER_ABILITY], format_verified=False)
 

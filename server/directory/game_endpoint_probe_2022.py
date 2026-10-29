@@ -53,7 +53,7 @@ from state_scene_actions_2022 import apply_state_action
 from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
 from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
-from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, SAMPLE_ONLY as PEER_ACTION_SAMPLES, event_status, relay_packets, status_body
+from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, SAMPLE_ONLY as PEER_ACTION_SAMPLES, event_status, hip_fire_release, relay_packets, status_body
 from environment_probe_2022 import EnvironmentFixture
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
@@ -1126,6 +1126,7 @@ class Endpoint(asyncio.DatagramProtocol):
             self.emit_peer_avatars(*self.peer_avatars.pose_snapshots(now,int((now-self.started)*25)&0xffffffff))
             self.emit_peer_avatars(*self.peer_avatars.settle_motion(now,int((now-self.started)*25)&0xffffffff))
             self.emit_peer_avatars(*self.peer_avatars.remove_corpses(now))
+            self.release_peer_hip_fire(now)
         for state, reason in expired_members(self.peer_avatars, self.shared_loot, time.monotonic()):
             if self.peer_avatars:
                 outputs, events = self.peer_avatars.detach(state, reason)
@@ -1169,7 +1170,7 @@ class Endpoint(asyncio.DatagramProtocol):
         memo = state.setdefault('peer_action_memo', {})
         memo['actor'] = state.get('actor_uid')
         relays = relay_packets(command, payload, member['avatar'], memo,
-                               int((time.monotonic()-self.started)*25) & 0xffffffff)
+                               int((time.monotonic()-self.started)*25) & 0xffffffff, time.monotonic())
         if not relays:
             return
         outputs = [(other['state'], relays) for other_key, other in self.peer_avatars.members.items()
@@ -1183,6 +1184,15 @@ class Endpoint(asyncio.DatagramProtocol):
                     self.capture.record('peer_action_relay', synthetic=True, request=hex(command), sync=hex(relay[0]),
                                         account_uid=hex(state['actor_uid']), recipients=len(outputs),
                                         count=counts[hex(relay[0])], format_verified=False)
+
+    def release_peer_hip_fire(self, now):
+        """Опускает оружие удалённой модели после выстрела без прицела (см. hip_fire_release)."""
+        for key, member in list(self.peer_avatars.members.items()):
+            packets = hip_fire_release(member['avatar'], member['state'].get('peer_action_memo', {}), now)
+            outputs = [(other['state'], packets) for other_key, other in self.peer_avatars.members.items()
+                       if packets and other_key[0] == key[0] and other_key != key]
+            if outputs:
+                self.emit_peer_avatars(outputs, [])
 
     def relay_peer_status(self, state, events):
         """Перезарядка/лечение участника → STATUS_ENTER его удалённой модели у других."""

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server/directory'))
-from peer_actions_2022 import event_status, relay_body, relay_packets
+from peer_actions_2022 import HIP_FIRE_HOLD, event_status, hip_fire_release, relay_body, relay_packets
 from game_endpoint_probe_2022 import Endpoint
 
 
@@ -34,6 +34,29 @@ class PeerActionTests(unittest.TestCase):
         self.assertEqual(struct.unpack('>BQII', body), (0, uid, 1234, 7))
         self.assertIsNone(relay_body(0x11d5, bytes(11), uid))
         self.assertIsNone(relay_body(0x2f, struct.pack('>3f', float('nan'), 0, 0), uid))
+
+    def test_hip_fire_raises_and_lowers_remote_weapon(self):
+        # Sem mira (sessão 20261029T012734) só a pose do tiro mirando aparecia: sem 0x536,
+        # o servidor manda AIMING antes do 0x11D8 e STOP_AIM depois de HIP_FIRE_HOLD sem tiros.
+        uid, memo = 0xA, {}
+        motion = bytes(1)
+        sent = relay_packets(0x11d7, motion, uid, memo, tick=1, now=10.0)
+        self.assertEqual([c for c, _ in sent], [0x2b, 0x11d8])
+        self.assertEqual(struct.unpack('>QI', sent[0][1]), (uid, 24))
+        self.assertEqual([c for c, _ in relay_packets(0x11d7, motion, uid, memo, now=10.5)], [0x11d8])
+        self.assertEqual(hip_fire_release(uid, memo, 10.5+HIP_FIRE_HOLD-0.01), [])
+        (code, body), = hip_fire_release(uid, memo, 10.5+HIP_FIRE_HOLD)
+        self.assertEqual((code, struct.unpack('>QI', body)), (0x2b, (uid, 40)))
+        self.assertEqual(hip_fire_release(uid, memo, 20.0), [])
+        # Mirando, a arma já está erguida pelo 0x536: só o 0x11D8, sem STOP_AIM adiantado.
+        relay_packets(0x536, struct.pack('>I', 16), uid, memo)
+        self.assertEqual([c for c, _ in relay_packets(0x11d7, motion, uid, memo, now=30.0)], [0x11d8])
+        self.assertEqual(hip_fire_release(uid, memo, 40.0), [])
+        relay_packets(0x536, struct.pack('>I', 17), uid, memo)
+        self.assertEqual([c for c, _ in relay_packets(0x11d7, motion, uid, memo, now=50.0)], [0x2b, 0x11d8])
+        # Mirar durante a espera cancela o STOP_AIM pendente.
+        relay_packets(0x536, struct.pack('>I', 35), uid, memo)
+        self.assertEqual(hip_fire_release(uid, memo, 60.0), [])
 
     def test_ik_request_is_not_used_as_turn_pitch(self):
         # 0x11D5 é desvio de animação (parâmetro 0x37), não ângulo vertical: só vira 0x11D6.

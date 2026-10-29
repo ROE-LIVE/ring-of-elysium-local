@@ -40,6 +40,10 @@ ST_SCOPE_AIMING, ST_STOP_AIM, ST_LOAD_BULLET = 39, 40, 41
 # 0x536 ACTOR_EU_ACTION_REQ: U32 E_EU_AT_* (AIM=16, DIS_AIM=17, STOP_USE_ITEM=20, SCOPE_AIM=35).
 ACTION_STATUS = {16: ST_AIMING, 35: ST_SCOPE_AIMING, 17: ST_STOP_AIM}
 # События сервера (weapon/medical) → статус удалённой модели.
+# Выстрел без прицела: клиент не шлёт0x536, и удалённая модель с опущенным оружием не играет
+# анимацию0x11D8 (сессия20261029T012734: с прицелом поза видна, без — нет). Поднимаем оружие
+# статусом AIMING перед выстрелом и опускаем STOP_AIM, если за это время не было новых выстрелов.
+HIP_FIRE_HOLD = 1.0
 EVENT_STATUS = {'reload_started': ST_LOAD_BULLET, 'reload': ST_NOT_USE_ITEM,
                 'medical_started': ST_MEDICAL, 'medical_finished': ST_NOT_USE_ITEM,
                 'medical_cancelled': ST_NOT_USE_ITEM}
@@ -61,15 +65,38 @@ def event_status(event, memo):
     return status
 
 
-def relay_packets(command, payload, entity, memo, tick=None):
+def relay_packets(command, payload, entity, memo, tick=None, now=None):
     """Все SYNC для других участников (возможно пусто).
 
     tick — текущий tick сцены (25/с): 0x11D6 с устаревшим tick клиент, видимо, отбрасывает.
+    now — монотонное время в секундах: срок опускания оружия после выстрела без прицела.
     """
     if tick is not None:
         memo['now_tick'] = tick
     relay = relay_body(command, payload, entity, memo)
-    return [] if relay is None else [relay]
+    if relay is None:
+        return []
+    if command == 0x536:
+        action = struct.unpack('>I', payload)[0]
+        if action in (16, 35):
+            memo['aiming'] = True
+            memo.pop('hip_until', None)
+        elif action == 17:
+            memo['aiming'] = False
+    if command == 0x11d7 and now is not None and not memo.get('aiming'):
+        packets = [] if 'hip_until' in memo else [status_body(entity, ST_AIMING)]
+        memo['hip_until'] = now + HIP_FIRE_HOLD
+        return packets + [relay]
+    return [relay]
+
+
+def hip_fire_release(entity, memo, now):
+    """STOP_AIM для других, когда после выстрела без прицела прошло HIP_FIRE_HOLD."""
+    until = memo.get('hip_until')
+    if until is None or now < until:
+        return []
+    del memo['hip_until']
+    return [status_body(entity, ST_STOP_AIM)]
 
 
 def relay_body(command, payload, entity, memo=None):

@@ -168,6 +168,13 @@ class PeerAvatarTests(unittest.TestCase):
         # Diagnóstico do pulo: z de cada ponto quando a pose é de pulo/BMX.
         outputs,events=rooms.move(a,(101,200,300),17,10.35,movement([48]))
         self.assertEqual(events[0]['point_heights'],[[None,0,300]])
+        # Asa-delta (sessão 20261029T012734: 22, jato 70, FLY 24) e água (SWIN 6, FLOAT 7):
+        # o jato vira direto INAIR_FLY 4, sem o estado de impulso 82.
+        outputs,events=rooms.move(a,(101,200,300),18,10.36,movement([1,22,70,24,4,1]))
+        self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[0,3,4,9,0,0])
+        outputs,events=rooms.move(a,(101,200,300),19,10.37,movement([23,6,7,5,1]))
+        self.assertEqual([struct.unpack_from('>I',p,27)[0] for _,p in outputs[0][1]],[6,7,6,5,0,0])
+        self.assertEqual(events[0]['unknown_pose_events'],[])
 
     def test_forecast_point_is_replaced_by_real_one_and_trajectory_stays_ordered(self):
         # 0x2A real: (t, t+4) a cada 2 ticks; o segundo ponto é previsão (sessão 20261029T002815).

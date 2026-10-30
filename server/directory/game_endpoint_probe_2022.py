@@ -2378,6 +2378,12 @@ class Endpoint(asyncio.DatagramProtocol):
                             left=counts[BAIT_ABILITY], payload_hex=payload[:512].hex(), format_verified=False)
 
     GRAPPLE_ATTRIBUTE = 16
+    GRAPPLE_RESOLVE_DELAY = 0.5
+
+    def send_grapple_resolve(self, d, remote, state, trigger):
+        _, body = state.pop('grapple_resolve')
+        self.send_application_batch(d, remote, state, [(0x3a, body)])
+        self.capture.record('kit_grapple_resolve', synthetic=True, account_uid=hex(state['actor_uid']), trigger=trigger)
 
     def use_grapple(self, d, remote, state, payload):
         """0x3B GRAPPLE (gancho): gasta a carga, 0x3C BC_GRAPPLE a si e à sala e 0x3A RESOLVE_MOVE a si.
@@ -2392,7 +2398,10 @@ class Endpoint(asyncio.DatagramProtocol):
             return
         now = time.monotonic()
         spent = state['weapon'].use_kit_charge(self.GRAPPLE_ATTRIBUTE, now)
-        packets = [(0x3c, encode_grapple_bc(state['actor_uid'], request)), (0x3a, encode_grapple_resolve(request))]
+        packets = [(0x3c, encode_grapple_bc(state['actor_uid'], request))]
+        # O 0x3A vai à parte, GRAPPLE_RESOLVE_DELAY depois: no mesmo lote do 0x3C o cliente o descartava e o
+        # personagem travava (sessão 20261030T195637); no teste ao vivo chegava 0,3–2 s depois e soltava.
+        state['grapple_resolve'] = (now + self.GRAPPLE_RESOLVE_DELAY, encode_grapple_resolve(request))
         if spent:
             packets += self.kit_charge_sync(state, now)
         self.send_application_batch(d, remote, state, packets)
@@ -2566,6 +2575,10 @@ class Endpoint(asyncio.DatagramProtocol):
                 self.capture.record('kit_charge_recharged', synthetic=True, account_uid=hex(state['actor_uid']),
                                     attributes=recharged, charges=dict(state['weapon'].kit_counts(now)))
         self.finish_vehicle_levelups(now)
+        for state in list(getattr(self, 'sessions', {}).values()):
+            pending, anchor = state.get('grapple_resolve'), state.get('peer_avatar_anchor')
+            if pending and anchor and now >= pending[0]:
+                self.send_grapple_resolve(anchor[0], anchor[1], state, 'delay')
         for state in list(getattr(self, 'sessions', {}).values()):
             pulses = state.get('heal_gun_pulses')
             anchor = state.get('peer_avatar_anchor')

@@ -128,11 +128,15 @@ class Gears(unittest.TestCase):
         e.use_grapple(None, None, self.me, bytes.fromhex(GRAPPLE_SAMPLE))
         self.assertEqual(kit, [16])
         (who, mine), (other, theirs) = e.sent
-        self.assertEqual(([c for c, _ in mine], who, other), ([0x3c, 0x3a, 0x1162], ACTOR, OTHER))
-        resolve = mine[1][1]
+        self.assertEqual(([c for c, _ in mine], who, other), ([0x3c, 0x1162], ACTOR, OTHER))
+        # O 0x3A sai à parte, depois de GRAPPLE_RESOLVE_DELAY (poll_gadgets).
+        e.sent.clear()
+        e.send_grapple_resolve(None, None, self.me, 'delay')
+        self.assertEqual(([c for c, _ in e.sent[0][1]], 'grapple_resolve' in self.me), ([0x3a], False))
+        resolve = e.sent[0][1][0][1]
         self.assertEqual(len(resolve), 42)
         self.assertEqual(struct.unpack_from('>IHiii', resolve), (15, 0, 403524, 368588, 40491))
-        self.assertEqual([c for c, _ in theirs], [0x3c])
+        self.assertEqual(len(theirs[0][1]), 66)
         body = mine[0][1]
         self.assertEqual(len(body), 66)
         self.assertEqual(struct.unpack_from('>QIBI', body), (ACTOR, 15, 31, 4096))

@@ -110,3 +110,33 @@ class ZoneViewSyncTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ZoneStageReplayTests(unittest.TestCase):
+    """Saída da área fechada: 0x481 da fase anterior e depois o da atual (sessão 20261030T002540)."""
+
+    def two_stages(self):
+        fixture = WorldFixture(1000, 100, (10, 20, 30, 40), 50, 1,
+                               ((0, 10, encode_shrink(300, 10, [1, 2, 3], [1, 2, 3, 4])),
+                                (5, 20, encode_shrink(300, 20, [3], [1, 2, 3]))),
+                               region_grid=GRID,
+                               stage_safe=(frozenset({1, 2, 3, 4}), frozenset({1, 2, 3})),
+                               stage_future=(frozenset({1, 2, 3}), frozenset({3})), hazard_enabled=False)
+        w = WorldState(fixture, 42, 0)
+        w.poll(0)
+        return w
+
+    def test_previous_then_current(self):
+        e, w = ZoneViewSyncTests.endpoint(self), self.two_stages()
+        self.assertIsNone(w.previous_stage_snapshot(1))           # só a primeira fase aplicada
+        w.poll(6)
+        e.replay_zone_stage(None, None, {}, w, 6)
+        self.assertEqual([c for c, _ in e.out], [0x481, 0x481])
+        self.assertEqual([struct.unpack_from('>I', p, len(p)-4)[0] for _, p in e.out], [10, 20])
+        self.assertEqual(e.records[-1][1]['reason'], 'closed_zone_leave_replay')
+        self.assertEqual(e.records[-1][1]['previous_stage'], 10)
+
+    def test_first_stage_has_no_replay(self):
+        e, w = ZoneViewSyncTests.endpoint(self), self.two_stages()
+        e.replay_zone_stage(None, None, {}, w, 1)
+        self.assertEqual(e.out, [])

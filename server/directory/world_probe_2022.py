@@ -298,6 +298,13 @@ class WorldState:
         at, stage, body = self.fixture.stages[self.stage_index-1]
         return self._stage_message(at, stage, body, now)
 
+    def previous_stage_snapshot(self, now):
+        """Стадия до текущей: клиент снова увидит «открытие» зон, закрытых текущей (1411ba270)."""
+        if not self.initialized or self.stage_index < 2:
+            return None
+        at, stage, body = self.fixture.stages[self.stage_index-2]
+        return self._stage_message(at, stage, body, now)
+
     def catch_up_zone(self, now):
         """При смене транспорта выбрать текущую стадию без старых переходных481."""
         if not self.initialized:

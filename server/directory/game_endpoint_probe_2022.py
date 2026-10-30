@@ -857,6 +857,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.send_application(d, remote, state, command, payload)
                                         for event in events:
                                             self.capture.record('world_probe', synthetic=True, remote=remote, **event)
+                                            if event.get('action') == 'closed_zone_leave':
+                                                self.replay_zone_stage(d, remote, state, world, time.monotonic())
                                         self.sync_zone_view(d, remote, state, world, time.monotonic())
                                     if self.peer_avatars:
                                         self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
@@ -2362,6 +2364,23 @@ class Endpoint(asyncio.DatagramProtocol):
     # C2S2a уже FALL (статус9), скорость0, x/y замерли; планер закрылся, игрок упал.
     ZONE_SYNC_BLOCKING_EVENTS = START_EVENTS | CANCEL_EVENTS | {70}
     ZONE_SYNC_INTERVAL = 1.0
+
+    def replay_zone_stage(self, d, remote, state, world, now):
+        """Гипотеза: на выходе из закрытой зоны 481 предыдущей стадии, затем текущей.
+
+        Состояние региона клиента (0x143040ce8+0xc8) после выхода уже безопасное, а пепел
+        остаётся (сессия20261030T002540). Пепел, видимо, из границ/погоды сцены (140a8fa00),
+        которые обновляются только при применении481; повтор той же стадии их не трогает,
+        а предыдущая «открывает» закрытые зоны (1411ba270) и текущая закрывает снова (1411ba140).
+        """
+        previous = world.previous_stage_snapshot(now)
+        current = world.stage_snapshot(now)
+        if previous is None or current is None:
+            return
+        self.send_application(d, remote, state, 0x481, previous[0])
+        self.send_application(d, remote, state, 0x481, current[0])
+        self.capture.record('zone_stage_resent', synthetic=True, remote=remote, reason='closed_zone_leave_replay',
+                            previous_stage=previous[1]['stage'], hypothesis=True, **current[1])
 
     def sync_zone_view(self, d, remote, state, world, now):
         """27 текущей позиции и повтор стадии481, когда клиент видит зону не там, где игрок.

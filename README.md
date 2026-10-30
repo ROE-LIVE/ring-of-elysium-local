@@ -2,6 +2,8 @@
 
 [English](#english) | [Русский](#russian) · [Discord](https://discord.gg/pD2Bj5kAxk)
 
+> **Tudo o que o servidor e o launcher fazem / Full feature list / Все возможности:** [RECURSOS.md](RECURSOS.md). Inclui mapas, multijogador na rede local, veículos, táticos, clima, opções do launcher e o que ainda falta.
+
 <a id="english"></a>
 
 ## English

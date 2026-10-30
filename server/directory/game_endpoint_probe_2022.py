@@ -1042,6 +1042,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.capture.record('world_probe',synthetic=True,remote=remote,**world_event)
                                     if self.shared_vehicles and event['action'] == 'vehicle_move':
                                         self.move_vehicle_passengers(state, event['position'])
+                                    if (event['action'] == 'getoff' and state.get('zone_replay_after_getoff')
+                                            and 'world' in state and not state['world'].zone_inside):
+                                        self.replay_zone_stage(d, remote, state, state['world'], time.monotonic(),
+                                                               reason='vehicle_getoff_replay')
                                     for command, payload in responses:
                                         self.send_application(d, remote, state, command, payload)
                                     self.capture.record('vehicle_probe', synthetic=True, remote=remote, **event)
@@ -2514,7 +2518,7 @@ class Endpoint(asyncio.DatagramProtocol):
             self.emit_own_death_inventory(d, remote, state)
             self.cancel_dead_actions(state, remote)
 
-    def replay_zone_stage(self, d, remote, state, world, now):
+    def replay_zone_stage(self, d, remote, state, world, now, reason='closed_zone_leave_replay'):
         """На выходе из закрытой зоны 481 предыдущей стадии, затем текущей (пепел исчезает: сессия20261030T005337).
 
         Состояние региона клиента (0x143040ce8+0xc8) после выхода уже безопасное, а пепел
@@ -2526,9 +2530,12 @@ class Endpoint(asyncio.DatagramProtocol):
         current = world.stage_snapshot(now)
         if previous is None or current is None:
             return
+        # Сидя в машине повтор не снимал пепел (водитель, сессия20261030T013558): повторить при выходе.
+        vehicles = state.get('vehicles')
+        state['zone_replay_after_getoff'] = bool(vehicles is not None and vehicles.seated)
         self.send_application(d, remote, state, 0x481, previous[0])
         self.send_application(d, remote, state, 0x481, current[0])
-        self.capture.record('zone_stage_resent', synthetic=True, remote=remote, reason='closed_zone_leave_replay',
+        self.capture.record('zone_stage_resent', synthetic=True, remote=remote, reason=reason,
                             previous_stage=previous[1]['stage'], hypothesis=True, **current[1])
 
     def apply_fall_damage(self, d, remote, state, movement):

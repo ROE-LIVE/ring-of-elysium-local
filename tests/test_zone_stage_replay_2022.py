@@ -58,5 +58,18 @@ class ZoneStageReplayTests(unittest.TestCase):
         self.assertNotIn(0x27, [c for c, _ in e.out])
 
 
+    def test_seated_marks_replay_after_getoff(self):
+        # Sentado, o reenvio não limpava as cinzas (motorista, sessão 20261030T013558): repetir ao descer.
+        e, w = endpoint(), two_stages()
+        w.poll(6)
+        seated = {'vehicles': SimpleNamespace(seated=0x5040000160039)}
+        e.replay_zone_stage(None, None, seated, w, 6)
+        self.assertTrue(seated['zone_replay_after_getoff'])
+        seated['vehicles'].seated = None
+        e.replay_zone_stage(None, None, seated, w, 7, reason='vehicle_getoff_replay')
+        self.assertFalse(seated['zone_replay_after_getoff'])
+        self.assertEqual(e.records[-1][1]['reason'], 'vehicle_getoff_replay')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -165,7 +165,8 @@ class Gears(unittest.TestCase):
         entries = decode_snapshot(with_medgun.inventory()).entries
         medgun = [e for e in entries if e.item.definition == 20006]
         self.assertEqual([(e.container, e.slot, e.item.item_type) for e in medgun], [(2, 20, 1)])
-        self.assertEqual(struct.unpack_from('>I', medgun[0].item.raw, 56)[0], 12)
+        # raw começa no tipo do item (registro +2): a capacidade do registro +56 fica em raw +54.
+        self.assertEqual(struct.unpack_from('>I', medgun[0].item.raw, 54)[0], 12)
         without = WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=((29, 1),)), ACTOR)
         self.assertFalse(any(e.item.definition == 20006 for e in decode_snapshot(without.inventory()).entries))
 

@@ -37,12 +37,13 @@ class EnvironmentFixture:
 
 # E_ENVR_MSGID (имена из регистрации 140bb7b59): 4813 WEATHER_NOTIFY, 4814 GET_ALL_REQ, 4815 GET_ALL_RSP,
 # 4816 TIME_NOTIFY, 4817 EU_WEATHER_NOTIFY, 4818 EU_ALL_WEATHER_DETAIL. 4813/4817 — одна структура
-# (pack140c4be10): три U32, U32 n<=2, n×U32. Смысл полей не найден — опыт: первое поле = E_WEATHER_*
-# (SUNNY1). Без серверной погоды пепел KillZone (E_WEATHER_VOLCANO17) не уходил в безопасной области:
+# (pack140c4be10): три U32, U32 n<=2, n×U32. Второе поле 4817 — E_WEATHER_* (опыт вживую 20261030T024046:
+# 4 в поле2 сменило иконку HUD на дождь; 1 в поле1 — нет). Поля1/3 неизвестны
+# Без серверной погоды пепел KillZone (E_WEATHER_VOLCANO17) не уходил в безопасной области:
 # в конфиге клиента есть mSafeRegionUseServerWeather, а иконка погоды HUD пустая.
 # ROE_WEATHER_NOTIFY="a,b,c" меняет три поля без правки кода; "off" выключает.
 def weather_messages():
-    raw = os.environ.get('ROE_WEATHER_NOTIFY', '1,0,0').strip()
+    raw = os.environ.get('ROE_WEATHER_NOTIFY', '0,1,0').strip()
     if raw.lower() == 'off':
         return []
     fields = [int(v, 0) for v in raw.split(',')]

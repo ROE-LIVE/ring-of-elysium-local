@@ -1,4 +1,4 @@
-"""Experiência de clima: EU_WEATHER_NOTIFY 0x4817 e WEATHER_NOTIFY 0x4813 na abertura do mundo (SUNNY 1 no 1º campo)."""
+"""Experiência de clima: EU_WEATHER_NOTIFY 0x4817 e WEATHER_NOTIFY 0x4813 na abertura do mundo (SUNNY 1 no 2º campo, confirmado ao vivo)."""
 import os
 import struct
 import sys
@@ -13,8 +13,8 @@ class WeatherNotify(unittest.TestCase):
     def test_default_sunny(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop('ROE_WEATHER_NOTIFY', None)
-            self.assertEqual(weather_messages(), [(0x4817, struct.pack('>IIII', 1, 0, 0, 0)),
-                                                  (0x4813, struct.pack('>IIII', 1, 0, 0, 0))])
+            self.assertEqual(weather_messages(), [(0x4817, struct.pack('>IIII', 0, 1, 0, 0)),
+                                                  (0x4813, struct.pack('>IIII', 0, 1, 0, 0))])
 
     def test_override_and_off(self):
         with patch.dict(os.environ, {'ROE_WEATHER_NOTIFY': '0,1,0'}):

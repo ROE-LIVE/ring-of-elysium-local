@@ -119,7 +119,7 @@ class Gears(unittest.TestCase):
         e.use_stealth(None, None, self.me, False)
         self.assertEqual([p[0][0] for _, p in e.sent], [0x2c, 0x2c])
 
-    def test_grapple_bc_to_self_and_room(self):
+    def test_grapple_bc_to_room_and_resolve_to_owner(self):
         e = self.e
         kit = []
         self.me['weapon'].use_kit_charge = lambda index, now: kit.append(index) or True
@@ -127,23 +127,23 @@ class Gears(unittest.TestCase):
         e.kit_charge_sync = lambda st, now: [(0x1162, b'kit')]
         e.use_grapple(None, None, self.me, bytes.fromhex(GRAPPLE_SAMPLE))
         self.assertEqual(kit, [16])
+        # O dono recebe só a carga; o 0x3C vai aos outros com o UID do boneco remoto.
         (who, mine), (other, theirs) = e.sent
-        self.assertEqual(([c for c, _ in mine], who, other), ([0x3c, 0x1162], ACTOR, OTHER))
-        # O 0x3A sai à parte, depois de GRAPPLE_RESOLVE_DELAY (poll_gadgets).
+        self.assertEqual(([c for c, _ in mine], who, other, [c for c, _ in theirs]),
+                         ([0x1162], ACTOR, OTHER, [0x3c]))
+        body = theirs[0][1]
+        self.assertEqual(len(body), 66)
+        self.assertEqual(struct.unpack_from('>QIBI', body), (AVATAR, 15, 31, 4096))
+        # POS13 do jogador e do ponto de fixação (F32 arredondado para cm).
+        self.assertEqual(struct.unpack_from('>iiiB', body, 23), (404384, 369462, 40359, 0))
+        self.assertEqual(struct.unpack_from('>iii', body, 36), (403524, 368588, 40491))
+        # O 0x3A sai à parte para o dono, depois de GRAPPLE_RESOLVE_DELAY (poll_gadgets).
         e.sent.clear()
         e.send_grapple_resolve(None, None, self.me, 'delay')
         self.assertEqual(([c for c, _ in e.sent[0][1]], 'grapple_resolve' in self.me), ([0x3a], False))
         resolve = e.sent[0][1][0][1]
         self.assertEqual(len(resolve), 42)
         self.assertEqual(struct.unpack_from('>IHiii', resolve), (15, 0, 403524, 368588, 40491))
-        self.assertEqual(len(theirs[0][1]), 66)
-        body = mine[0][1]
-        self.assertEqual(len(body), 66)
-        self.assertEqual(struct.unpack_from('>QIBI', body), (ACTOR, 15, 31, 4096))
-        # POS13 do jogador e do ponto de fixação (F32 arredondado para cm).
-        self.assertEqual(struct.unpack_from('>iiiB', body, 23), (404384, 369462, 40359, 0))
-        self.assertEqual(struct.unpack_from('>iii', body, 36), (403524, 368588, 40491))
-        self.assertEqual(struct.unpack_from('>Q', theirs[0][1])[0], AVATAR)
         self.assertEqual(decode_grapple_request(bytes.fromhex(GRAPPLE_SAMPLE))['tail'][0], 41114)
 
     def test_stealth_energy_drains_and_turns_off(self):

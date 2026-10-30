@@ -2398,13 +2398,16 @@ class Endpoint(asyncio.DatagramProtocol):
             return
         now = time.monotonic()
         spent = state['weapon'].use_kit_charge(self.GRAPPLE_ATTRIBUTE, now)
-        packets = [(0x3c, encode_grapple_bc(state['actor_uid'], request))]
+        # O 0x3C (difusão) vai só aos outros: recebido pelo próprio dono, o gancho dele travava às vezes
+        # (sessões 20261030T201940 e seguintes); no dono basta o 0x3A.
+        packets = []
         # O 0x3A vai à parte, GRAPPLE_RESOLVE_DELAY depois: no mesmo lote do 0x3C o cliente o descartava e o
         # personagem travava (sessão 20261030T195637); no teste ao vivo chegava 0,3–2 s depois e soltava.
         state['grapple_resolve'] = (now + self.GRAPPLE_RESOLVE_DELAY, encode_grapple_resolve(request))
         if spent:
             packets += self.kit_charge_sync(state, now)
-        self.send_application_batch(d, remote, state, packets)
+        if packets:
+            self.send_application_batch(d, remote, state, packets)
         others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
         seen = self.seen_actor_uid(state.get('room_uid'), state['actor_uid'])
         for other in others:

@@ -82,5 +82,39 @@ class EndpointFlow(unittest.TestCase):
         self.assertEqual(e.records[-1]['reason'], 'no_refit_charge')
 
 
+class Functions(unittest.TestCase):
+    """Shift no carro modificado: 0x6591 FUNC_OP_REQ → 0x6592 e bit no 0x6554 (radar 256 no Jeep, 18 s, recarga 180 s)."""
+
+    def setUp(self):
+        EndpointFlow.setUp(self)
+        self.me['vehicles'].seated = UID
+        self.e.vehicle_levelups(7).levels[UID] = 1
+
+    def test_radar_on_then_expires(self):
+        e = self.e
+        e.vehicle_function_request(None, None, self.me, struct.pack('>i', 2))
+        self.assertEqual(e.sent[0], (ACTOR, [(0x6592, struct.pack('>ii', 0, 2))]))
+        status = [struct.unpack('>QII', p[0][1]) for _who, p in e.sent[1:]]
+        self.assertEqual(status, [(UID, 21600, 257), (UID, 21600, 257)])           # NORMAL1 | RADAR256, sala toda
+        e.sent.clear()
+        for room, functions in e._vehicle_functions.items():
+            self.assertEqual(functions.expired(float('inf')), [(UID, 256)])
+
+    def test_cooldown_and_unmodified(self):
+        from vehicle_levelup_2022 import VehicleFunctions
+        f = VehicleFunctions()
+        self.assertEqual(f.operate(UID, 102, 2, 0), (256, True))
+        self.assertEqual(f.operate(UID, 102, 2, 1), 'already_active')
+        self.assertEqual(f.expired(18), [(UID, 256)])
+        self.assertEqual(f.operate(UID, 102, 2, 100), 'cooldown')                # 18 + 180 s
+        self.assertEqual(f.operate(UID, 102, 2, 198), (256, True))
+        self.assertEqual(f.operate(UID, 109, 2, 0), 'unsupported_op')
+        e = self.e
+        e.vehicle_levelups(7).levels.clear()
+        e.vehicle_function_request(None, None, self.me, struct.pack('>i', 2))
+        self.assertEqual(e.sent, [(ACTOR, [(0x6592, struct.pack('>ii', 1, 2))])])
+        self.assertEqual(e.records[-1]['reason'], 'not_level1')
+
+
 if __name__ == '__main__':
     unittest.main()

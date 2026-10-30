@@ -78,3 +78,57 @@ class VehicleLevelups:
             del self.pending[uid]
             self.levels[uid] = 1
         return [(uid, actor, repair) for uid, actor, _due, repair in done]
+
+
+# Функции уровня1 по Shift: 0x6591 FUNC_OP_REQ (iOp_type; stOp_param версионный, не приходит),
+# 0x6592 FUNC_OP_RSP два I32 (140c27d10): порядок iRet, iOp_type — гипотеза, как iRet первым в LEVELUP_RSP.
+# E_EU_VEHICLE_FUNC_*: THROW_OILDRUM1, START/STOP_RADAR2/3, INVISIBLE4/5, BOOST6/7, REAPER8/9.
+# Бит в iCur_st 0x6554 (EU_VEHICLE_STATUS_*): BOOST64, INVISIBLE128, RADAR256; базовое состояние — маска3.
+# Время из mParts уровня1 (#0x444): 102 RADAR18с/перезарядка180с, 104 STEALTH20/40, 107 STEALTH40/10.
+OP_START_RADAR, OP_STOP_RADAR, OP_START_INVISIBLE, OP_STOP_INVISIBLE = 2, 3, 4, 5
+STATUS_INVISIBLE, STATUS_RADAR = 128, 256
+FUNCTIONS = {102: (OP_START_RADAR, OP_STOP_RADAR, STATUS_RADAR, 18.0, 180.0),
+             104: (OP_START_INVISIBLE, OP_STOP_INVISIBLE, STATUS_INVISIBLE, 20.0, 40.0),
+             107: (OP_START_INVISIBLE, OP_STOP_INVISIBLE, STATUS_INVISIBLE, 40.0, 10.0)}
+
+
+def decode_func_op_request(payload):
+    if len(payload) < 4:
+        raise ValueError('FUNC_OP_REQ ожидает iOp_type')
+    return struct.unpack_from('>i', payload)[0]
+
+
+def encode_func_op_response(ret, op_type):
+    return struct.pack('>ii', ret, op_type)
+
+
+class VehicleFunctions:
+    """Активные функции (бит статуса до срока) и перезарядка по машине."""
+
+    def __init__(self):
+        self.active, self.ready_at = {}, {}
+
+    def operate(self, uid, model, op_type, now):
+        """→ (бит, включить?) или причина отказа (str)."""
+        spec = FUNCTIONS.get(model)
+        if spec is None or op_type not in spec[:2]:
+            return 'unsupported_op'
+        start, _stop, bit, duration, cooldown = spec
+        if op_type == start:
+            if uid in self.active:
+                return 'already_active'
+            if now < self.ready_at.get(uid, 0):
+                return 'cooldown'
+            self.active[uid] = (bit, now + duration)
+            self.ready_at[uid] = now + duration + cooldown
+            return bit, True
+        if uid not in self.active:
+            return 'not_active'
+        del self.active[uid]
+        return bit, False
+
+    def expired(self, now):
+        done = [(uid, bit) for uid, (bit, until) in self.active.items() if until <= now]
+        for uid, _bit in done:
+            del self.active[uid]
+        return done

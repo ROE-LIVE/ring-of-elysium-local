@@ -48,7 +48,8 @@ from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obs
 from shared_vehicle_2022 import SharedVehicleRooms
 from vehicle_levelup_2022 import (VehicleLevelups, LEVEL_HP, REFIT_ABILITY, REFIT_COUNT, RET_OK, RET_FAIL,
                                   decode_levelup_request, encode_levelup_response, encode_levelup_bc,
-                                  encode_start_levelup_bc, encode_status_leave)
+                                  encode_start_levelup_bc, encode_status_leave, VehicleFunctions,
+                                  decode_func_op_request, encode_func_op_response)
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
 from target_roster_2022 import TargetRoster, load_actor_fixtures
@@ -986,6 +987,9 @@ class Endpoint(asyncio.DatagramProtocol):
                                     continue
                                 if message.command == 0x6537 and 'weapon' in state and 'vehicles' in state:
                                     self.vehicle_levelup_request(d, remote, state, message.payload)
+                                    continue
+                                if message.command == 0x6591 and 'vehicles' in state:
+                                    self.vehicle_function_request(d, remote, state, message.payload)
                                     continue
                                 if message.command == 0x536 and 'weapon' in state and eu_action(message.payload) == AT_USE_SCANNER:
                                     self.use_scanner(d, remote, state)
@@ -2125,6 +2129,55 @@ class Endpoint(asyncio.DatagramProtocol):
                             model=vehicle['configuration'], repair=repair, account_uid=hex(state['actor_uid']),
                             recipients=1 + len(others), sequence_verified=False)
 
+    def vehicle_functions(self, room_uid):
+        rooms = getattr(self, '_vehicle_functions', None)
+        if rooms is None:
+            rooms = self._vehicle_functions = {}
+        return rooms.setdefault(room_uid, VehicleFunctions())
+
+    def broadcast_vehicle_status(self, room_uid, uid, bit, on):
+        """0x6554 BC_STATUS com o bit da função ligado/desligado para a sala; devolve (vida, estado)."""
+        result = None
+        for member in self.room_sessions(room_uid):
+            vehicle = member['vehicles'].vehicles.get(uid) if 'vehicles' in member else None
+            if vehicle is None:
+                continue
+            status = vehicle.get('status') or 1
+            vehicle['status'] = status | bit if on else status & ~bit
+            result = (vehicle['hp'], vehicle['status'])
+            anchor = member['peer_avatar_anchor']
+            self.send_application_batch(anchor[0], anchor[1], member,
+                                        [(0x6554, struct.pack('>QII', uid, vehicle['hp'], vehicle['status']))])
+        return result
+
+    def vehicle_function_request(self, d, remote, state, payload):
+        """0x6591 FUNC_OP_REQ (Shift no carro modificado): radar/invisibilidade como bit do 0x6554, tempos da tabela."""
+        try:
+            op_type = decode_func_op_request(payload)
+        except ValueError as error:
+            self.capture.record('vehicle_function', synthetic=True, accepted=False, reason=str(error))
+            return
+        uid = state['vehicles'].seated
+        vehicle = state['vehicles'].vehicles.get(uid) if uid else None
+        room_uid = state.get('room_uid')
+        if vehicle is None:
+            result = 'not_seated'
+        elif self.vehicle_levelups(room_uid).levels.get(uid, 0) < 1:
+            result = 'not_level1'
+        else:
+            result = self.vehicle_functions(room_uid).operate(uid, vehicle['configuration'], op_type, time.monotonic())
+        if isinstance(result, str):
+            self.send_application_batch(d, remote, state, [(0x6592, encode_func_op_response(RET_FAIL, op_type))])
+            self.capture.record('vehicle_function', synthetic=True, accepted=False, reason=result, op_type=op_type,
+                                uid=hex(uid or 0), account_uid=hex(state['actor_uid']))
+            return
+        bit, on = result
+        self.send_application_batch(d, remote, state, [(0x6592, encode_func_op_response(RET_OK, op_type))])
+        hp_status = self.broadcast_vehicle_status(room_uid, uid, bit, on)
+        self.capture.record('vehicle_function', synthetic=True, accepted=True, op_type=op_type, bit=bit, on=on,
+                            uid=hex(uid), status=hp_status and hp_status[1], account_uid=hex(state['actor_uid']),
+                            sequence_verified=False)
+
     def finish_vehicle_levelups(self, now):
         """Fim da modificação (5 s): LEVELUP_BC nível 1, vida da tabela e saída do estado 75 para a sala; RSP e uso gasto ao autor."""
         for room_uid, levelups in list(getattr(self, '_vehicle_levelups', {}).items()):
@@ -2339,6 +2392,11 @@ class Endpoint(asyncio.DatagramProtocol):
                 self.capture.record('kit_charge_recharged', synthetic=True, account_uid=hex(state['actor_uid']),
                                     attributes=recharged, charges=dict(state['weapon'].kit_counts(now)))
         self.finish_vehicle_levelups(now)
+        for room_uid, functions in list(getattr(self, '_vehicle_functions', {}).items()):
+            for uid, bit in functions.expired(now):
+                hp_status = self.broadcast_vehicle_status(room_uid, uid, bit, False)
+                self.capture.record('vehicle_function', synthetic=True, accepted=True, phase='expired', bit=bit,
+                                    uid=hex(uid), status=hp_status and hp_status[1])
         marked = self.scanner_marked()
         for key, (target, until) in list(marked.items()):
             if now >= until:

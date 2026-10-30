@@ -111,3 +111,40 @@ class GadgetRooms:
 
     def in_room(self, room):
         return [(uid, o) for uid, o in self.obstacles.items() if o['room'] == room]
+
+
+# Holograma (isca, tática 3, item 70021): nomes/IDs pela tabela de registro do cliente (140bbe736…):
+#   0x74D3 OBSTACLE_MSGID_USE_BAIT, 0x74D4 USE_BAIT_RSP (I32, decodificador 140bcf170 como 0x74E1),
+#   0x74D5 BC_BAIT_ATTACK, 0x74D6 SHOW_BAIT_ATTACKER, 0x74D7/0x74D8 ENTER/LEAVE_BAIT,
+#   0x74D9/0x74DA BC_ENTER/BC_LEAVE_BAIT (todos U64; 0x74D6 U64 + POS13).
+# USE_BAIT (decodificador 140ca8430): POS13, 4×U32 (140bcd9d0), percurso (140ca7df0: U32 n<=128,
+#   n×{3×U32, 4×U32}), U32, 3×U32 (140bcd900). EuVehicleTable_bait: nId 201 HOLOBAIT, nHp 1000, nTime 30 s.
+# No 0x74D0 o tipo 2 traz um bloco da isca (140ca7f80: ficha do ator 140c29710 + percurso + 140c27f60);
+# ainda não montamos esse bloco.
+BAIT_ABILITY, BAIT_COUNT = 29, 30              # ATR_INIT_ABILITY_BAIT / ATR_BAIT_LEFT_COUNT
+BAIT_CONFIG, BAIT_HP, BAIT_SECONDS = 201, 1000, 30
+
+
+def decode_bait_request(payload):
+    if len(payload) < 49 or (len(payload) - 49) % 28:
+        raise ValueError('USE_BAIT espera 49 + 28n bytes')
+    x, y, z, _ = struct.unpack_from('>iiiB', payload, 0)
+    rotation = struct.unpack_from('>4f', payload, 13)
+    count = struct.unpack_from('>i', payload, 29)[0]
+    if not 0 <= count <= 128 or len(payload) != 49 + 28 * count:
+        raise ValueError('USE_BAIT com percurso inválido')
+    path = [struct.unpack_from('>iii4f', payload, 33 + 28 * i) for i in range(count)]
+    extra = struct.unpack_from('>I', payload, 33 + 28 * count)[0]
+    vector = struct.unpack_from('>3f', payload, 37 + 28 * count)
+    return dict(position=(x, y, z), rotation=rotation, path=path, extra=extra, vector=vector)
+
+
+# Capa (tática 8, item 70026): 0x536 com E_EU_AT_USE_STEALTH 71 / QUIT_STEALTH 73 (enum do cliente);
+# estado E_EU_ST_IN_STEALTH 83 (EuStatusTable m_nDescBuff 18). EuStealthCloakTable: energia mínima 6,
+# abrir 1,5 s, fechar 1,2 s — a energia (gasto/recarga) ainda não é simulada pelo servidor.
+AT_USE_STEALTH, AT_QUIT_STEALTH, ST_IN_STEALTH = 71, 73, 83
+
+# Medgun em si mesmo: 0x117B HEAL_GUN_ONESELF_REQ (iBullet_id) → 0x117C HEAL_GUN_ONESELF_RSP (iError).
+# Buff 4000 "奶枪回血": a cada 500 ms PowerSet Life +20. A duração do buff não foi achada: 10 pulsos (5 s,
+# +200) é hipótese nossa.
+HEAL_GUN_TICK, HEAL_GUN_AMOUNT, HEAL_GUN_PULSES = 0.5, 20, 10

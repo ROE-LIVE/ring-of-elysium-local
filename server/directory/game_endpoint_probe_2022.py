@@ -44,7 +44,9 @@ from drowning_2022 import BreathTracker, encode_power, OXYGEN_MAX, POWER_OXYGEN,
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
                                  BARRIER_ABILITY, BARRIER_COUNT, SCANNER_ABILITY, SCANNER_COUNT, AT_USE_SCANNER, SCANNER_MARK_SECONDS,
-                                 decode_scanner_mark, eu_action, decode_client_data, encode_client_data_ntf)
+                                 decode_scanner_mark, eu_action, decode_client_data, encode_client_data_ntf,
+                                 BAIT_ABILITY, BAIT_COUNT, decode_bait_request, AT_USE_STEALTH, AT_QUIT_STEALTH,
+                                 ST_IN_STEALTH, HEAL_GUN_TICK, HEAL_GUN_AMOUNT, HEAL_GUN_PULSES)
 from shared_vehicle_2022 import SharedVehicleRooms
 from vehicle_levelup_2022 import (VehicleLevelups, LEVEL_HP, REFIT_ABILITY, REFIT_COUNT, RET_OK, RET_FAIL,
                                   decode_levelup_request, encode_levelup_response, encode_levelup_bc,
@@ -1006,6 +1008,15 @@ class Endpoint(asyncio.DatagramProtocol):
                                     continue
                                 if message.command == 0x536 and 'weapon' in state and eu_action(message.payload) == AT_USE_SCANNER:
                                     self.use_scanner(d, remote, state)
+                                if (message.command == 0x536 and 'weapon' in state
+                                        and eu_action(message.payload) in (AT_USE_STEALTH, AT_QUIT_STEALTH)):
+                                    self.use_stealth(d, remote, state, eu_action(message.payload) == AT_USE_STEALTH)
+                                if message.command == 0x74d3 and 'weapon' in state:
+                                    self.use_bait(d, remote, state, message.payload)
+                                    continue
+                                if message.command == 0x117b and 'world' in state:
+                                    self.heal_gun_oneself(d, remote, state, message.payload)
+                                    continue
                                 if message.command == 0x1167 and 'weapon' in state:
                                     self.scanner_mark(state, message.payload)
                                     continue
@@ -2315,6 +2326,63 @@ class Endpoint(asyncio.DatagramProtocol):
         self.capture.record('gadget_scanner', synthetic=True, accepted=True, account_uid=hex(state['actor_uid']),
                             left=counts[SCANNER_ABILITY], format_verified=False)
 
+    def use_bait(self, d, remote, state, payload):
+        """0x74D3 USE_BAIT (holograma): gasta o uso e responde 0x74D4 0; o pedido inteiro vai para o log.
+
+        Hipótese: o próprio cliente anima o holograma pelo percurso que calculou. Os outros jogadores
+        ainda não o veem (falta o bloco da isca do 0x74D0 tipo 2).
+        """
+        counts = state.setdefault('gadget_counts', dict(state['weapon'].fixture.tactical))
+        try:
+            request = decode_bait_request(payload)
+        except ValueError as error:
+            request = None
+            reason = str(error)
+        else:
+            reason = None
+        if reason is None and (counts.get(BAIT_ABILITY, 0) <= 0 or getattr(state.get('world'), 'dead', False)):
+            reason = 'no_charge_or_dead'
+        if reason:
+            self.send_application_batch(d, remote, state, [(0x74d4, struct.pack('>i', 1))])
+            self.capture.record('gadget_bait', synthetic=True, accepted=False, reason=reason,
+                                account_uid=hex(state['actor_uid']), payload_hex=payload[:512].hex())
+            return
+        counts[BAIT_ABILITY] -= 1
+        self.send_application_batch(d, remote, state, [
+            (0x74d4, struct.pack('>i', 0)),
+            (0x10d0, struct.pack('>II', BAIT_COUNT, counts[BAIT_ABILITY])),
+            state['weapon'].ability_cd_sync(counts)])
+        self.capture.record('gadget_bait', synthetic=True, accepted=True, account_uid=hex(state['actor_uid']),
+                            position=list(request['position']), path_points=len(request['path']),
+                            path=[list(p[:3]) for p in request['path'][:16]], extra=request['extra'],
+                            left=counts[BAIT_ABILITY], payload_hex=payload[:512].hex(), format_verified=False)
+
+    def use_stealth(self, d, remote, state, on):
+        """0x536 USE_STEALTH 71 / QUIT_STEALTH 73 (capa): estado IN_STEALTH 83 para si e para a sala."""
+        command = 0x2b if on else 0x2c
+        self.send_application_batch(d, remote, state, [(command, struct.pack('>QI', state['actor_uid'], ST_IN_STEALTH))])
+        others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
+        seen = self.seen_actor_uid(state.get('room_uid'), state['actor_uid'])
+        for other in others:
+            anchor = other['peer_avatar_anchor']
+            self.send_application_batch(anchor[0], anchor[1], other, [(command, struct.pack('>QI', seen, ST_IN_STEALTH))])
+        state['stealth'] = on
+        self.capture.record('gadget_stealth', synthetic=True, on=on, account_uid=hex(state['actor_uid']),
+                            recipients=1 + len(others), energy_simulated=False)
+
+    def heal_gun_oneself(self, d, remote, state, payload):
+        """0x117B HEAL_GUN_ONESELF_REQ (iBullet_id) → 0x117C iError 0 e cura do buff 4000 em pulsos."""
+        world = state['world']
+        bullet = struct.unpack_from('>i', payload)[0] if len(payload) >= 4 else None
+        error = 1 if world.dead else 0
+        self.send_application_batch(d, remote, state, [(0x117c, struct.pack('>i', error))])
+        if not error:
+            now = time.monotonic()
+            state['heal_gun_pulses'] = [now + HEAL_GUN_TICK * (i + 1) for i in range(HEAL_GUN_PULSES)]
+        self.capture.record('heal_gun_oneself', synthetic=True, accepted=not error, bullet=bullet,
+                            account_uid=hex(state['actor_uid']), hp=world.hp, pulses=HEAL_GUN_PULSES,
+                            duration_verified=False)
+
     def scanner_mark(self, state, payload):
         """0x1167: avisa o jogador marcado (0x1168, corpo = unit marcado; o cliente o ignora)."""
         try:
@@ -2448,6 +2516,23 @@ class Endpoint(asyncio.DatagramProtocol):
                 self.capture.record('kit_charge_recharged', synthetic=True, account_uid=hex(state['actor_uid']),
                                     attributes=recharged, charges=dict(state['weapon'].kit_counts(now)))
         self.finish_vehicle_levelups(now)
+        for state in list(getattr(self, 'sessions', {}).values()):
+            pulses = state.get('heal_gun_pulses')
+            anchor = state.get('peer_avatar_anchor')
+            world = state.get('world')
+            if not pulses or not anchor or world is None:
+                continue
+            due = [t for t in pulses if t <= now]
+            if not due:
+                continue
+            state['heal_gun_pulses'] = [t for t in pulses if t > now]
+            if world.dead:
+                state['heal_gun_pulses'] = []
+                continue
+            world.hp = min(1000, world.hp + HEAL_GUN_AMOUNT * len(due))
+            self.send_application_batch(anchor[0], anchor[1], state, [(0x1069, encode_health(state['actor_uid'], world.hp))])
+            if self.peer_avatars:
+                self.emit_peer_avatars(*self.peer_avatars.health(state, now))
         for room_uid, functions in list(getattr(self, '_vehicle_functions', {}).items()):
             for uid, bit in functions.expired(now):
                 hp_status = self.broadcast_vehicle_status(room_uid, uid, bit, False)

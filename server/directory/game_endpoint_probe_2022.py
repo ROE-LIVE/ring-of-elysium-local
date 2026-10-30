@@ -2379,6 +2379,7 @@ class Endpoint(asyncio.DatagramProtocol):
 
     GRAPPLE_ATTRIBUTE = 16
     GRAPPLE_RESOLVE_DELAY = 0.5
+    GRAPPLE_CHARGE_SYNC_DELAY = 1.5
 
     def send_grapple_resolve(self, d, remote, state, trigger):
         _, body = state.pop('grapple_resolve')
@@ -2386,9 +2387,10 @@ class Endpoint(asyncio.DatagramProtocol):
         self.capture.record('kit_grapple_resolve', synthetic=True, account_uid=hex(state['actor_uid']), trigger=trigger)
 
     def use_grapple(self, d, remote, state, payload):
-        """0x3B GRAPPLE (gancho): gasta a carga, 0x3C BC_GRAPPLE a si e à sala e 0x3A RESOLVE_MOVE a si.
+        """0x3B GRAPPLE (gancho): gasta a carga, 0x3C BC_GRAPPLE à sala e, ao dono, 0x3A RESOLVE_MOVE e as cargas.
 
-        Sem o 0x3A o personagem ficava parado na pose de lançamento (confirmado ao vivo).
+        Nada vai ao dono no instante do lançamento (hipótese: o 0x1162 com a recarga em andamento abortava o
+        lançamento quando chegava antes do fim dele — falhas intermitentes com as mesmas mensagens).
         """
         try:
             request = decode_grapple_request(payload)
@@ -2398,16 +2400,11 @@ class Endpoint(asyncio.DatagramProtocol):
             return
         now = time.monotonic()
         spent = state['weapon'].use_kit_charge(self.GRAPPLE_ATTRIBUTE, now)
-        # O 0x3C (difusão) vai só aos outros: recebido pelo próprio dono, o gancho dele travava às vezes
-        # (sessões 20261030T201940 e seguintes); no dono basta o 0x3A.
-        packets = []
-        # O 0x3A vai à parte, GRAPPLE_RESOLVE_DELAY depois: no mesmo lote do 0x3C o cliente o descartava e o
-        # personagem travava (sessão 20261030T195637); no teste ao vivo chegava 0,3–2 s depois e soltava.
+        # O 0x3A vai à parte, GRAPPLE_RESOLVE_DELAY depois (no teste ao vivo chegava 0,3–2 s depois e soltava);
+        # as cargas, GRAPPLE_CHARGE_SYNC_DELAY depois.
         state['grapple_resolve'] = (now + self.GRAPPLE_RESOLVE_DELAY, encode_grapple_resolve(request))
         if spent:
-            packets += self.kit_charge_sync(state, now)
-        if packets:
-            self.send_application_batch(d, remote, state, packets)
+            state['grapple_charge_sync'] = now + self.GRAPPLE_CHARGE_SYNC_DELAY
         others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
         seen = self.seen_actor_uid(state.get('room_uid'), state['actor_uid'])
         for other in others:
@@ -2596,6 +2593,10 @@ class Endpoint(asyncio.DatagramProtocol):
             pending, anchor = state.get('grapple_resolve'), state.get('peer_avatar_anchor')
             if pending and anchor and now >= pending[0]:
                 self.send_grapple_resolve(anchor[0], anchor[1], state, 'delay')
+            due = state.get('grapple_charge_sync')
+            if due and anchor and now >= due:
+                state['grapple_charge_sync'] = None
+                self.send_application_batch(anchor[0], anchor[1], state, self.kit_charge_sync(state, now))
         for state in list(getattr(self, 'sessions', {}).values()):
             pulses = state.get('heal_gun_pulses')
             anchor = state.get('peer_avatar_anchor')

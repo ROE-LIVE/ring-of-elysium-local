@@ -127,10 +127,9 @@ class Gears(unittest.TestCase):
         e.kit_charge_sync = lambda st, now: [(0x1162, b'kit')]
         e.use_grapple(None, None, self.me, bytes.fromhex(GRAPPLE_SAMPLE))
         self.assertEqual(kit, [16])
-        # O dono recebe só a carga; o 0x3C vai aos outros com o UID do boneco remoto.
-        (who, mine), (other, theirs) = e.sent
-        self.assertEqual(([c for c, _ in mine], who, other, [c for c, _ in theirs]),
-                         ([0x1162], ACTOR, OTHER, [0x3c]))
+        # Nada vai ao dono no lançamento; o 0x3C vai aos outros com o UID do boneco remoto.
+        [(other, theirs)] = e.sent
+        self.assertEqual((other, [c for c, _ in theirs], 'grapple_charge_sync' in self.me), (OTHER, [0x3c], True))
         body = theirs[0][1]
         self.assertEqual(len(body), 66)
         self.assertEqual(struct.unpack_from('>QIBI', body), (AVATAR, 15, 31, 4096))

@@ -6,9 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'server/directory'))
 from game_endpoint_probe_2022 import Endpoint
-from gadget_actions_2022 import decode_bait_request
+from gadget_actions_2022 import decode_bait_request, decode_grapple_request
 
 ACTOR, OTHER, AVATAR = 0x242C, 0x885C, 0x777
+# 0x3B real (sessão 20261030T184624, 128 bytes com o bloco da versão >= 99).
+GRAPPLE_SAMPLE = ('0000000f1f00001000bf462d7cbf220dea0000000000000000000000062ba00005a33600009da7000000000000000000'
+                  '0048c583b448b47c1d471e71b648c5087648b3f97d471e2b1000240025ffb310a09a7d2ba09afff7209b' + '00' * 38)
 
 
 def bait_payload(points=2):
@@ -60,6 +63,25 @@ class Gears(unittest.TestCase):
         e.sent.clear()
         e.use_stealth(None, None, self.me, False)
         self.assertEqual([p[0][0] for _, p in e.sent], [0x2c, 0x2c])
+
+    def test_grapple_bc_to_self_and_room(self):
+        e = self.e
+        kit = []
+        self.me['weapon'].use_kit_charge = lambda index, now: kit.append(index) or True
+        self.me['weapon'].kit_counts = lambda now: [(16, 2)]
+        e.kit_charge_sync = lambda st, now: [(0x1162, b'kit')]
+        e.use_grapple(None, None, self.me, bytes.fromhex(GRAPPLE_SAMPLE))
+        self.assertEqual(kit, [16])
+        (who, mine), (other, theirs) = e.sent
+        self.assertEqual(([c for c, _ in mine], who, other), ([0x3c, 0x1162], ACTOR, OTHER))
+        body = mine[0][1]
+        self.assertEqual(len(body), 66)
+        self.assertEqual(struct.unpack_from('>QIBI', body), (ACTOR, 15, 31, 4096))
+        # POS13 do jogador e do ponto de fixação (F32 arredondado para cm).
+        self.assertEqual(struct.unpack_from('>iiiB', body, 23), (404384, 369462, 40359, 0))
+        self.assertEqual(struct.unpack_from('>iii', body, 36), (403524, 368588, 40491))
+        self.assertEqual(struct.unpack_from('>Q', theirs[0][1])[0], AVATAR)
+        self.assertEqual(decode_grapple_request(bytes.fromhex(GRAPPLE_SAMPLE))['tail'][0], 41114)
 
     def test_heal_gun_oneself(self):
         e = self.e

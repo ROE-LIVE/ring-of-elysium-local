@@ -144,6 +144,42 @@ def decode_bait_request(payload):
 # abrir 1,5 s, fechar 1,2 s — a energia (gasto/recarga) ainda não é simulada pelo servidor.
 AT_USE_STEALTH, AT_QUIT_STEALTH, ST_IN_STEALTH = 71, 73, 83
 
+# Gancho (mochila 200903, ATR_MOVE_GRAPPLE_LEFT_COUNT 16): o cliente pede 0x3B SCENE_MSGID_GRAPPLE e
+# fica parado na pose de lançamento até o 0x3C BC_GRAPPLE com o próprio UID (sessão 20261030T184624).
+# Campos pelos decodificadores do despachante de cena (tabela de saltos em 140c5b23b, IDs 10..0x4F):
+#   0x3B (140c58000): U32, U8, U32, 3×F32 direção, 3×I16, POS13 jogador, U8 + U64, 3×F32 início,
+#        3×F32 ponto de fixação, 3×I16, U8, 5×U16; com versão >= 99 mais 38 bytes (140c57d80).
+#   0x3C (140c585d0): U64 ator, U32, U8, U32, 3×I16, POS13, POS13, 3×I16, U8, 5×U16; com versão >= 99
+#        mais POS13 + U64. O servidor manda versão = código (0x3C < 99), então o bloco final não vai.
+# A correspondência campo a campo do 0x3B para o 0x3C (mesma ordem, POS13 do ponto de fixação a partir
+# dos F32) é hipótese nossa.
+GRAPPLE_REQUEST_SIZE = 90
+
+
+def decode_grapple_request(payload):
+    if len(payload) < GRAPPLE_REQUEST_SIZE:
+        raise ValueError('GRAPPLE espera pelo menos 90 bytes')
+    o = 0
+    fields = {}
+    for name, fmt in (('a', 'I'), ('b', 'B'), ('c', 'I'), ('direction', '3f'), ('rotation', '3h'),
+                      ('position', '3iB'), ('target_flag', 'B'), ('target', 'Q'), ('start', '3f'),
+                      ('anchor', '3f'), ('normal', '3h'), ('d', 'B'), ('tail', '5H')):
+        value = struct.unpack_from('>' + fmt, payload, o)
+        fields[name] = value if len(value) > 1 else value[0]
+        o += struct.calcsize('>' + fmt)
+    return fields
+
+
+def encode_grapple_bc(actor, request):
+    x, y, z, flag = request['position']
+    ax, ay, az = (int(round(v)) for v in request['anchor'])
+    return (struct.pack('>QIBI', actor, request['a'], request['b'], request['c'])
+            + struct.pack('>3h', *request['rotation'])
+            + struct.pack('>iiiB', x, y, z, flag)
+            + struct.pack('>iiiB', ax, ay, az, 0)
+            + struct.pack('>3hB5H', *request['normal'], request['d'], *request['tail']))
+
+
 # Medgun em si mesmo: 0x117B HEAL_GUN_ONESELF_REQ (iBullet_id) → 0x117C HEAL_GUN_ONESELF_RSP (iError).
 # Buff 4000 "奶枪回血": a cada 500 ms PowerSet Life +20. A duração do buff não foi achada: 10 pulsos (5 s,
 # +200) é hipótese nossa.

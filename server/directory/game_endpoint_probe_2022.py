@@ -1040,6 +1040,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                         world_event = state['world'].update_position(event['position'], time.monotonic())
                                         if world_event:
                                             self.capture.record('world_probe',synthetic=True,remote=remote,**world_event)
+                                    if self.shared_vehicles and event['action'] == 'vehicle_move':
+                                        self.move_vehicle_passengers(state, event['position'])
                                     for command, payload in responses:
                                         self.send_application(d, remote, state, command, payload)
                                     self.capture.record('vehicle_probe', synthetic=True, remote=remote, **event)
@@ -2093,6 +2095,27 @@ class Endpoint(asyncio.DatagramProtocol):
         if rooms is None:
             rooms = self._vehicle_levelups = {}
         return rooms.setdefault(room_uid, VehicleLevelups())
+
+    def move_vehicle_passengers(self, state, position):
+        """Passageiro não manda 0x2A: a posição do mundo dele segue o MOVE do motorista.
+
+        Sem isso o passageiro nunca saía da área fechada no servidor e não recebia o 0x481 duplo
+        (cinzas presas no banco 2; sessão 20261030T013558).
+        """
+        room = self.shared_vehicles.rooms.get(state.get('room_uid'))
+        uid = state['vehicles'].seated
+        if room is None or uid is None or not self.peer_avatars:
+            return
+        for account in set(room['seats'].get(uid, {}).values()) - {state['actor_uid']}:
+            member = self.peer_avatars.members.get((state['room_uid'], account))
+            other = member and member['state']
+            if not other or 'world' not in other:
+                continue
+            world_event = other['world'].update_position(position, time.monotonic())
+            if world_event:
+                anchor = other.get('peer_avatar_anchor')
+                self.capture.record('world_probe', synthetic=True, remote=anchor and anchor[1],
+                                    passenger_of=hex(uid), **world_event)
 
     def seen_actor_uid(self, room_uid, actor_uid):
         """UID com que os outros jogadores da sala veem o ator (boneco remoto); sem sala compartilhada, o próprio."""

@@ -122,7 +122,7 @@ Legend:
 |---|---|
 | Glider, with jet and 60 s recharge | ✅ |
 | Snowboard / ski | ✅ |
-| Grappling hook (climbing), with 10 s recharge | ✅ |
+| Grappling hook (climbing), with 10 s recharge: pulls you to the anchor point | ✅ |
 | Vera/Europe backpacks: island wing, BMX, grappling hook, motorcycle | ✅ |
 
 ## 6. Tactical items
@@ -132,7 +132,7 @@ Legend:
 | Deployable Shield (barricade), which disappears after 30 s | ✅ |
 | Biosignal Detector (scanner), with a warning for the detected player | ✅ |
 | Vehicle modification (vehicle modification kit) | ✅ |
-| Holographic Decoy (hologram) | 🧪 other players do not see it yet |
+| Holographic Decoy (hologram), with the owner's appearance and the game's path | ✅ (other PCs not tested yet) |
 | Stealth Cloak (invisibility cloak) | 🧪 the cloak's energy is not simulated |
 | Medgun (self-heal) | 🧪 |
 | Recon Drone, DPV | ⏳ |

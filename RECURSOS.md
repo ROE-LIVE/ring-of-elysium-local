@@ -122,7 +122,7 @@ Legenda:
 |---|---|
 | Asa-delta (planador), com jato e recarga de 60 s | ✅ |
 | Snowboard / esqui | ✅ |
-| Gancho (escalada), com recarga de 10 s | ✅ |
+| Gancho (escalada), com recarga de 10 s: puxa até o ponto de fixação | ✅ |
 | Mochilas de Vera/Europa: asa da ilha, BMX, gancho, moto | ✅ |
 
 ## 6. Táticos
@@ -132,7 +132,7 @@ Legenda:
 | Deployable Shield (barricada), que some após 30 s | ✅ |
 | Biosignal Detector (scanner), com aviso para o detectado | ✅ |
 | Vehicle modification (kit de modificação de veículo) | ✅ |
-| Holographic Decoy (holograma) | 🧪 os outros jogadores ainda não o veem |
+| Holographic Decoy (holograma), com a aparência do dono e o percurso do jogo | ✅ (outros PCs ainda sem teste) |
 | Stealth Cloak (capa de invisibilidade) | 🧪 a energia da capa não é simulada |
 | Medgun (curar a si mesmo) | 🧪 |
 | Recon Drone, DPV | ⏳ |

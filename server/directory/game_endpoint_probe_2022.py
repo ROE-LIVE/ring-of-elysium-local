@@ -59,7 +59,7 @@ from death_parcel_2022 import DeathParcelState, target_inventory
 from throwable_actions_2022 import ThrowableActions, PROFILES as THROWABLE_EFFECT_PROFILES
 from parcel_catalog_2022 import ParcelCatalog, load_parcel_fixture, make_parcel_state
 from peer_actions_2022 import RELAY as PEER_ACTION_RELAY, SAMPLE_ONLY as PEER_ACTION_SAMPLES, event_status, hip_fire_release, relay_packets, status_body
-from environment_probe_2022 import EnvironmentFixture
+from environment_probe_2022 import EnvironmentFixture, WeatherSchedule, load_weather_profile, weather_messages
 from loot_catalog_2022 import LootCatalog, LootCatalogState
 from roe_scene_2023 import decode_move_request
 from reliable_udp_2022 import ReliableSender, ReliableReceiver, FrameStream
@@ -758,14 +758,26 @@ class Endpoint(asyncio.DatagramProtocol):
                                         and not state.get('environment_initialized')
                                         and message.command == 0x1f49):
                                     server_seconds=int(time.time())&0xffffffff
+                                    schedule=self.weather_schedule(state.get('room_uid'))
+                                    weather=schedule.current(time.monotonic()) if schedule else 1
                                     self.send_application_batch(d,remote,state,
-                                        self.environment_fixture.messages(server_seconds))
+                                        self.environment_fixture.messages(server_seconds,weather))
                                     state['environment_initialized']=True
+                                    state['weather_sent']=weather
                                     self.capture.record('environment_initialized',synthetic=True,
                                         hour=self.environment_fixture.hour,
                                         temperature_raw=self.environment_fixture.temperature,
-                                        server_seconds=server_seconds,
+                                        server_seconds=server_seconds, weather=weather,
+                                        climate=schedule and schedule.climate['climate'],
                                         original_temperature_algorithm=False)
+                                elif (state.get('environment_initialized') and message.command == 0x1f49
+                                        and self.weather_schedule(state.get('room_uid'))):
+                                    weather=self.weather_schedule(state.get('room_uid')).current(time.monotonic())
+                                    if weather != state.get('weather_sent'):
+                                        self.send_application_batch(d,remote,state,weather_messages(weather))
+                                        self.capture.record('weather_changed',synthetic=True,remote=remote,
+                                            previous=state.get('weather_sent'),weather=weather)
+                                        state['weather_sent']=weather
                                 if self.breakable_fixture and 'weapon' in state and state.get('room_sent'):
                                     if 'breakables' not in state:
                                         state['breakables'] = BreakableState(self.breakable_fixture, state['actor_uid'],
@@ -2094,6 +2106,22 @@ class Endpoint(asyncio.DatagramProtocol):
         if getattr(self, '_gadget_rooms', None) is None:
             self._gadget_rooms = GadgetRooms()
         return self._gadget_rooms
+
+    def weather_schedule(self, room_uid):
+        """Uma sequência de clima por sala (ROE_WEATHER_PROFILE); None sem perfil ou com ROE_WEATHER_NOTIFY."""
+        rooms = getattr(self, '_weather_schedules', None)
+        if rooms is None:
+            rooms = self._weather_schedules = {}
+            self._weather_profile = None if os.environ.get('ROE_WEATHER_NOTIFY') else load_weather_profile()
+        if self._weather_profile is None:
+            return None
+        if room_uid not in rooms:
+            rooms[room_uid] = WeatherSchedule(self._weather_profile, random.Random(), time.monotonic())
+            self.capture.record('weather_schedule', synthetic=True, room_uid=room_uid,
+                                map_id=self._weather_profile.get('map_id'),
+                                climate=rooms[room_uid].climate['climate'],
+                                sequence=[w['name'] for w in rooms[room_uid].group['sequence']])
+        return rooms[room_uid]
 
     def vehicle_levelups(self, room_uid):
         rooms = getattr(self, '_vehicle_levelups', None)

@@ -94,18 +94,19 @@ def encode_obstacle_sync(uid, owner, position, rotation, own, hp=BARRIER_HP, kin
 #   140bd0180: 30× {U32, U64, U32, U32, U32 n<=8 (140bceab0), U32, U32} + U32;
 #   140c25cf0: 11×U32, listas U32 n + n×U32 (<=10, <=5, <=10, <=80, <=10), U32, U32;
 #   140be86f0: aparência 5×I32 (a mesma do BE7 +1240); U8; 140be91a0: U32 n<=400 itens de 0x3E.
-# Mandamos a ficha mínima: só o nome e a aparência do dono, o resto zerado e as listas vazias.
+# Esses três últimos são o mesmo trecho do fim do ENTER_ROOM (aparência + flag + acessórios,
+# room_cosmetics_2022). Só com a aparência o holograma saiu sem roupa (sessão 20261030T191045);
+# agora vai o trecho inteiro do dono. O resto da ficha segue zerado, com listas vazias.
 OBSTACLE_BAIT = 2
 BAIT_CONFIG, BAIT_HP, BAIT_SECONDS = 201, 1000, 30
 
 
-def encode_bait_block(name, appearance, path):
+def encode_bait_block(name, appearance_tail, path):
     raw = name.encode('utf-8')[:0x7f] + b'\0'
     card = (struct.pack('>I', len(raw)) + raw + bytes(48)
             + bytes(32) * 30 + bytes(4)
             + bytes(44) + bytes(4) * 5 + bytes(8)
-            + (appearance if appearance and len(appearance) == 20 else bytes(20)) + b'\0'
-            + struct.pack('>I', 0))
+            + (appearance_tail or bytes(21) + struct.pack('>I', 0)))
     route = struct.pack('>I', len(path)) + b''.join(struct.pack('>iii4f', *p) for p in path)
     return card + route + struct.pack('>I', 0)
 

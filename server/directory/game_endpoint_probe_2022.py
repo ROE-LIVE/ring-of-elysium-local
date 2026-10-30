@@ -484,6 +484,7 @@ class Endpoint(asyncio.DatagramProtocol):
                                         # Аватар (5×U32) и флаг для профиля BE7 этого участника у других.
                                         state['appearance'] = (struct.pack('>5I',*appearance['avatar_ids']),
                                                                int(appearance['avatar_applied']))
+                                        state['appearance_tail'] = bytes.fromhex(appearance.pop('appearance_tail'))
                                         self.capture.record('room_cosmetics_applied',synthetic=True,**appearance)
                                     self.send_application(d,remote,state,0xdcf,bytes(data))
                                     state['room_sent']=True
@@ -2356,9 +2357,8 @@ class Endpoint(asyncio.DatagramProtocol):
         # Sem o 0x74D0 tipo 2 o cliente só fazia a animação de uso: o holograma nasce desta mensagem.
         now = time.monotonic()
         uid = self.gadget_rooms().place_barrier(state.get('room_uid'), state['actor_uid'], request, now, BAIT_SECONDS)
-        appearance = state.get('appearance')
-        bait = encode_bait_block(state.get('actor_display_name') or 'Player',
-                                 appearance[0] if appearance else None, request['path'])
+        bait = encode_bait_block(state.get('actor_display_name') or 'Player', state.get('appearance_tail'),
+                                 request['path'])
 
         def sync(own):
             return (0x74d0, encode_obstacle_sync(uid, state['actor_uid'], request['position'], request['vector'], own,

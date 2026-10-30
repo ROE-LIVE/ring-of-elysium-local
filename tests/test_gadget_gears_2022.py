@@ -50,7 +50,9 @@ def read_obstacle_sync(body):
         take('II')
         out['appearance'] = take('5i')
         take('B')
-        assert take('I')[0] == 0
+        for _ in range(take('I')[0]):
+            _, rows = take('II')
+            take('IIB' * rows)
         out['path'] = take('I')[0]
         take('iii4f' * out['path'])
         assert take('I')[0] == 0
@@ -86,7 +88,9 @@ class Gears(unittest.TestCase):
     def test_bait_spawns_obstacle_type_2(self):
         e = self.e
         self.me['actor_display_name'] = 'Jogador1'
-        self.me['appearance'] = (struct.pack('>5I', 1, 2, 3, 4, 5), 1)
+        # Trecho do ENTER_ROOM: aparência, flag e 1 grupo de acessórios (slot 7, 1 linha item/índice/flag).
+        self.me['appearance_tail'] = (struct.pack('>5IB', 1, 2, 3, 4, 5, 1)
+                                      + struct.pack('>III', 1, 7, 1) + struct.pack('>IIB', 9001, 0, 1))
         e.use_bait(None, None, self.me, bait_payload(3))
         (mine_uid, mine), (other_uid, theirs) = e.sent
         self.assertEqual((mine_uid, other_uid, mine[-1][0], theirs[0][0]), (ACTOR, OTHER, 0x74d0, 0x74d0))

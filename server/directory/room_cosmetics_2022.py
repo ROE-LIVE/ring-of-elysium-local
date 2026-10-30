@@ -31,7 +31,10 @@ def apply_room_cosmetics(payload, catalog_path, actor_uid=None):
     result = (bytes(payload[:avatar['offset']]) + cosmetics.avatar
               + bytes((int(cosmetics.avatar_applied),)) + cosmetics.accessory_sync())
     decode_enter_room_response(result)
+    # Хвост (аватар + флаг + аксессуары) совпадает с концом карточки актёра 140c29710 (be86f0, U8, be91a0):
+    # голограмма (0x74D0 тип2) берёт его целиком, иначе модель приманки без одежды.
     return result, dict(avatar_ids=list(struct.unpack('>5I',cosmetics.avatar)),
+                        appearance_tail=bytes(result[avatar['offset']:]).hex(),
                         avatar_applied=cosmetics.avatar_applied,
                         accessory_groups=len({slot for slot,_ in cosmetics.accessory_selection}),
                         account_state=cosmetics.state_path.name if cosmetics.state_path else None)

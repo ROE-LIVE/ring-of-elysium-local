@@ -863,6 +863,8 @@ class WeaponState:
             gun[:4] = bytes((1, MEDGUN_SLOT, 1, 0))
             struct.pack_into('>IQ', gun, 4, self.tactical_gun.definition, self.tactical_gun.uid)
             struct.pack_into('>I', gun, 56, MEDGUN_CAPACITY)
+            # Balas carregadas = cargas da Medgun (1 no início, nUseNum do 70024).
+            struct.pack_into('>I', gun, 60, dict(self.fixture.tactical).get(21, 0))
             struct.pack_into('>I', gun, 72, 0)
             records.append(bytes(gun))
         if self.tactical_item:
@@ -1145,7 +1147,8 @@ class WeaponState:
                              'ammunition_quantity': self.ammunition_quantity(loot.definition) if loot.definition in AMMUNITION_WEIGHTS else None}
         if command == 0x49e and len(payload) == 4:
             slot = struct.unpack('>I', payload)[0]
-            if slot == 0 or slot in self.guns or slot in self.equipped_throwables:
+            # 9 = Medgun no encaixe de táticos (o G a equipa com 0x49E 9).
+            if slot == 0 or slot in self.guns or slot in self.equipped_throwables or (slot == MEDGUN_SLOT and self.tactical_gun):
                 cancelled = bool(self.pending_reload and self.pending_reload['slot'] != slot)
                 if cancelled:
                     self.pending_reload = None

@@ -48,6 +48,7 @@ from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obs
                                  BAIT_ABILITY, BAIT_COUNT, decode_bait_request, AT_USE_STEALTH, AT_QUIT_STEALTH,
                                  ST_IN_STEALTH, HEAL_GUN_TICK, HEAL_GUN_AMOUNT, HEAL_GUN_PULSES,
                                  decode_grapple_request, encode_grapple_bc, encode_grapple_resolve, encode_bait_block, OBSTACLE_BAIT,
+                                 HEAL_GUN_ABILITY, HEAL_GUN_COUNT, HEAL_GUN_RECHARGE, MEDGUN_HAND_SLOT,
                                  BAIT_CONFIG, BAIT_HP, BAIT_SECONDS)
 from shared_vehicle_2022 import SharedVehicleRooms
 from vehicle_levelup_2022 import (VehicleLevelups, LEVEL_HP, REFIT_ABILITY, REFIT_COUNT, RET_OK, RET_FAIL,
@@ -1022,6 +1023,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                     continue
                                 if message.command == 0x117b and 'world' in state:
                                     self.heal_gun_oneself(d, remote, state, message.payload)
+                                    continue
+                                if (message.command == 0x11da and 'weapon' in state and state['weapon'].tactical_gun
+                                        and state['weapon'].hand_slot == MEDGUN_HAND_SLOT):
+                                    self.medgun_fire(d, remote, state, message.payload)
                                     continue
                                 if message.command == 0x1167 and 'weapon' in state:
                                     self.scanner_mark(state, message.payload)
@@ -2441,12 +2446,44 @@ class Endpoint(asyncio.DatagramProtocol):
             if energy <= 0:
                 self.use_stealth(anchor[0], anchor[1], state, False)
 
+    def medgun_charge_packets(self, state, counter=0):
+        """Pente da Medgun (0x4A0, encaixe 9) = cargas; contador 22 e o 0x1162 completo."""
+        weapon = state['weapon']
+        counts = state.setdefault('gadget_counts', dict(weapon.fixture.tactical))
+        left = counts.get(HEAL_GUN_ABILITY, 0)
+        return [(0x4a0, struct.pack('>QIII', state['actor_uid'], MEDGUN_HAND_SLOT, left, counter)),
+                (0x10d0, struct.pack('>II', HEAL_GUN_COUNT, left)), weapon.ability_cd_sync(counts)]
+
+    def spend_medgun_charge(self, state):
+        """Gasta 1 carga se houver e agenda a volta em HEAL_GUN_RECHARGE; False sem carga."""
+        counts = state.setdefault('gadget_counts', dict(state['weapon'].fixture.tactical))
+        if counts.get(HEAL_GUN_ABILITY, 0) <= 0:
+            return False
+        counts[HEAL_GUN_ABILITY] -= 1
+        state.setdefault('medgun_recharges', []).append(time.monotonic() + HEAL_GUN_RECHARGE)
+        return True
+
+    def medgun_fire(self, d, remote, state, payload):
+        """0x11DA com a Medgun na mão: o disparo (modo 0) gasta a carga; sem carga o pente vai a 0."""
+        if len(payload) != 49:
+            return
+        counter, mode = struct.unpack_from('>IB', payload, 24)
+        if mode != 0:
+            return
+        spent = self.spend_medgun_charge(state)
+        self.send_application_batch(d, remote, state, self.medgun_charge_packets(state, counter))
+        self.capture.record('medgun_fire', synthetic=True, accepted=spent, account_uid=hex(state['actor_uid']),
+                            left=state['gadget_counts'].get(HEAL_GUN_ABILITY, 0))
+
     def heal_gun_oneself(self, d, remote, state, payload):
-        """0x117B HEAL_GUN_ONESELF_REQ (iBullet_id) → 0x117C iError 0 e cura do buff 4000 em pulsos."""
+        """0x117B HEAL_GUN_ONESELF_REQ (iBullet_id) → 0x117C iError 0 e cura do buff 4000 em pulsos; gasta a carga."""
         world = state['world']
         bullet = struct.unpack_from('>i', payload)[0] if len(payload) >= 4 else None
-        error = 1 if world.dead else 0
-        self.send_application_batch(d, remote, state, [(0x117c, struct.pack('>i', error))])
+        error = 1 if world.dead or ('weapon' in state and not self.spend_medgun_charge(state)) else 0
+        packets = [(0x117c, struct.pack('>i', error))]
+        if 'weapon' in state:
+            packets += self.medgun_charge_packets(state)
+        self.send_application_batch(d, remote, state, packets)
         if not error:
             now = time.monotonic()
             state['heal_gun_pulses'] = [now + HEAL_GUN_TICK * (i + 1) for i in range(HEAL_GUN_PULSES)]
@@ -2588,6 +2625,13 @@ class Endpoint(asyncio.DatagramProtocol):
                                     attributes=recharged, charges=dict(state['weapon'].kit_counts(now)))
         self.finish_vehicle_levelups(now)
         for state in list(getattr(self, 'sessions', {}).values()):
+            due = [t for t in state.get('medgun_recharges', ()) if t <= now]
+            if due and state.get('peer_avatar_anchor') and 'weapon' in state:
+                state['medgun_recharges'] = [t for t in state['medgun_recharges'] if t > now]
+                counts = state['gadget_counts']
+                counts[HEAL_GUN_ABILITY] = counts.get(HEAL_GUN_ABILITY, 0) + len(due)
+                anchor = state['peer_avatar_anchor']
+                self.send_application_batch(anchor[0], anchor[1], state, self.medgun_charge_packets(state))
             if state.get('stealth') and state.get('peer_avatar_anchor'):
                 self.drain_stealth(state, state['peer_avatar_anchor'], now)
             pending, anchor = state.get('grapple_resolve'), state.get('peer_avatar_anchor')

@@ -218,3 +218,6 @@ def encode_grapple_bc(actor, request):
 # Buff 4000 "奶枪回血": a cada 500 ms PowerSet Life +20. A duração do buff não foi achada: 10 pulsos (5 s,
 # +200) é hipótese nossa.
 HEAL_GUN_TICK, HEAL_GUN_AMOUNT, HEAL_GUN_PULSES = 0.5, 20, 10
+# Carga da Medgun: munição BULLET_EXTRA2 = ATR_HEAL_GUN_LEFT_COUNT 22 (item 70024 nUseNum 1); cada disparo
+# ou autocura gasta 1; o buff 3002 "奶枪冷却" devolve 1 a cada 300 s. Com a Medgun na mão o encaixe é o 9.
+HEAL_GUN_ABILITY, HEAL_GUN_COUNT, HEAL_GUN_RECHARGE, MEDGUN_HAND_SLOT = 21, 22, 300.0, 9

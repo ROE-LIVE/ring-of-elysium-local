@@ -172,17 +172,34 @@ class Gears(unittest.TestCase):
         drone = WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=((23, 1),)), ACTOR)
         self.assertEqual([e.item.definition for e in decode_snapshot(drone.inventory()).entries
                           if e.item.category == 35], [70022])
+        # O G equipa a Medgun com 0x49E 9: aceito (0x49F) e a mão passa ao encaixe 9.
+        responses, event = with_medgun.handle(0x49e, struct.pack('>I', 9))
+        self.assertEqual((responses, event['action'], with_medgun.hand_slot), ([(0x49f, struct.pack('>II', 9, 0))], 'hand', 9))
         without = WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=((29, 1),)), ACTOR)
         self.assertFalse(any(e.item.definition == 20006 for e in decode_snapshot(without.inventory()).entries))
 
-    def test_heal_gun_oneself(self):
+    def test_heal_gun_oneself_spends_the_charge(self):
         e = self.e
+        self.me['weapon'].fixture.tactical = ((21, 1),)
         e.heal_gun_oneself(None, None, self.me, struct.pack('>i', 30010))
-        self.assertEqual(e.sent, [(ACTOR, [(0x117c, struct.pack('>i', 0))])])
+        codes = [c for c, _ in e.sent[0][1]]
+        self.assertEqual((codes[0], e.sent[0][1][0][1], codes[1:3]), (0x117c, struct.pack('>i', 0), [0x4a0, 0x10d0]))
         self.assertEqual(len(self.me['heal_gun_pulses']), 10)
-        self.me['world'].dead = True
+        self.assertEqual(len(self.me['medgun_recharges']), 1)
+        # Sem carga: recusa (iError 1) e o pente da Medgun vai a 0.
+        e.sent.clear()
         e.heal_gun_oneself(None, None, self.me, struct.pack('>i', 30010))
-        self.assertEqual(e.sent[-1], (ACTOR, [(0x117c, struct.pack('>i', 1))]))
+        self.assertEqual(e.sent[0][1][0], (0x117c, struct.pack('>i', 1)))
+        self.assertEqual(struct.unpack('>QIII', e.sent[0][1][1][1])[1:3], (9, 0))
+
+    def test_medgun_fire_spends_charge_then_empty(self):
+        e = self.e
+        self.me['weapon'].fixture.tactical = ((21, 1),)
+        shot = struct.pack('>6fIBIIfII', 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0)
+        e.medgun_fire(None, None, self.me, shot)
+        e.medgun_fire(None, None, self.me, shot)
+        self.assertEqual([r[1]['accepted'] for r in e.records if r[0] == 'medgun_fire'], [True, False])
+        self.assertEqual(struct.unpack('>QIII', e.sent[-1][1][0][1])[1:], (9, 0, 7))
 
 
 if __name__ == '__main__':

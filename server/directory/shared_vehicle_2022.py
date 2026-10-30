@@ -1,4 +1,4 @@
-"""Учебные общие места/transform для102/109 и одноместного203.
+"""Общие места/transform для машин CAR_MODELS (102/109 проверены, остальные экспериментальны) и одноместного203.
 
 Физика остаётся клиентской; сервер проверяет владельца водительского места,
 комнату и порядок tick. Исходные столкновения/lag compensation не заявлены.
@@ -6,9 +6,11 @@
 import struct
 import math
 
+from vehicle_probe_2022 import CAR_MODELS
+
 
 class SharedVehicleRooms:
-    capacities = {102: 2, 109: 2, 203: 1}
+    capacities = {**{model: seats for model, (_hp, seats) in CAR_MODELS.items()}, 203: 1}
 
     def __init__(self):
         self.rooms = {}

@@ -359,23 +359,6 @@ class WorldState:
                 regions = frozenset((0,))
         return regions, bool(regions) and regions <= (self.closed | {0})
 
-    def zone_view(self, position):
-        """Состояние региона точки для клиента: 'closed', 'alert' (закроется следующей стадией) или 'safe'.
-
-        Клиент считает его в последней подтверждённой сервером позиции (27), а не в текущей
-        (сессии20261029T012734/021955). None — без сетки регионов или до первой стадии.
-        """
-        if not self.fixture.region_grid or not position or not self.stage_index:
-            return None
-        regions, exposed = self._exposure(position)
-        if exposed:
-            return 'closed'
-        future = (self.fixture.stage_future[self.stage_index-1]
-                  if len(self.fixture.stage_future) >= self.stage_index else None)
-        if future is not None and regions and not regions <= future:
-            return 'alert'
-        return 'safe'
-
     def poll(self, now, protected=False):
         responses, events = [], []
         zone_interval = self.fixture.zone_interval or self.fixture.interval

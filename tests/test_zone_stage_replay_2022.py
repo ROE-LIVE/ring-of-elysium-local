@@ -1,4 +1,4 @@
-"""Saída da área fechada: 0x481 da fase anterior e depois o da atual (as cinzas somem; sessão 20261030T005337)."""
+"""Saída da área fechada: no chão e fora do carro, 0x27 da posição atual + 0x481 da fase anterior e da atual."""
 import struct
 import sys
 import unittest
@@ -18,6 +18,7 @@ def endpoint():
     e.records, e.out = [], []
     e.capture = SimpleNamespace(record=lambda kind, **kw: e.records.append((kind, kw)))
     e.send_application = lambda d, remote, st, command, payload: e.out.append((command, payload))
+    e.register_fixture_entity = lambda st, command, payload: st.update(scene_position_sync=payload)
     return e
 
 
@@ -50,26 +51,39 @@ class ZoneStageReplayTests(unittest.TestCase):
         e.replay_zone_stage(None, None, {}, w, 1)
         self.assertEqual(e.out, [])
 
-    def test_no_position_confirmation(self):
-        # O 0x27 não muda o estado no cliente (posição atual, 1411bb640) e derrubava a asa-delta.
+    def test_position_confirmed_before_double_stage(self):
+        # Só o par (0x27 + 0x481 duplo) limpou as cinzas (sessões 005337 × 234244 × 013558).
         e, w = endpoint(), two_stages()
         w.poll(6)
-        e.replay_zone_stage(None, None, {'scene_position_sync': bytes(40)}, w, 6)
-        self.assertNotIn(0x27, [c for c, _ in e.out])
+        st = dict(actor_uid=42, scene_position_sync=bytes(40), last_movement_position=(3, 5, 7))
+        e.replay_zone_stage(None, None, st, w, 6)
+        self.assertEqual([c for c, _ in e.out], [0x27, 0x481, 0x481])
+        self.assertEqual(struct.unpack_from('>Q3i', e.out[0][1]), (42, 3, 5, 7))
+        self.assertTrue(e.records[-1][1]['position_confirmed'])
 
-
-    def test_seated_marks_replay_after_getoff(self):
-        # Sentado, o reenvio não limpava as cinzas (motorista, sessão 20261030T013558): repetir ao descer.
+    def test_pending_waits_for_ground_and_getoff(self):
         e, w = endpoint(), two_stages()
         w.poll(6)
-        seated = {'vehicles': SimpleNamespace(seated=0x5040000160039)}
-        e.replay_zone_stage(None, None, seated, w, 6)
-        self.assertTrue(seated['zone_replay_after_getoff'])
-        seated['vehicles'].seated = None
-        e.replay_zone_stage(None, None, seated, w, 7, reason='vehicle_getoff_replay')
-        self.assertFalse(seated['zone_replay_after_getoff'])
-        self.assertEqual(e.records[-1][1]['reason'], 'vehicle_getoff_replay')
+        st = dict(actor_uid=42, zone_replay_pending=True, movement_event=24,
+                  vehicles=SimpleNamespace(seated=None))
+        e.flush_zone_replay(None, None, st, w, 6)                   # planando (FLY 24)
+        self.assertEqual(e.out, [])
+        st['movement_event'] = 29                                   # FALL_LAND
+        st['vehicles'].seated = 0x5040000160039                     # mas sentado no carro
+        e.flush_zone_replay(None, None, st, w, 6)
+        self.assertEqual(e.out, [])
+        st['vehicles'].seated = None
+        e.flush_zone_replay(None, None, st, w, 6)
+        self.assertEqual([c for c, _ in e.out], [0x481, 0x481])    # sem molde do 0x27 aqui
+        self.assertFalse(st['zone_replay_pending'])
 
+    def test_pending_dropped_when_back_inside(self):
+        e, w = endpoint(), two_stages()
+        w.poll(6)
+        w.zone_inside = True
+        st = dict(actor_uid=42, zone_replay_pending=True)
+        e.flush_zone_replay(None, None, st, w, 6)
+        self.assertEqual((e.out, st['zone_replay_pending']), ([], False))
 
 if __name__ == '__main__':
     unittest.main()

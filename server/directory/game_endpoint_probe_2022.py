@@ -39,7 +39,7 @@ from shared_evacuation_2022 import SharedEvacuationRooms, SEATS, encode_end_info
 from gun_damage_2022 import GunDamageTable, DEFAULT_PATH as GUN_DAMAGE_PATH
 from kill_broadcast_2022 import (encode_kill_broadcast, encode_kill_count, encode_alive_count,
                                  KILL_WAY_PLAYER, KILL_WAY_SELF)
-from fall_damage_2022 import FallTracker, ski_hurt
+from fall_damage_2022 import FallTracker, ski_hurt, START_EVENTS, CANCEL_EVENTS
 from drowning_2022 import BreathTracker, encode_power, OXYGEN_MAX, POWER_OXYGEN, REASON_DROWN
 from airdrop_flight_2022 import AirdropFlight, owner_sync
 from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obstacle_sync, encode_obstacle_leave,
@@ -862,7 +862,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                         for event in events:
                                             self.capture.record('world_probe', synthetic=True, remote=remote, **event)
                                             if event.get('action') == 'closed_zone_leave':
-                                                self.replay_zone_stage(d, remote, state, world, time.monotonic())
+                                                state['zone_replay_pending'] = True
+                                        self.flush_zone_replay(d, remote, state, world, time.monotonic())
                                     if self.peer_avatars:
                                         self.emit_peer_avatars(*self.peer_avatars.health(state, time.monotonic()))
                                     self.emit_own_death_inventory(d, remote, state)
@@ -1042,10 +1043,10 @@ class Endpoint(asyncio.DatagramProtocol):
                                             self.capture.record('world_probe',synthetic=True,remote=remote,**world_event)
                                     if self.shared_vehicles and event['action'] == 'vehicle_move':
                                         self.move_vehicle_passengers(state, event['position'])
-                                    if (event['action'] == 'getoff' and state.get('zone_replay_after_getoff')
-                                            and 'world' in state and not state['world'].zone_inside):
-                                        self.replay_zone_stage(d, remote, state, state['world'], time.monotonic(),
-                                                               reason='vehicle_getoff_replay')
+                                    if event['action'] == 'getoff' and 'world' in state:
+                                        # Último evento do 0x2A ainda é ON_VEHICLE9; descer = no chão.
+                                        state['movement_event'] = None
+                                        self.flush_zone_replay(d, remote, state, state['world'], time.monotonic())
                                     for command, payload in responses:
                                         self.send_application(d, remote, state, command, payload)
                                     self.capture.record('vehicle_probe', synthetic=True, remote=remote, **event)
@@ -2518,25 +2519,53 @@ class Endpoint(asyncio.DatagramProtocol):
             self.emit_own_death_inventory(d, remote, state)
             self.cancel_dead_actions(state, remote)
 
-    def replay_zone_stage(self, d, remote, state, world, now, reason='closed_zone_leave_replay'):
-        """На выходе из закрытой зоны 481 предыдущей стадии, затем текущей (пепел исчезает: сессия20261030T005337).
+    # Ни в воздухе, ни в воде, ни на лыжах/велосипеде: 27 там сбрасывает движение (дельтаплан закрывался,
+    # сессия20261029T021955). В машине повтор пепел не снимал (сессия20261030T013558).
+    ZONE_REPLAY_BLOCKING_EVENTS = START_EVENTS | CANCEL_EVENTS | {70}
 
-        Состояние региона клиента (0x143040ce8+0xc8) после выхода уже безопасное, а пепел
-        остаётся (сессия20261030T002540). Пепел, видимо, из границ/погоды сцены (140a8fa00),
-        которые обновляются только при применении481; повтор той же стадии их не трогает,
-        а предыдущая «открывает» закрытые зоны (1411ba270) и текущая закрывает снова (1411ba140).
+    def flush_zone_replay(self, d, remote, state, world, now):
+        """Отложенный выход из закрытой зоны: на земле и вне машины — 27 текущей позиции + 481 предыдущей и текущей.
+
+        Пепел снимался только сочетанием (сессия20261030T005337: двойной481, затем 27+481 после посадки);
+        только 27+481 (20261029T234244) и только двойной481 (20261030T013558, без 27) — нет.
+        """
+        if not state.get('zone_replay_pending'):
+            return
+        if world.zone_inside:
+            state['zone_replay_pending'] = False
+            return
+        vehicles = state.get('vehicles')
+        if ((vehicles is not None and vehicles.seated)
+                or state.get('movement_event') in self.ZONE_REPLAY_BLOCKING_EVENTS):
+            return
+        state['zone_replay_pending'] = False
+        self.replay_zone_stage(d, remote, state, world, now)
+
+    def replay_zone_stage(self, d, remote, state, world, now, reason='closed_zone_leave_replay'):
+        """27 текущей позиции, затем 481 предыдущей стадии и текущей.
+
+        Состояние региона клиента (0x143040ce8+0xc8) считается по живой позиции, а пепел — нет:
+        он из границ/погоды сцены (140a8fa00), которые обновляются только при применении481 со
+        сменой набора закрытых (1411ba270 открывает, 1411ba140 закрывает снова).
         """
         previous = world.previous_stage_snapshot(now)
         current = world.stage_snapshot(now)
         if previous is None or current is None:
             return
-        # Сидя в машине повтор не снимал пепел (водитель, сессия20261030T013558): повторить при выходе.
-        vehicles = state.get('vehicles')
-        state['zone_replay_after_getoff'] = bool(vehicles is not None and vehicles.seated)
+        template = state.get('scene_position_sync')
+        position = state.get('last_movement_position')
+        confirmed = isinstance(template, bytes) and len(template) == 40 and bool(position)
+        if confirmed:
+            confirm = bytearray(template)
+            struct.pack_into('>Q3i', confirm, 0, state['actor_uid'], *position)
+            struct.pack_into('>I', confirm, 31, int((now-self.started)*25) & 0xffffffff)
+            self.send_application(d, remote, state, 0x27, bytes(confirm))
+            self.register_fixture_entity(state, 0x27, bytes(confirm))
         self.send_application(d, remote, state, 0x481, previous[0])
         self.send_application(d, remote, state, 0x481, current[0])
-        self.capture.record('zone_stage_resent', synthetic=True, remote=remote, reason=reason,
-                            previous_stage=previous[1]['stage'], hypothesis=True, **current[1])
+        self.capture.record('zone_stage_resent', synthetic=True, remote=remote, reason=reason, position_confirmed=confirmed,
+                            position=position and list(position), previous_stage=previous[1]['stage'],
+                            hypothesis=True, **current[1])
 
     def apply_fall_damage(self, d, remote, state, movement):
         """Экспериментальный урон от падения пешком (fall_damage_2022); смерть — общими путями."""

@@ -128,7 +128,11 @@ class Gears(unittest.TestCase):
         e.use_grapple(None, None, self.me, bytes.fromhex(GRAPPLE_SAMPLE))
         self.assertEqual(kit, [16])
         (who, mine), (other, theirs) = e.sent
-        self.assertEqual(([c for c, _ in mine], who, other), ([0x3c, 0x1162], ACTOR, OTHER))
+        self.assertEqual(([c for c, _ in mine], who, other), ([0x3c, 0x3a, 0x1162], ACTOR, OTHER))
+        resolve = mine[1][1]
+        self.assertEqual(len(resolve), 42)
+        self.assertEqual(struct.unpack_from('>IHiii', resolve), (15, 0, 403524, 368588, 40491))
+        self.assertEqual([c for c, _ in theirs], [0x3c])
         body = mine[0][1]
         self.assertEqual(len(body), 66)
         self.assertEqual(struct.unpack_from('>QIBI', body), (ACTOR, 15, 31, 4096))

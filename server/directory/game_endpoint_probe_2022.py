@@ -47,7 +47,7 @@ from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obs
                                  decode_scanner_mark, eu_action, decode_client_data, encode_client_data_ntf,
                                  BAIT_ABILITY, BAIT_COUNT, decode_bait_request, AT_USE_STEALTH, AT_QUIT_STEALTH,
                                  ST_IN_STEALTH, HEAL_GUN_TICK, HEAL_GUN_AMOUNT, HEAL_GUN_PULSES,
-                                 decode_grapple_request, encode_grapple_bc, encode_bait_block, OBSTACLE_BAIT,
+                                 decode_grapple_request, encode_grapple_bc, encode_grapple_resolve, encode_bait_block, OBSTACLE_BAIT,
                                  BAIT_CONFIG, BAIT_HP, BAIT_SECONDS)
 from shared_vehicle_2022 import SharedVehicleRooms
 from vehicle_levelup_2022 import (VehicleLevelups, LEVEL_HP, REFIT_ABILITY, REFIT_COUNT, RET_OK, RET_FAIL,
@@ -2380,9 +2380,9 @@ class Endpoint(asyncio.DatagramProtocol):
     GRAPPLE_ATTRIBUTE = 16
 
     def use_grapple(self, d, remote, state, payload):
-        """0x3B GRAPPLE (gancho): gasta a carga e devolve 0x3C BC_GRAPPLE a si e à sala.
+        """0x3B GRAPPLE (gancho): gasta a carga, 0x3C BC_GRAPPLE a si e à sala e 0x3A RESOLVE_MOVE a si.
 
-        Sem o 0x3C com o próprio UID o personagem ficava parado na pose de lançamento.
+        Sem o 0x3A o personagem ficava parado na pose de lançamento (confirmado ao vivo).
         """
         try:
             request = decode_grapple_request(payload)
@@ -2392,7 +2392,7 @@ class Endpoint(asyncio.DatagramProtocol):
             return
         now = time.monotonic()
         spent = state['weapon'].use_kit_charge(self.GRAPPLE_ATTRIBUTE, now)
-        packets = [(0x3c, encode_grapple_bc(state['actor_uid'], request))]
+        packets = [(0x3c, encode_grapple_bc(state['actor_uid'], request)), (0x3a, encode_grapple_resolve(request))]
         if spent:
             packets += self.kit_charge_sync(state, now)
         self.send_application_batch(d, remote, state, packets)

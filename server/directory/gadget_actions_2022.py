@@ -177,7 +177,17 @@ AT_USE_STEALTH, AT_QUIT_STEALTH, ST_IN_STEALTH = 71, 73, 83
 #        mais POS13 + U64. O servidor manda versão = código (0x3C < 99), então o bloco final não vai.
 # A correspondência campo a campo do 0x3B para o 0x3C (mesma ordem, POS13 do ponto de fixação a partir
 # dos F32) é hipótese nossa.
+# O que solta o personagem é o 0x3A RESOLVE_MOVE (decodificador 140c59e10: U32, U16, POS13, U32, U8,
+# U8 + U64, U8, U64) com o número do gancho (1º U32 do 0x3B) e o ponto de fixação: só com o 0x3C ele
+# ficava parado na pose de lançamento até um tempo limite de ~3 min. Confirmado ao vivo (sessão
+# 20261030T193140, seis ganchos seguidos); a sequência do MOVE_SPEC (U16) pode ir zerada.
 GRAPPLE_REQUEST_SIZE = 90
+
+
+def encode_grapple_resolve(request):
+    ax, ay, az = (int(round(v)) for v in request['anchor'])
+    return (struct.pack('>IH', request['a'], 0) + struct.pack('>iiiB', ax, ay, az, 0)
+            + struct.pack('>IB', 0, 0) + struct.pack('>BQ', 0, 0) + struct.pack('>BQ', 0, 0))
 
 
 def decode_grapple_request(payload):

@@ -133,8 +133,8 @@ Legenda:
 | Biosignal Detector (scanner), com aviso para o detectado | ✅ |
 | Vehicle modification (kit de modificação de veículo) | ✅ |
 | Holographic Decoy (holograma), com a aparência do dono e o percurso do jogo | ✅ (outros PCs ainda sem teste) |
-| Stealth Cloak (capa de invisibilidade) | 🧪 a energia da capa não é simulada |
-| Medgun (curar a si mesmo) | 🧪 |
+| Stealth Cloak (capa de invisibilidade): energia 100, gasta 6/s ligada, desliga ao zerar | ✅ |
+| Medgun: G equipa, G de novo cura a si (+200 em 5,2 s); 1 carga que volta em 5 min | ✅ (curar outros jogadores e reanimar: ⏳) |
 | Recon Drone, DPV | ⏳ |
 
 O contador de usos e a recarga aparecem no HUD ✅.

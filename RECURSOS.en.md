@@ -133,8 +133,8 @@ Legend:
 | Biosignal Detector (scanner), with a warning for the detected player | ✅ |
 | Vehicle modification (vehicle modification kit) | ✅ |
 | Holographic Decoy (hologram), with the owner's appearance and the game's path | ✅ (other PCs not tested yet) |
-| Stealth Cloak (invisibility cloak) | 🧪 the cloak's energy is not simulated |
-| Medgun (self-heal) | 🧪 |
+| Stealth Cloak (invisibility cloak): 100 energy, drains 6/s while on, turns off when empty | ✅ |
+| Medgun: G equips it, G again heals yourself (+200 over 5.2 s); 1 charge that returns after 5 min | ✅ (healing other players and reviving: ⏳) |
 | Recon Drone, DPV | ⏳ |
 
 The usage counter and recharge appear on the HUD ✅.

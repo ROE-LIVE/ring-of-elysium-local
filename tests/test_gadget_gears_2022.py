@@ -21,6 +21,45 @@ def bait_payload(points=2):
     return body + struct.pack('>I', 9) + struct.pack('>3f', 0, 0, 1)
 
 
+def read_obstacle_sync(body):
+    """Lê o 0x74D0 na mesma ordem do decodificador do cliente (140ca8150 → 140ca7f80 → 140c29710…)."""
+    o = 0
+
+    def take(fmt):
+        nonlocal o
+        value = struct.unpack_from('>' + fmt, body, o)
+        o += struct.calcsize('>' + fmt)
+        return value
+
+    out = {}
+    _, _, out['config'] = take('QQI')
+    take('iiiB'); take('3I'); take('I'); take('f')
+    out['kind'] = take('I')[0]
+    if out['kind'] == 2:
+        size = take('I')[0]
+        assert 0 < size <= 0x80
+        out['name'] = body[o:o + size - 1].decode(); o += size
+        take('3IQ3If3I')
+        for _ in range(30):
+            take('IQII')
+            assert take('I')[0] == 0
+            take('II')
+        take('I'); take('11I')
+        for limit in (10, 5, 10, 80, 10):
+            assert take('I')[0] <= limit
+        take('II')
+        out['appearance'] = take('5i')
+        take('B')
+        assert take('I')[0] == 0
+        out['path'] = take('I')[0]
+        take('iii4f' * out['path'])
+        assert take('I')[0] == 0
+    take('f'); take('3f')
+    out['own'] = take('I')[0]
+    assert o == len(body), (o, len(body))
+    return out
+
+
 def session(actor, tactical):
     weapon = SimpleNamespace(fixture=SimpleNamespace(tactical=tactical),
                              ability_cd_sync=lambda counts: (0x1162, bytes(sorted(counts.values()))))
@@ -44,10 +83,22 @@ class Gears(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_bait_request(bait_payload(1)[:-1])
 
+    def test_bait_spawns_obstacle_type_2(self):
+        e = self.e
+        self.me['actor_display_name'] = 'Jogador1'
+        self.me['appearance'] = (struct.pack('>5I', 1, 2, 3, 4, 5), 1)
+        e.use_bait(None, None, self.me, bait_payload(3))
+        (mine_uid, mine), (other_uid, theirs) = e.sent
+        self.assertEqual((mine_uid, other_uid, mine[-1][0], theirs[0][0]), (ACTOR, OTHER, 0x74d0, 0x74d0))
+        sync = read_obstacle_sync(mine[-1][1])
+        self.assertEqual((sync['kind'], sync['config'], sync['name'], sync['appearance'], sync['path'], sync['own']),
+                         (2, 201, 'Jogador1', (1, 2, 3, 4, 5), 3, 1))
+        self.assertEqual(read_obstacle_sync(theirs[0][1])['own'], 0)
+
     def test_bait_spends_charge_once(self):
         e = self.e
         e.use_bait(None, None, self.me, bait_payload())
-        self.assertEqual([c for c, _ in e.sent[0][1]], [0x74d4, 0x10d0, 0x1162])
+        self.assertEqual([c for c, _ in e.sent[0][1]], [0x74d4, 0x10d0, 0x1162, 0x74d0])
         self.assertEqual(e.sent[0][1][0][1], struct.pack('>i', 0))
         self.assertEqual(struct.unpack('>II', e.sent[0][1][1][1]), (30, 0))
         e.sent.clear()

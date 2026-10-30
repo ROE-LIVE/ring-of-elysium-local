@@ -47,7 +47,8 @@ from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obs
                                  decode_scanner_mark, eu_action, decode_client_data, encode_client_data_ntf,
                                  BAIT_ABILITY, BAIT_COUNT, decode_bait_request, AT_USE_STEALTH, AT_QUIT_STEALTH,
                                  ST_IN_STEALTH, HEAL_GUN_TICK, HEAL_GUN_AMOUNT, HEAL_GUN_PULSES,
-                                 decode_grapple_request, encode_grapple_bc)
+                                 decode_grapple_request, encode_grapple_bc, encode_bait_block, OBSTACLE_BAIT,
+                                 BAIT_CONFIG, BAIT_HP, BAIT_SECONDS)
 from shared_vehicle_2022 import SharedVehicleRooms
 from vehicle_levelup_2022 import (VehicleLevelups, LEVEL_HP, REFIT_ABILITY, REFIT_COUNT, RET_OK, RET_FAIL,
                                   decode_levelup_request, encode_levelup_response, encode_levelup_bc,
@@ -2333,8 +2334,8 @@ class Endpoint(asyncio.DatagramProtocol):
     def use_bait(self, d, remote, state, payload):
         """0x74D3 USE_BAIT (holograma): gasta o uso e responde 0x74D4 0; o pedido inteiro vai para o log.
 
-        Hipótese: o próprio cliente anima o holograma pelo percurso que calculou. Os outros jogadores
-        ainda não o veem (falta o bloco da isca do 0x74D0 tipo 2).
+        O holograma nasce do 0x74D0 tipo 2 (isca, bloco encode_bait_block), mandado ao dono e à sala; some
+        após BAIT_SECONDS como a barricada (0x74CF).
         """
         counts = state.setdefault('gadget_counts', dict(state['weapon'].fixture.tactical))
         try:
@@ -2352,11 +2353,26 @@ class Endpoint(asyncio.DatagramProtocol):
                                 account_uid=hex(state['actor_uid']), payload_hex=payload[:512].hex())
             return
         counts[BAIT_ABILITY] -= 1
+        # Sem o 0x74D0 tipo 2 o cliente só fazia a animação de uso: o holograma nasce desta mensagem.
+        now = time.monotonic()
+        uid = self.gadget_rooms().place_barrier(state.get('room_uid'), state['actor_uid'], request, now, BAIT_SECONDS)
+        appearance = state.get('appearance')
+        bait = encode_bait_block(state.get('actor_display_name') or 'Player',
+                                 appearance[0] if appearance else None, request['path'])
+
+        def sync(own):
+            return (0x74d0, encode_obstacle_sync(uid, state['actor_uid'], request['position'], request['vector'], own,
+                                                 hp=BAIT_HP, kind=OBSTACLE_BAIT, config=BAIT_CONFIG,
+                                                 seconds=BAIT_SECONDS, bait=bait))
         self.send_application_batch(d, remote, state, [
             (0x74d4, struct.pack('>i', 0)),
             (0x10d0, struct.pack('>II', BAIT_COUNT, counts[BAIT_ABILITY])),
-            state['weapon'].ability_cd_sync(counts)])
+            state['weapon'].ability_cd_sync(counts), sync(True)])
+        for other in [st for st in self.room_sessions(state.get('room_uid')) if st is not state]:
+            anchor = other['peer_avatar_anchor']
+            self.send_application_batch(anchor[0], anchor[1], other, [sync(False)])
         self.capture.record('gadget_bait', synthetic=True, accepted=True, account_uid=hex(state['actor_uid']),
+                            uid=hex(uid),
                             position=list(request['position']), path_points=len(request['path']),
                             path=[list(p[:3]) for p in request['path'][:16]], extra=request['extra'],
                             left=counts[BAIT_ABILITY], payload_hex=payload[:512].hex(), format_verified=False)

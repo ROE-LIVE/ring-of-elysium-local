@@ -80,11 +80,34 @@ def decode_barrier_request(payload):
 
 
 def encode_obstacle_sync(uid, owner, position, rotation, own, hp=BARRIER_HP, kind=OBSTACLE_BARRIER,
-                         config=BARRIER_CONFIG, seconds=BARRIER_SECONDS):
+                         config=BARRIER_CONFIG, seconds=BARRIER_SECONDS, bait=b''):
+    """No tipo 2 (isca) o bloco `bait` (encode_bait_block) vai logo depois do tipo (140ca8150)."""
     x, y, z = (int(v) for v in position)
     return (struct.pack('>QQI', uid, owner, config) + struct.pack('>iiiB', x, y, z, 0) + bytes(12)
-            + struct.pack('>III', hp, hp, kind) + struct.pack('>I', seconds)
+            + struct.pack('>III', hp, hp, kind) + bait + struct.pack('>I', seconds)
             + struct.pack('>3f', *rotation) + struct.pack('>I', int(own)))
+
+
+# Bloco da isca no 0x74D0 tipo 2 (140ca7f80, versão 0x5C): ficha do ator (140c29710), percurso
+# (140ca7df0, o mesmo do USE_BAIT) e U32 n<=50 de pares U32 (140c27f60). A ficha, campo a campo:
+#   U32 tamanho + nome com NUL (<=0x80); 140bd0450: 3×U32, U64, 3×U32, F32, 3×U32 (48 B);
+#   140bd0180: 30× {U32, U64, U32, U32, U32 n<=8 (140bceab0), U32, U32} + U32;
+#   140c25cf0: 11×U32, listas U32 n + n×U32 (<=10, <=5, <=10, <=80, <=10), U32, U32;
+#   140be86f0: aparência 5×I32 (a mesma do BE7 +1240); U8; 140be91a0: U32 n<=400 itens de 0x3E.
+# Mandamos a ficha mínima: só o nome e a aparência do dono, o resto zerado e as listas vazias.
+OBSTACLE_BAIT = 2
+BAIT_CONFIG, BAIT_HP, BAIT_SECONDS = 201, 1000, 30
+
+
+def encode_bait_block(name, appearance, path):
+    raw = name.encode('utf-8')[:0x7f] + b'\0'
+    card = (struct.pack('>I', len(raw)) + raw + bytes(48)
+            + bytes(32) * 30 + bytes(4)
+            + bytes(44) + bytes(4) * 5 + bytes(8)
+            + (appearance if appearance and len(appearance) == 20 else bytes(20)) + b'\0'
+            + struct.pack('>I', 0))
+    route = struct.pack('>I', len(path)) + b''.join(struct.pack('>iii4f', *p) for p in path)
+    return card + route + struct.pack('>I', 0)
 
 
 def encode_obstacle_leave(uid, reason=0):
@@ -97,10 +120,10 @@ class GadgetRooms:
     def __init__(self):
         self.next_uid, self.obstacles = OBSTACLE_UID_BASE + 1, {}
 
-    def place_barrier(self, room, owner, request, now):
+    def place_barrier(self, room, owner, request, now, seconds=BARRIER_SECONDS):
         uid = self.next_uid
         self.next_uid += 1
-        self.obstacles[uid] = dict(room=room, owner=owner, expires=now + BARRIER_SECONDS, request=request)
+        self.obstacles[uid] = dict(room=room, owner=owner, expires=now + seconds, request=request)
         return uid
 
     def expired(self, now):

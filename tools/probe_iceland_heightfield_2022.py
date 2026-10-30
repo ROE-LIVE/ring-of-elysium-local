@@ -16,6 +16,8 @@ SOURCE_SHA256 = frozenset((
     '8332fe282b7949acbe717b256638543c6aa32398744b84cfdfe25d7735467d6f',
     # KillZone16007 W_64: World_EU_KILLZONE_4096_RemainingFiles1.sfc запись13646, 2624×2624.
     '871ece8a28cfa041d6ada7bd052e41f2deac03f10fa5136247408e4a42d3dd44',
+    # Desert16021 W_64: World_EU_DESERT_4096_RemainingFiles.sfc запись16, 1280×1280.
+    '216e0de3537e1a973b949842e68ca1738f44294f8f30a9a04d27fb6bd36ba5b7',
 ))
 # Смещения полей в PXBIN (одинаковы у IceLand и KillZone): размеры, heightScale, row/column scale,
 # поза актора (кватернион + позиция). Отсчёты с6464, после них хвост116байт.

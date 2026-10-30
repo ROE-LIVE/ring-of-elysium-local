@@ -6,6 +6,7 @@ ATR_TEMPERATURE=5, единица0.01°C. Второе слово4816 — UNIX-�
 """
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import struct
 
@@ -31,4 +32,21 @@ class EnvironmentFixture:
         if type(server_seconds) is not int or not 0<=server_seconds<=0xffffffff:
             raise ValueError('Нужны текущие серверные UNIX-секунды BE32')
         return [(0x4816,struct.pack('>II',self.hour,server_seconds)),
-                (0x10d0,struct.pack('>Ii',5,self.temperature))]
+                (0x10d0,struct.pack('>Ii',5,self.temperature))] + weather_messages()
+
+
+# E_ENVR_MSGID (имена из регистрации 140bb7b59): 4813 WEATHER_NOTIFY, 4814 GET_ALL_REQ, 4815 GET_ALL_RSP,
+# 4816 TIME_NOTIFY, 4817 EU_WEATHER_NOTIFY, 4818 EU_ALL_WEATHER_DETAIL. 4813/4817 — одна структура
+# (pack140c4be10): три U32, U32 n<=2, n×U32. Смысл полей не найден — опыт: первое поле = E_WEATHER_*
+# (SUNNY1). Без серверной погоды пепел KillZone (E_WEATHER_VOLCANO17) не уходил в безопасной области:
+# в конфиге клиента есть mSafeRegionUseServerWeather, а иконка погоды HUD пустая.
+# ROE_WEATHER_NOTIFY="a,b,c" меняет три поля без правки кода; "off" выключает.
+def weather_messages():
+    raw = os.environ.get('ROE_WEATHER_NOTIFY', '1,0,0').strip()
+    if raw.lower() == 'off':
+        return []
+    fields = [int(v, 0) for v in raw.split(',')]
+    if len(fields) != 3 or any(not 0 <= v <= 0xffffffff for v in fields):
+        raise ValueError('ROE_WEATHER_NOTIFY ожидает три U32')
+    body = struct.pack('>IIII', *fields, 0)
+    return [(0x4817, body), (0x4813, body)]

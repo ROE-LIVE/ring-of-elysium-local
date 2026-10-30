@@ -704,7 +704,8 @@ class GameplayHandoffTests(unittest.TestCase):
                 state['weapon']=WeaponState(WeaponFixture(bytes(82),bytes(60)),42)
                 endpoint.started=100
                 heartbeat(102)
-                self.assertEqual(sent[:2],EnvironmentFixture(8,500).messages(1791432000))
+                expected=EnvironmentFixture(8,500).messages(1791432000)
+                self.assertEqual(sent[:len(expected)],expected)   # 4816, 10d0 e a experiência de clima (4817/4813)
                 self.assertTrue(state['environment_initialized'])
                 # Обрабатываем обычные heartbeat, но начальные4816/10d0 повторно не уходят.
                 sent.clear()

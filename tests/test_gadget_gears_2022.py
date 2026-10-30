@@ -158,6 +158,17 @@ class Gears(unittest.TestCase):
         self.assertEqual((self.me['stealth_energy'], self.me['stealth']), (0, False))
         self.assertIn((0x2c, struct.pack('>QI', ACTOR, 83)), [pk for _, packets in e.sent for pk in packets])
 
+    def test_medgun_weapon_in_bag(self):
+        from weapon_probe_2022 import WeaponState, WeaponFixture
+        from inventory_codec_2022 import decode_snapshot
+        with_medgun = WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=((21, 1),)), ACTOR)
+        entries = decode_snapshot(with_medgun.inventory()).entries
+        medgun = [e for e in entries if e.item.definition == 20006]
+        self.assertEqual([(e.container, e.slot, e.item.item_type) for e in medgun], [(2, 20, 1)])
+        self.assertEqual(struct.unpack_from('>I', medgun[0].item.raw, 56)[0], 12)
+        without = WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=((29, 1),)), ACTOR)
+        self.assertFalse(any(e.item.definition == 20006 for e in decode_snapshot(without.inventory()).entries))
+
     def test_heal_gun_oneself(self):
         e = self.e
         e.heal_gun_oneself(None, None, self.me, struct.pack('>i', 30010))

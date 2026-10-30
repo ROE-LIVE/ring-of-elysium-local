@@ -52,6 +52,11 @@ KIT_CD_TYPES = {16: 1, 17: 2}
 KIT_RECHARGE = {16: 10.0, 17: 60.0}
 # Capa: energia (0x1069 tipo 17); o buff 18 "光学迷彩能量值扣除" tira 6 por segundo enquanto ligada.
 STEALTH_ENERGY_MAX, STEALTH_ENERGY_PER_SECOND, STEALTH_ENERGY_MIN = 100, 6, 6
+# Medgun (tática 5, ATR_INIT_ABILITY_HEAL_GUN 21): o G equipa a arma 20006 (A89 EQUIP_Handgun6, szPosition
+# MEDGUN, nMaxAmmo 12, BULLET_EXTRA2), que no original vem no compartimento escondido de táticos da
+# mochila (QSSlotConfigTable equipSlot_SDV, whitelist 20006/70020…70026). Vai como arma (tipo 1) na
+# mochila (container 2), numa posição nossa livre; a tela a encaixa pela whitelist (hipótese).
+MEDGUN, MEDGUN_CAPACITY, MEDGUN_BAG_SLOT = 20006, 12, 20
 
 
 def encode_ability_cd_sync(actor_uid, entries):
@@ -368,6 +373,8 @@ class WeaponState:
             capacity = fixture.capacity if definition == 10402 else GUN_PROFILES[definition][1]
             self.guns[1] = GunInstance(definition, capacity, uid or self.new_instance_uid(), skin_id=skin)
         self.actor_uid = actor_uid
+        self.tactical_gun = (GunInstance(MEDGUN, MEDGUN_CAPACITY, self.new_instance_uid())
+                             if any(index == 21 for index, _ in fixture.tactical) else None)
         self.reserve = fixture.reserve
         self.extra_ammunition = {}
         self.medical = {}
@@ -833,6 +840,13 @@ class WeaponState:
             struct.pack_into('>I', gun, 56, self.gun_magazine_capacity(instance))
             # После вставки attachment records поле сдвигается на12 байт/part.
             struct.pack_into('>I', gun, 72 + 12 * len(instance.parts), instance.skin_id)
+            records.append(bytes(gun))
+        if self.tactical_gun:
+            gun = bytearray(gun_attachment_record(self.fixture.gun, {}))
+            gun[:4] = bytes((2, MEDGUN_BAG_SLOT, 1, 0))
+            struct.pack_into('>IQ', gun, 4, self.tactical_gun.definition, self.tactical_gun.uid)
+            struct.pack_into('>I', gun, 56, MEDGUN_CAPACITY)
+            struct.pack_into('>I', gun, 72, 0)
             records.append(bytes(gun))
         records.extend(equipment_record(self.fixture.gun, definition,
                                         self.equipment_durability.get(slot))

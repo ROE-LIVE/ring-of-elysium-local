@@ -2,6 +2,8 @@
 
 Servidor caseiro e **não oficial** para jogar o **Ring of Elysium (build 2022, 0.2.989.0)** depois do fim dos servidores oficiais. Ele roda no seu PC, sozinho ou numa sala para a rede local, e usa o jogo da Steam **sem alterar nenhum arquivo do jogo**.
 
+> **Download:** [instalador para Windows](https://github.com/streamnestapp/ring-of-elysium-local/releases/latest) (~37 MB).
+>
 > **Antes de baixar**
 > - O jogo **não vem** no pacote. Cada PC precisa do cliente completo da versão 2022, com o `Europa_Client.exe` de SHA-256 `2dca9b1e…6ba18`. Outras versões não conectam, e o launcher confere o arquivo.
 > - Precisa de Windows 10/11 x64.
@@ -11,7 +13,7 @@ Legenda:
 - ✅ testado no jogo
 - 🧪 implementado, ainda sem teste completo no jogo
 - ⏳ ainda não funciona
-- 📦 pacote à parte: o instalador, o painel e os scripts de mapa (`jogar-mapa.ps1`). Eles usam dados extraídos do cliente do jogo, que pelas regras deste repositório não são publicados aqui.
+- 📦 vem no **instalador** ([download em Releases](https://github.com/streamnestapp/ring-of-elysium-local/releases/latest)): o painel, os scripts de mapa (`jogar-mapa.ps1`) e os catálogos de cada mapa. O instalador não traz nenhum arquivo do jogo: ele os lê do seu Ring of Elysium durante a instalação.
 
 ---
 
@@ -194,11 +196,20 @@ O contador de usos e a recarga aparecem no HUD ✅.
 
 ## 12. Instalador 📦
 
+[Baixar a versão mais recente](https://github.com/streamnestapp/ring-of-elysium-local/releases/latest).
+
+
 - Duas opções:
   - **servidor e cliente:** o PC abre as partidas e também joga;
   - **apenas cliente:** o PC só entra na sala de outro PC.
 - Acha a pasta do jogo na Steam, inclusive em outras bibliotecas e discos, e confere a versão do executável.
-- Já traz Python e o runtime do .NET 8 (~60 MB no total) e não precisa de internet.
+- Já traz Python e o runtime do .NET 8 (~37 MB no total) e não precisa de internet.
+- **Não traz nenhum arquivo do jogo.** Na opção servidor ele lê do seu Ring of Elysium, sem alterar nada, 13 arquivos e confere cada um pelo SHA-256:
+  - tabelas e pontos de respawn;
+  - relevo de Mt. Dione, KillZone e Vera;
+  - índices de região;
+  - imagens dos mapas.
+  Se algum faltar depois, a próxima partida extrai de novo.
 - Pede o nome do jogador e pode liberar as portas da sala no firewall, só para a rede local. A desinstalação remove essas regras.
 
 ## 13. O que ainda não existe

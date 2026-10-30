@@ -61,7 +61,9 @@ MEDGUN, MEDGUN_CAPACITY, MEDGUN_SLOT = 20006, 12, 9
 # Item da própria tática (A81 categoria 35) no mesmo compartimento: o InitItem do original entrega 70024
 # (Medgun, bShow false), 70022 (drone) e 70007 (DPV). Sem ele o G do drone e da Medgun nem chega ao
 # servidor (hipótese: o cliente confere o item); barricada/holograma/scanner/capa funcionam sem.
-TACTICAL_ITEMS, TACTICAL_ITEM_BAG_SLOT = {21: 70024, 23: 70022, 19: 70007}, 21
+# Posição 18: fora dos acessórios (ATTACHMENT_BAG_SLOTS 20..63) — na 21 o 2º acessório recolhido caía em
+# cima do item da tática e sumia (sessão 20261030T214433, pente 40403).
+TACTICAL_ITEMS, TACTICAL_ITEM_BAG_SLOT = {21: 70024, 23: 70022, 19: 70007}, 18
 
 
 def gadget_record(definition, slot, uid, quantity=1):

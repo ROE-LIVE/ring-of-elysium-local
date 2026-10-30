@@ -1,4 +1,4 @@
-"""Kit de modificação (REFIT): LEVELUP_REQ → RSP + START_LEVELUP_BC; 5 s depois LEVELUP_BC, vida nova e uso gasto."""
+"""Kit de modificação (REFIT): LEVELUP_REQ → START_LEVELUP_BC; 5 s depois LEVELUP_BC, vida nova, fim do estado 75, RSP e uso gasto."""
 import struct
 import sys
 import unittest
@@ -9,7 +9,7 @@ from game_endpoint_probe_2022 import Endpoint
 from vehicle_levelup_2022 import (VehicleLevelups, decode_levelup_request, encode_levelup_response,
                                   encode_levelup_bc, encode_start_levelup_bc, SINGING_SECONDS)
 
-UID, ACTOR, OTHER = 0x0005040000160039, 0x515BB1E1DD242C, 0x515BB18E59C77C
+UID, ACTOR, OTHER, AVATAR = 0x0005040000160039, 0x515BB1E1DD242C, 0x515BB18E59C77C, 0x0005010000000777
 
 
 class Formats(unittest.TestCase):
@@ -48,6 +48,7 @@ class EndpointFlow(unittest.TestCase):
     def setUp(self):
         e = self.e = Endpoint.__new__(Endpoint)
         e.shared_vehicles = None
+        e.peer_avatars = SimpleNamespace(members={(7, ACTOR): dict(avatar=AVATAR)})
         e.sent, e.records = [], []
         e.capture = SimpleNamespace(record=lambda kind, **kw: e.records.append(kw))
         e.send_application_batch = lambda d, remote, st, packets: e.sent.append((st['actor_uid'], packets))
@@ -57,16 +58,20 @@ class EndpointFlow(unittest.TestCase):
     def test_start_then_finish(self):
         e = self.e
         e.vehicle_levelup_request(None, None, self.me, struct.pack('>QB', UID, 0))
-        self.assertEqual([c for c, _ in e.sent[0][1]], [0x6538, 0x6593])
-        self.assertEqual(struct.unpack('>iQB', e.sent[0][1][0][1]), (0, UID, 0))
-        self.assertEqual(e.sent[1], (OTHER, [(0x6593, encode_start_levelup_bc(UID, ACTOR))]))
+        # Sem RSP no início: com ele a animação e o som não paravam (sessão 20261030T013558).
+        self.assertEqual(e.sent[0], (ACTOR, [(0x6593, encode_start_levelup_bc(UID, ACTOR))]))
+        self.assertEqual(e.sent[1], (OTHER, [(0x6593, encode_start_levelup_bc(UID, AVATAR))]))  # boneco remoto
         e.sent.clear()
         e.finish_vehicle_levelups(float('inf'))
         mine = dict(e.sent)[ACTOR]
-        self.assertEqual([c for c, _ in mine], [0x6539, 0x6554, 0x10d0, 0x1162])
+        self.assertEqual([c for c, _ in mine], [0x6539, 0x6554, 0x2c, 0x6538, 0x10d0, 0x1162])
         self.assertEqual(struct.unpack('>QII', mine[1][1]), (UID, 34560, 1))
-        self.assertEqual(struct.unpack('>II', mine[2][1]), (26, 0))                    # REFIT usado
-        self.assertEqual([c for c, _ in dict(e.sent)[OTHER]], [0x6539, 0x6554])
+        self.assertEqual(struct.unpack('>QI', mine[2][1]), (ACTOR, 75))                 # sai de VEHICLE_LEVELUP
+        self.assertEqual(struct.unpack('>iQB', mine[3][1]), (0, UID, 0))
+        self.assertEqual(struct.unpack('>II', mine[4][1]), (26, 0))                    # REFIT usado
+        theirs = dict(e.sent)[OTHER]
+        self.assertEqual([c for c, _ in theirs], [0x6539, 0x6554, 0x2c])
+        self.assertEqual(struct.unpack('>QI', theirs[2][1]), (AVATAR, 75))
         self.assertEqual(self.other['vehicles'].vehicles[UID]['hp'], 34560)
 
     def test_no_charge_is_rejected(self):

@@ -6,13 +6,16 @@
   0x6539 LEVELUP_BC        ullVehicle_rid, bVehicle_level, bRepair   (140c9ca90; bRepair — версионное поле, последним)
   0x6593 START_LEVELUP_BC  два U64: порядок ullVehicle_rid, ullActor_rid — гипотеза (как SWITCH_SEAT_SYNC)
 EuVehicleTable_car (TableBin #0x444, SHA 8a8ebefc…): mLevelCfg nLevel1, nToLevelSingingMs5000, nInitHp ниже.
-Последовательность (RSP сразу, BC_START, через5с LEVELUP_BC + новый HP) — наша реконструкция.
+Последовательность — наша реконструкция: BC_START сразу; через5с LEVELUP_BC + новый HP, выход из статуса
+E_EU_ST_VEHICLE_LEVELUP75 (0x2C) и RSP iRet0 автору. RSP в начале оставлял анимацию/звук навсегда
+(сессия20261030T013558).
 """
 import struct
 
 LEVEL_HP = {101: 46080, 102: 34560, 104: 38800, 105: 46080, 107: 34560, 114: 48000, 115: 39744}
 SINGING_SECONDS = 5.0
 REFIT_ABILITY, REFIT_COUNT = 25, 26          # ATR_INIT_ABILITY_REFIT, ATR_REFIT_LEFT_COUNT
+ST_VEHICLE_LEVELUP = 75                       # E_EU_ST_VEHICLE_LEVELUP
 RET_OK, RET_FAIL = 0, 1
 
 
@@ -32,6 +35,11 @@ def encode_levelup_bc(uid, level, repair):
 
 def encode_start_levelup_bc(uid, actor_uid):
     return struct.pack('>QQ', uid, actor_uid)
+
+
+def encode_status_leave(actor_uid, status=ST_VEHICLE_LEVELUP):
+    # 0x2C SCENE_MSGID_STATUS_LEAVE: U64 unit, U32 E_EU_ST_* (как 0x2B).
+    return struct.pack('>QI', actor_uid, status)
 
 
 class VehicleLevelups:

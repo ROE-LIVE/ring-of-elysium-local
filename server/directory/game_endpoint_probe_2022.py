@@ -48,7 +48,7 @@ from gadget_actions_2022 import (GadgetRooms, decode_barrier_request, encode_obs
 from shared_vehicle_2022 import SharedVehicleRooms
 from vehicle_levelup_2022 import (VehicleLevelups, LEVEL_HP, REFIT_ABILITY, REFIT_COUNT, RET_OK, RET_FAIL,
                                   decode_levelup_request, encode_levelup_response, encode_levelup_bc,
-                                  encode_start_levelup_bc)
+                                  encode_start_levelup_bc, encode_status_leave)
 from shared_combat_2022 import SharedCombatRooms
 from actor_probe_2022 import ActorFixture, ActorState, segment_box_entry
 from target_roster_2022 import TargetRoster, load_actor_fixtures
@@ -2090,8 +2090,13 @@ class Endpoint(asyncio.DatagramProtocol):
             rooms = self._vehicle_levelups = {}
         return rooms.setdefault(room_uid, VehicleLevelups())
 
+    def seen_actor_uid(self, room_uid, actor_uid):
+        """UID com que os outros jogadores da sala veem o ator (boneco remoto); sem sala compartilhada, o próprio."""
+        member = self.peer_avatars.members.get((room_uid, actor_uid)) if getattr(self, 'peer_avatars', None) else None
+        return member['avatar'] if member else actor_uid
+
     def vehicle_levelup_request(self, d, remote, state, payload):
-        """0x6537 LEVELUP_REQ (kit de modificação, tática REFIT): RSP, START_LEVELUP_BC; o fim sai em poll_gadgets."""
+        """0x6537 LEVELUP_REQ (kit de modificação, tática REFIT): START_LEVELUP_BC; o fim (e o RSP) sai em poll_gadgets."""
         try:
             uid, repair = decode_levelup_request(payload)
         except ValueError as error:
@@ -2110,18 +2115,18 @@ class Endpoint(asyncio.DatagramProtocol):
                                 account_uid=hex(state['actor_uid']))
             return
         levelups.start(uid, state['actor_uid'], repair, time.monotonic())
-        start = (0x6593, encode_start_levelup_bc(uid, state['actor_uid']))
-        self.send_application_batch(d, remote, state, [(0x6538, encode_levelup_response(RET_OK, uid, repair)), start])
+        self.send_application_batch(d, remote, state, [(0x6593, encode_start_levelup_bc(uid, state['actor_uid']))])
         others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
+        seen = self.seen_actor_uid(state.get('room_uid'), state['actor_uid'])
         for other in others:
             anchor = other['peer_avatar_anchor']
-            self.send_application_batch(anchor[0], anchor[1], other, [start])
+            self.send_application_batch(anchor[0], anchor[1], other, [(0x6593, encode_start_levelup_bc(uid, seen))])
         self.capture.record('vehicle_levelup', synthetic=True, accepted=True, phase='start', uid=hex(uid),
                             model=vehicle['configuration'], repair=repair, account_uid=hex(state['actor_uid']),
                             recipients=1 + len(others), sequence_verified=False)
 
     def finish_vehicle_levelups(self, now):
-        """Fim da modificação (5 s): LEVELUP_BC nível 1 e vida da tabela para a sala; gasta o uso do REFIT."""
+        """Fim da modificação (5 s): LEVELUP_BC nível 1, vida da tabela e saída do estado 75 para a sala; RSP e uso gasto ao autor."""
         for room_uid, levelups in list(getattr(self, '_vehicle_levelups', {}).items()):
             for uid, actor, repair in levelups.due(now):
                 members = self.room_sessions(room_uid)
@@ -2133,8 +2138,11 @@ class Endpoint(asyncio.DatagramProtocol):
                     hp = LEVEL_HP[vehicle['configuration']]
                     vehicle['hp'] = hp
                     packets = [(0x6539, encode_levelup_bc(uid, 1, repair)),
-                               (0x6554, struct.pack('>QII', uid, hp, vehicle.get('status') or 1))]
+                               (0x6554, struct.pack('>QII', uid, hp, vehicle.get('status') or 1)),
+                               (0x2c, encode_status_leave(actor if member['actor_uid'] == actor
+                                                          else self.seen_actor_uid(room_uid, actor)))]
                     if member['actor_uid'] == actor and 'weapon' in member:
+                        packets.append((0x6538, encode_levelup_response(RET_OK, uid, repair)))
                         counts = member.setdefault('gadget_counts', dict(member['weapon'].fixture.tactical))
                         counts[REFIT_ABILITY] = max(0, counts.get(REFIT_ABILITY, 0) - 1)
                         packets += [(0x10d0, struct.pack('>II', REFIT_COUNT, counts[REFIT_ABILITY])),

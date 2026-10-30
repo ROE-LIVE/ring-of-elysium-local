@@ -50,6 +50,8 @@ KIT_CD_TYPES = {16: 1, 17: 2}
 # Восстановление заряда (buff3000/3001). Клиент сообщает о рывке только событием JET_TRIGGER70
 # в C2S2a (сессия20261029T021955: три рывка за16с, 0x536 рядом нет) — сервер сам тратит заряд.
 KIT_RECHARGE = {16: 10.0, 17: 60.0}
+# Capa: energia (0x1069 tipo 17); o buff 18 "光学迷彩能量值扣除" tira 6 por segundo enquanto ligada.
+STEALTH_ENERGY_MAX, STEALTH_ENERGY_PER_SECOND, STEALTH_ENERGY_MIN = 100, 6, 6
 
 
 def encode_ability_cd_sync(actor_uid, entries):
@@ -810,6 +812,11 @@ class WeaponState:
                                if index in ABILITY_CD_TYPES]
         if entries:
             responses.append((0x1162, encode_ability_cd_sync(self.actor_uid, entries)))
+        if 35 in selected:
+            # Capa: energia StealthEnergy = tipo 17 do 0x1069 (achado ao vivo). Sem ela o cliente não liga
+            # a capa (EuStealthCloakTable mCanUseMinEnerge 6). Máximo 100 é hipótese nossa.
+            responses.append((0x1069, struct.pack('>QBBBii', self.actor_uid, 0, 1, 17, STEALTH_ENERGY_MAX,
+                                                   STEALTH_ENERGY_MAX)))
         return responses
 
     def inventory_records(self):

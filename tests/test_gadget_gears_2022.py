@@ -146,6 +146,19 @@ class Gears(unittest.TestCase):
         self.assertEqual(struct.unpack_from('>Q', theirs[0][1])[0], AVATAR)
         self.assertEqual(decode_grapple_request(bytes.fromhex(GRAPPLE_SAMPLE))['tail'][0], 41114)
 
+    def test_stealth_energy_drains_and_turns_off(self):
+        e = self.e
+        e.use_stealth(None, None, self.me, True)
+        self.assertEqual(self.me['stealth_energy'], 100)
+        e.sent.clear()
+        start = self.me['stealth_tick']
+        e.drain_stealth(self.me, (None, None), start + 2.5)
+        powers = [p for _, packets in e.sent for c, p in packets if c == 0x1069]
+        self.assertEqual([struct.unpack('>QBBBii', p)[4] for p in powers], [94, 88, 82])
+        e.drain_stealth(self.me, (None, None), start + 20)
+        self.assertEqual((self.me['stealth_energy'], self.me['stealth']), (0, False))
+        self.assertIn((0x2c, struct.pack('>QI', ACTOR, 83)), [pk for _, packets in e.sent for pk in packets])
+
     def test_heal_gun_oneself(self):
         e = self.e
         e.heal_gun_oneself(None, None, self.me, struct.pack('>i', 30010))

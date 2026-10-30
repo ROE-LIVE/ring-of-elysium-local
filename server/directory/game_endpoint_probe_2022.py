@@ -22,7 +22,7 @@ from roe_room_2023 import decode_enter_room_response
 from room_cosmetics_2022 import apply_room_cosmetics
 from roe_protocol_2022 import encrypt, decrypt
 from listener import Capture
-from weapon_probe_2022 import WeaponFixture, WeaponState, ABILITY_CD_TYPES, encode_ability_cd_sync
+from weapon_probe_2022 import WeaponFixture, WeaponState, ABILITY_CD_TYPES, encode_ability_cd_sync, STEALTH_ENERGY_MAX, STEALTH_ENERGY_PER_SECOND
 from medical_probe_2022 import MedicalState
 from live_scene_probe_2022 import LiveSceneCommands
 from door_state_2022 import DoorFixture, DoorState
@@ -2426,8 +2426,20 @@ class Endpoint(asyncio.DatagramProtocol):
             anchor = other['peer_avatar_anchor']
             self.send_application_batch(anchor[0], anchor[1], other, [(command, struct.pack('>QI', seen, ST_IN_STEALTH))])
         state['stealth'] = on
+        # Energia gasta em poll_gadgets (6/s); ao zerar o servidor desliga a capa.
+        state.setdefault('stealth_energy', STEALTH_ENERGY_MAX)
+        state['stealth_tick'] = time.monotonic() + 1 if on else None
         self.capture.record('gadget_stealth', synthetic=True, on=on, account_uid=hex(state['actor_uid']),
-                            recipients=1 + len(others), energy_simulated=False)
+                            recipients=1 + len(others), energy=state['stealth_energy'], energy_simulated=True)
+
+    def drain_stealth(self, state, anchor, now):
+        while state.get('stealth') and state.get('stealth_tick') and now >= state['stealth_tick']:
+            state['stealth_tick'] += 1
+            energy = state['stealth_energy'] = max(0, state['stealth_energy'] - STEALTH_ENERGY_PER_SECOND)
+            self.send_application_batch(anchor[0], anchor[1], state, [
+                (0x1069, struct.pack('>QBBBii', state['actor_uid'], 0, 1, 17, energy, STEALTH_ENERGY_MAX))])
+            if energy <= 0:
+                self.use_stealth(anchor[0], anchor[1], state, False)
 
     def heal_gun_oneself(self, d, remote, state, payload):
         """0x117B HEAL_GUN_ONESELF_REQ (iBullet_id) → 0x117C iError 0 e cura do buff 4000 em pulsos."""
@@ -2576,6 +2588,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                     attributes=recharged, charges=dict(state['weapon'].kit_counts(now)))
         self.finish_vehicle_levelups(now)
         for state in list(getattr(self, 'sessions', {}).values()):
+            if state.get('stealth') and state.get('peer_avatar_anchor'):
+                self.drain_stealth(state, state['peer_avatar_anchor'], now)
             pending, anchor = state.get('grapple_resolve'), state.get('peer_avatar_anchor')
             if pending and anchor and now >= pending[0]:
                 self.send_grapple_resolve(anchor[0], anchor[1], state, 'delay')

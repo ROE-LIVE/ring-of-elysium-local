@@ -1,5 +1,7 @@
 # ROE local — tudo o que o servidor e o launcher fazem
 
+**Português** | [English](RECURSOS.en.md)
+
 Servidor caseiro e **não oficial** para jogar o **Ring of Elysium (build 2022, 0.2.989.0)** depois do fim dos servidores oficiais. Ele roda no seu PC, sozinho ou numa sala para a rede local, e usa o jogo da Steam **sem alterar nenhum arquivo do jogo**.
 
 > **Download:** [instalador para Windows](https://github.com/streamnestapp/ring-of-elysium-local/releases/latest) (~37 MB).

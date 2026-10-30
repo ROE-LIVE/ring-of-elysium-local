@@ -57,6 +57,20 @@ STEALTH_ENERGY_MAX, STEALTH_ENERGY_PER_SECOND, STEALTH_ENERGY_MIN = 100, 6, 6
 # mochila (QSSlotConfigTable equipSlot_SDV, whitelist 20006/70020…70026). Vai como arma (tipo 1) na
 # mochila (container 2), numa posição nossa livre; a tela a encaixa pela whitelist (hipótese).
 MEDGUN, MEDGUN_CAPACITY, MEDGUN_BAG_SLOT = 20006, 12, 20
+# Item da própria tática (A81 categoria 35) no mesmo compartimento: o InitItem do original entrega 70024
+# (Medgun, bShow false), 70022 (drone) e 70007 (DPV). Sem ele o G do drone e da Medgun nem chega ao
+# servidor (hipótese: o cliente confere o item); barricada/holograma/scanner/capa funcionam sem.
+TACTICAL_ITEMS, TACTICAL_ITEM_BAG_SLOT = {21: 70024, 23: 70022, 19: 70007}, 21
+
+
+def gadget_record(definition, slot, uid, quantity=1):
+    """ITEM_DATA tipo 2 categoria 35 (gadget tático) na mochila; união sem campos extras (inventory_codec)."""
+    record = bytearray(60)
+    record[:4] = bytes((2, slot, 2, 0))
+    struct.pack_into('>IQ', record, 4, definition, uid)
+    record[32] = 35
+    struct.pack_into('>H', record, 58, quantity)
+    return bytes(record)
 
 
 def encode_ability_cd_sync(actor_uid, entries):
@@ -375,6 +389,8 @@ class WeaponState:
         self.actor_uid = actor_uid
         self.tactical_gun = (GunInstance(MEDGUN, MEDGUN_CAPACITY, self.new_instance_uid())
                              if any(index == 21 for index, _ in fixture.tactical) else None)
+        self.tactical_item = next(((TACTICAL_ITEMS[index], self.new_instance_uid())
+                                   for index, _ in fixture.tactical if index in TACTICAL_ITEMS), None)
         self.reserve = fixture.reserve
         self.extra_ammunition = {}
         self.medical = {}
@@ -848,6 +864,8 @@ class WeaponState:
             struct.pack_into('>I', gun, 56, MEDGUN_CAPACITY)
             struct.pack_into('>I', gun, 72, 0)
             records.append(bytes(gun))
+        if self.tactical_item:
+            records.append(gadget_record(self.tactical_item[0], TACTICAL_ITEM_BAG_SLOT, self.tactical_item[1]))
         records.extend(equipment_record(self.fixture.gun, definition,
                                         self.equipment_durability.get(slot))
                        for slot, definition in sorted(self.equipment.items()))

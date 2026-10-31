@@ -505,6 +505,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                     continue
                                 if message.command == 0x2a and not self.accept_movement(d, remote, state, message.payload):
                                     continue
+                                if message.command == 0x2a and state.get('grapple_resolve'):
+                                    self.grapple_flight_started(state, time.monotonic())
                                 if ('weapon' in state and message.command in (0x49e, 0x49c, 0x11da, 0x3b63, 0x3e80, 0x1004, 0x1007, 0x6f57)
                                         and not self.accept_inventory_action(state, message, remote)):
                                     continue
@@ -613,7 +615,11 @@ class Endpoint(asyncio.DatagramProtocol):
                                 attribute = client_attribute(message.command, message.payload)
                                 if attribute is not None:
                                     replies, event = attribute
-                                    self.send_application_batch(d, remote, state, replies)
+                                    if state.get('grapple_resolve'):
+                                        # Gancho em lançamento: a resposta ao 0x10CC (dica de novato do gancho) vai depois.
+                                        state.setdefault('grapple_deferred', []).extend(replies)
+                                    else:
+                                        self.send_application_batch(d, remote, state, replies)
                                     self.capture.record('winter_selection', synthetic=True, **event)
                                 elif self.staged_loadout and default_choice(self.weapon_fixture) is not None and message.command == 0x10cc:
                                     result = choose_staged(message.command, message.payload,
@@ -992,6 +998,8 @@ class Endpoint(asyncio.DatagramProtocol):
                                         self.send_application(d, remote, state, command, payload)
                                     self.capture.record('weapon_probe', synthetic=True, remote=remote, **event)
                                     self.relay_peer_status(state, [event])
+                                    if event.get('action') == 'hand' and event.get('slot') in state['weapon'].guns:
+                                        state['hand_refresh'] = time.monotonic() + self.HAND_REFRESH_DELAY
                                     if message.command == 0x11da and self.peer_combat:
                                         self.peer_combat.note_fire(state,message.payload,event,time.monotonic())
                                     if message.command == 0x11da and 'vehicles' in state:
@@ -2384,18 +2392,55 @@ class Endpoint(asyncio.DatagramProtocol):
 
     GRAPPLE_ATTRIBUTE = 16
     GRAPPLE_RESOLVE_DELAY = 0.5
+    GRAPPLE_FLIGHT_TIMEOUT = 2.0
     GRAPPLE_CHARGE_SYNC_DELAY = 1.5
 
+    def grapple_flight_started(self, state, now):
+        """Primeiro 0x2A depois do lançamento: o voo começou, o 0x3A pode ir GRAPPLE_RESOLVE_DELAY depois.
+
+        Em todas as travadas das sessões de 30–31/10 o 0x3A chegou antes do primeiro 0x2A do voo (no primeiro
+        uso da partida o cliente demora mais a decolar); em todos os acertos o voo já tinha começado.
+        """
+        due, body, flying = state['grapple_resolve']
+        if not flying:
+            state['grapple_resolve'] = (now + self.GRAPPLE_RESOLVE_DELAY, body, True)
+
+    GRAPPLE_RESCUE_BACK = 80   # cm antes do ponto de fixação, na direção do jogador
+    GRAPPLE_RESCUE_UP = 100
+
+    def grapple_rescue(self, state, origin, anchor):
+        """Teleporte (0x27) para perto do ponto de fixação quando o gancho não decolou.
+
+        No primeiro gancho da partida, antes de um disparo ou recarga, o cliente fazia a animação e não decolava,
+        com qualquer resposta do servidor (0x3A, sem nada no lançamento, 0x4A0 da arma); um teleporte o soltava.
+        """
+        dx, dy, dz = (o - a for o, a in zip(origin, anchor))
+        length = max(1.0, (dx * dx + dy * dy + dz * dz) ** 0.5)
+        back = min(self.GRAPPLE_RESCUE_BACK, length) / length
+        position = [int(round(anchor[0] + dx * back)), int(round(anchor[1] + dy * back)),
+                    int(round(anchor[2] + dz * back)) + self.GRAPPLE_RESCUE_UP]
+        packets, event = apply_state_action(state, dict(action='teleport', position=position), (),
+                                            int((time.monotonic() - self.started) * 25))
+        return packets, event
+
     def send_grapple_resolve(self, d, remote, state, trigger):
-        _, body = state.pop('grapple_resolve')
+        _, body, _ = state.pop('grapple_resolve')
         self.send_application_batch(d, remote, state, [(0x3a, body)])
+        rescue = state.pop('grapple_rescue', None)
+        if trigger == 'timeout' and rescue:
+            packets, event = self.grapple_rescue(state, *rescue)
+            self.send_application_batch(d, remote, state, packets)
+            for code, payload in packets:
+                self.register_fixture_entity(state, code, payload)
+            self.capture.record('kit_grapple_rescue', synthetic=True, account_uid=hex(state['actor_uid']), **event)
+        state['grapple_charge_sync'] = time.monotonic() + self.GRAPPLE_CHARGE_SYNC_DELAY
         self.capture.record('kit_grapple_resolve', synthetic=True, account_uid=hex(state['actor_uid']), trigger=trigger)
 
     def use_grapple(self, d, remote, state, payload):
         """0x3B GRAPPLE (gancho): gasta a carga, 0x3C BC_GRAPPLE à sala e, ao dono, 0x3A RESOLVE_MOVE e as cargas.
 
-        Nada vai ao dono no instante do lançamento (hipótese: o 0x1162 com a recarga em andamento abortava o
-        lançamento quando chegava antes do fim dele — falhas intermitentes com as mesmas mensagens).
+        Nada vai ao dono até o 0x3A: o 0x1162 da recarga ou a resposta ao 0x10CC (o cliente o manda no primeiro
+        gancho da partida) chegando antes da decolagem abortavam o lançamento e o personagem travava.
         """
         try:
             request = decode_grapple_request(payload)
@@ -2405,11 +2450,11 @@ class Endpoint(asyncio.DatagramProtocol):
             return
         now = time.monotonic()
         spent = state['weapon'].use_kit_charge(self.GRAPPLE_ATTRIBUTE, now)
-        # O 0x3A vai à parte, GRAPPLE_RESOLVE_DELAY depois (no teste ao vivo chegava 0,3–2 s depois e soltava);
-        # as cargas, GRAPPLE_CHARGE_SYNC_DELAY depois.
-        state['grapple_resolve'] = (now + self.GRAPPLE_RESOLVE_DELAY, encode_grapple_resolve(request))
-        if spent:
-            state['grapple_charge_sync'] = now + self.GRAPPLE_CHARGE_SYNC_DELAY
+        # O 0x3A vai à parte, GRAPPLE_RESOLVE_DELAY depois do início do voo (grapple_flight_started) ou, se o voo
+        # não começar, GRAPPLE_FLIGHT_TIMEOUT depois; as cargas e o que ficou adiado, GRAPPLE_CHARGE_SYNC_DELAY após ele.
+        state['grapple_resolve'] = (now + self.GRAPPLE_FLIGHT_TIMEOUT, encode_grapple_resolve(request), False)
+        state['grapple_rescue'] = (request['position'][:3], request['anchor'])
+        state['grapple_charge_spent'] = state.get('grapple_charge_spent') or spent
         others = [st for st in self.room_sessions(state.get('room_uid')) if st is not state]
         seen = self.seen_actor_uid(state.get('room_uid'), state['actor_uid'])
         for other in others:
@@ -2613,11 +2658,22 @@ class Endpoint(asyncio.DatagramProtocol):
         self.capture.record('kit_jet_trigger', synthetic=True, account_uid=hex(state['actor_uid']), spent=spent,
                             charges=dict(state['weapon'].kit_counts(now)), hypothesis=True)
 
+    # Inventário reenviado depois de sacar uma arma, como numa coleta. Sem isso o primeiro gancho da partida
+    # travava (a animação de lançamento não chegava a PermissionToGrapple/LaunchGrapple) até um disparo,
+    # recarga, acessório ou coleta; o 0x4A0 junto do 0x49F não bastava (teste 31/10).
+    HAND_REFRESH_DELAY = 1.5
+
     def poll_gadgets(self, now):
         for state in list(getattr(self, 'sessions', {}).values()):
             anchor = state.get('peer_avatar_anchor')
             if 'weapon' not in state or not anchor or state.get('match_finished') or state.get('transport_retired'):
                 continue
+            due = state.get('hand_refresh')
+            if due and now >= due:
+                state['hand_refresh'] = None
+                self.send_application_batch(anchor[0], anchor[1], state, state['weapon'].reconcile_inventory())
+                self.capture.record('hand_refresh', synthetic=True, account_uid=hex(state['actor_uid']),
+                                    hand_slot=state['weapon'].hand_slot)
             recharged = state['weapon'].kit_recharged(now)
             if recharged:
                 self.send_application_batch(anchor[0], anchor[1], state, self.kit_charge_sync(state, now))
@@ -2636,11 +2692,14 @@ class Endpoint(asyncio.DatagramProtocol):
                 self.drain_stealth(state, state['peer_avatar_anchor'], now)
             pending, anchor = state.get('grapple_resolve'), state.get('peer_avatar_anchor')
             if pending and anchor and now >= pending[0]:
-                self.send_grapple_resolve(anchor[0], anchor[1], state, 'delay')
+                self.send_grapple_resolve(anchor[0], anchor[1], state, 'flight' if pending[2] else 'timeout')
             due = state.get('grapple_charge_sync')
             if due and anchor and now >= due:
                 state['grapple_charge_sync'] = None
-                self.send_application_batch(anchor[0], anchor[1], state, self.kit_charge_sync(state, now))
+                packets = self.kit_charge_sync(state, now) if state.pop('grapple_charge_spent', False) else []
+                packets += state.pop('grapple_deferred', [])
+                if packets:
+                    self.send_application_batch(anchor[0], anchor[1], state, packets)
         for state in list(getattr(self, 'sessions', {}).values()):
             pulses = state.get('heal_gun_pulses')
             anchor = state.get('peer_avatar_anchor')

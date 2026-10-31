@@ -79,6 +79,19 @@ class Gears(unittest.TestCase):
         self.me, self.other = session(ACTOR, ((29, 1),)), session(OTHER, ())
         e.room_sessions = lambda room: [self.me, self.other]
 
+    def test_hand_refresh_resends_inventory(self):
+        e = self.e
+        e.sessions = {1: self.me}
+        e.finish_vehicle_levelups = lambda now: None
+        self.me['peer_avatar_anchor'] = (None, None)
+        self.me['hand_refresh'] = 10.0
+        self.me['weapon'] = SimpleNamespace(kit_recharged=lambda now: [], hand_slot=1,
+                                            reconcile_inventory=lambda: [(0x4a0, b'pente')])
+        e.poll_gadgets(9.0)
+        self.assertFalse(e.sent)
+        e.poll_gadgets(10.0)
+        self.assertEqual((e.sent[0][1], self.me['hand_refresh']), ([(0x4a0, b'pente')], None))
+
     def test_bait_decoder(self):
         req = decode_bait_request(bait_payload(3))
         self.assertEqual((req['position'], len(req['path']), req['extra']), ((100, 200, 300), 3, 9))
@@ -129,21 +142,49 @@ class Gears(unittest.TestCase):
         self.assertEqual(kit, [16])
         # Nada vai ao dono no lançamento; o 0x3C vai aos outros com o UID do boneco remoto.
         [(other, theirs)] = e.sent
-        self.assertEqual((other, [c for c, _ in theirs], 'grapple_charge_sync' in self.me), (OTHER, [0x3c], True))
+        self.assertEqual((other, [c for c, _ in theirs], self.me.get('grapple_charge_spent')), (OTHER, [0x3c], True))
         body = theirs[0][1]
         self.assertEqual(len(body), 66)
         self.assertEqual(struct.unpack_from('>QIBI', body), (AVATAR, 15, 31, 4096))
         # POS13 do jogador e do ponto de fixação (F32 arredondado para cm).
         self.assertEqual(struct.unpack_from('>iiiB', body, 23), (404384, 369462, 40359, 0))
         self.assertEqual(struct.unpack_from('>iii', body, 36), (403524, 368588, 40491))
-        # O 0x3A sai à parte para o dono, depois de GRAPPLE_RESOLVE_DELAY (poll_gadgets).
+        # O 0x3A espera o voo: só GRAPPLE_RESOLVE_DELAY depois do primeiro 0x2A (poll_gadgets).
+        self.assertFalse(self.me['grapple_resolve'][2])
+        e.grapple_flight_started(self.me, 100.0)
+        self.assertEqual(self.me['grapple_resolve'][::2], (100.0 + e.GRAPPLE_RESOLVE_DELAY, True))
+        e.grapple_flight_started(self.me, 101.0)
+        self.assertEqual(self.me['grapple_resolve'][0], 100.0 + e.GRAPPLE_RESOLVE_DELAY)
         e.sent.clear()
         e.send_grapple_resolve(None, None, self.me, 'delay')
-        self.assertEqual(([c for c, _ in e.sent[0][1]], 'grapple_resolve' in self.me), ([0x3a], False))
+        self.assertEqual(([c for c, _ in e.sent[0][1]], 'grapple_resolve' in self.me, bool(self.me['grapple_charge_sync'])),
+                         ([0x3a], False, True))
         resolve = e.sent[0][1][0][1]
         self.assertEqual(len(resolve), 42)
         self.assertEqual(struct.unpack_from('>IHiii', resolve), (15, 0, 403524, 368588, 40491))
         self.assertEqual(decode_grapple_request(bytes.fromhex(GRAPPLE_SAMPLE))['tail'][0], 41114)
+
+    def test_grapple_rescue_teleports_next_to_the_anchor(self):
+        e = self.e
+        e.started = 0.0
+        sent = []
+        e.grapple_rescue = lambda state, origin, anchor: (sent.append((origin, anchor)) or ([(0x27, b'x')], dict(accepted=True)))
+        e.register_fixture_entity = lambda *args: None
+        self.me['grapple_resolve'] = (0.0, b'r', False)
+        self.me['grapple_rescue'] = ((0, 0, 0), (1000, 0, 0))
+        e.sent.clear()
+        e.send_grapple_resolve(None, None, self.me, 'timeout')
+        self.assertEqual(([[c for c, _ in batch] for _, batch in e.sent], sent), ([[0x3a], [0x27]], [((0, 0, 0), (1000, 0, 0))]))
+
+    def test_grapple_rescue_position(self):
+        e = self.e
+        e.started = 0.0
+        self.me['scene_position_sync'] = bytes(40)
+        packets, event = type(e).grapple_rescue(e, self.me, (0, 0, 0), (1000, 0, 500))
+        self.assertTrue(event['accepted'], event)
+        back = 80 / (1000**2 + 500**2) ** 0.5
+        self.assertEqual(struct.unpack_from('>3i', packets[0][1], 8),
+                         (round(1000 - 1000 * back), 0, round(500 - 500 * back) + 100))
 
     def test_stealth_energy_drains_and_turns_off(self):
         e = self.e
@@ -170,8 +211,8 @@ class Gears(unittest.TestCase):
         self.assertEqual([(e.container, e.slot, e.item.category) for e in entries if e.item.definition == 70024],
                          [(2, 18, 35)])
         drone = WeaponState(WeaponFixture(bytes(82), bytes(60), tactical=((23, 1),)), ACTOR)
-        self.assertEqual([e.item.definition for e in decode_snapshot(drone.inventory()).entries
-                          if e.item.category == 35], [70022])
+        self.assertEqual([(e.item.definition, e.slot, e.item.category) for e in decode_snapshot(drone.inventory()).entries
+                          if e.item.category in (35, 36)], [(70022, 18, 35), (70008, 19, 36)])
         # O G equipa a Medgun com 0x49E 9: aceito (0x49F) e a mão passa ao encaixe 9.
         responses, event = with_medgun.handle(0x49e, struct.pack('>I', 9))
         self.assertEqual((responses, event['action'], with_medgun.hand_slot), ([(0x49f, struct.pack('>II', 9, 0))], 'hand', 9))

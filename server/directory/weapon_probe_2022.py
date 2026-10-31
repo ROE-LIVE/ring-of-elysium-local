@@ -64,6 +64,9 @@ MEDGUN, MEDGUN_CAPACITY, MEDGUN_SLOT = 20006, 12, 9
 # Posição 18: fora dos acessórios (ATTACHMENT_BAG_SLOTS 20..63) — na 21 o 2º acessório recolhido caía em
 # cima do item da tática e sumia (sessão 20261030T214433, pente 40403).
 TACTICAL_ITEMS, TACTICAL_ITEM_BAG_SLOT = {21: 70024, 23: 70022, 19: 70007}, 18
+# Drone: o G do HUD é USE_ITEM_70008 ("usar o item 70008", A81 ITEM_Drone, categoria 36, veículo 9). Só com
+# o 70022 o ícone fica branco mas o G não manda nada (sessão 20261030T220358): entregamos também o 70008.
+DRONE_ITEM, DRONE_ITEM_BAG_SLOT = 70008, 19
 
 
 def gadget_record(definition, slot, uid, quantity=1):
@@ -394,6 +397,8 @@ class WeaponState:
                              if any(index == 21 for index, _ in fixture.tactical) else None)
         self.tactical_item = next(((TACTICAL_ITEMS[index], self.new_instance_uid())
                                    for index, _ in fixture.tactical if index in TACTICAL_ITEMS), None)
+        self.drone_item_uid = (self.new_instance_uid()
+                               if self.tactical_item and self.tactical_item[0] == 70022 else None)
         self.reserve = fixture.reserve
         self.extra_ammunition = {}
         self.medical = {}
@@ -871,6 +876,10 @@ class WeaponState:
             records.append(bytes(gun))
         if self.tactical_item:
             records.append(gadget_record(self.tactical_item[0], TACTICAL_ITEM_BAG_SLOT, self.tactical_item[1]))
+            if self.tactical_item[0] == 70022:
+                record = bytearray(gadget_record(DRONE_ITEM, DRONE_ITEM_BAG_SLOT, self.drone_item_uid))
+                record[32] = 36
+                records.append(bytes(record))
         records.extend(equipment_record(self.fixture.gun, definition,
                                         self.equipment_durability.get(slot))
                        for slot, definition in sorted(self.equipment.items()))

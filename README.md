@@ -6,6 +6,12 @@
 
 ## English
 
+### Public developer update — 4 November 2026
+
+Current server/research handoff: [architecture, native addresses, evidence and limits](docs/PUBLIC-UPDATE-20261104.md). [Reusable protocol SDK and tests](https://github.com/ROE-LIVE/ring-of-elysium-local/tree/main/sdk/2022); [compact contributor tasks](docs/PUBLIC-TASKS-20261104.csv). The existing local launcher remains the October demo; this update does not install the private multiplayer/bot stack.
+
+Обновление для разработчиков: текущая архитектура, кодеки лобби/сетевой синхронизации, источники и границы подтверждения. Новые разработки ботов и приватная инфраструктура не опубликованы. Старые записи ниже сохраняют свои даты.
+
 ### Research follow-up — 18 October 2026
 
 Optional terrain LOS now uses an extracted Iceland heightfield. Proton verified open hits, reconnects, two kills, evacuation and a fresh Training session. This option requires your own extracted PXBIN and is disabled in the standard launcher; it does not provide complete map collision or original damage rules. The intermittent inventory image delay was not reproduced or fixed. Existing Windows W19 tests remain current. [Technical follow-up](docs/SESSION-RESULT-20261018-PM.md).

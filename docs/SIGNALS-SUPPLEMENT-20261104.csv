@@ -1,0 +1,9 @@
+﻿Сигнал;Opcode;Направление;Форма;VA2022root;Источник в SDK;Проверка;Ограничение
+LOGIN_WORLD;0x02EF;server→client;"ActorHeadCfg в одном профиле; длина зависит от имени/морфов";"140BD0450;140BD09A0";"tools/base_character_2022.py;tools/lobby_actor_uid_2022.py";unit + Proton04.11;Оригинальная авторизация не восстановлена
+RESET_HEAD;0x030D/0x030E;request/reply;"Открытие редактора; локальный стенд без оплаты";140BDBC30;tools/local_cosmetics_2022.py;unit + Proton04.11;Нативное окно продолжает показывать цену
+RESET_FINISH;0x030F/0x0310;request/reply;"Save/Cancel; head140+40*n;n≤30;finite floats";"140BD0450;140BD09A0";tools/base_character_2022.py;unit + Proton04.11;Начальное лицо — реконструированный пресет
+APPEARANCE;0x703F/type3;server→client;"kind1=created head;kind2=costume";140BDBC30;"tools/base_character_2022.py;server/directory/room_cosmetics_2022.py";unit + Proton04.11;Нужен согласованный UID и cache entry
+CACHE_PRIMER;0x73B3;server→client;Unknown descriptor0 создаёт cache без выдачи подвески;"1412E0770;1412E082B;140D9F130;140DA0BA4";tools/local_cosmetics_2022.py;Proton:комбинированная правка;Изолированный вклад primer не установлен
+REWARD_OWNED;0x54C4/0x54C5;request/reply;"19 групп;<=600 ID на группу";"141051AA0;141051B30";tools/lobby_rewards_2022.py;"unit;часть native-выборов";Не все дополнительные модели просмотрены
+REWARD_SELECTED;0x54C8/0x54C9;request/reply;11U32 slots+массивы/хвост;"141051AA0;141051B30";tools/lobby_rewards_2022.py;"unit;часть native-выборов";Не покупка/аренда
+PEER_PROFILE;0x0BE7;server→client;"Разнесённые head fixed/extended секции; variable name";"140C2A730;140C2A130;140C29C80;140BD09A0";server/directory/peer_profile_2022.py;"codec;новый pairedWindows pending";При splicing пересчитать переменную длину

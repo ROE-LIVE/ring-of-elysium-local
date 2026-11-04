@@ -22,3 +22,9 @@ In-place:529 unittest пройдены с PowerShell helper,3PSфайла рас
 
 
 16.10: опциональный triangle LOS и7синтетических регрессий; 558 unittest OK. Публичные9PowerShell проверок отдельно повторены с vendored pwsh7.6.6 и прошли. verify-only cycle/Scale3/1500/reliableUDP/idlehandoff прошёл. Native010/011 один настоящий Rock: front/open hit, hidden no11DD, exposed hit; original penetration не внедрён. docs/PROJECTILE-MATERIALS-20261016.md. Новый Windows-повтор не выполнен.
+
+## 04.11.2026 — публичный developer SDK
+
+Новый изолированный SDK2022:51 unittest PASS. Тесты используют синтетические входные данные и не запускают игру. Нативные результаты рабочего стенда и ограничения отдельно перечислены в docs/PUBLIC-UPDATE-20261104.md; это обновление само по себе не подтверждает Windows-запуск публичной упаковки или полный публичный мультиплеер.
+
+Проверка публикации: прежний local suite620 tests OK (9 skips: PowerShell недоступен в Linux), изолированный SDK51 tests OK; research13 tests OK, исторический план115 ID валиден. В старом local suite есть ResourceWarning об очистке asyncio transport; не объявлены исправленными этим обновлением. Клиент/сервисы/кластер не запускались и не перенастраивались.

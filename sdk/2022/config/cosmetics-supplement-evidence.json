@@ -1,0 +1,44 @@
+{
+  "reference_repository": "ROE.Nexus",
+  "reference_commit": "0b34c09",
+  "files": [
+    {
+      "path": "src/Arena_ROE.LobbyHost/Data/reward-table.json",
+      "sha256": "8466872b8c6c1d5b8293cfd0641aa90f0bc51ba8290507cd3afcfc999d073750"
+    },
+    {
+      "path": "src/Arena_ROE.LobbyHost/Data/lobby-media.json",
+      "sha256": "28b1e6a8928eb52ae19a790811ba5649264f3e952033517086d9b413cc3f3eab"
+    }
+  ],
+  "canonical_catalog_counts": {
+    "weapon_skins": 450,
+    "character_ids": 361,
+    "accessories": 197,
+    "clothing": 189
+  },
+  "primary_functions": [
+    "141051AA0:type→reward group",
+    "141051B30:jump table",
+    "140BD0450:ActorHeadCfg1",
+    "140BD09A0:ActorHeadCfg2"
+  ],
+  "limitations": [
+    "Supplementary reward IDs can include rental aliases; not every client resource was rendered.",
+    "Snowboard native UI currently shows default only."
+  ],
+  "base_default_source": {
+    "path": "ROE_SERVER/research/builds/2022/full-extraction-20261010/extracted/DATA/TABLE/DEFAULTMAKEUPCONFIGTABLE.XML",
+    "sha256": "82f8e86f4af7fe0131cc5c222e6b8fe9f11b30a4bf5415910ace0b8c104a1bfd",
+    "initial_policy": "source attributes; neutral floats/morph count0; native male verified",
+    "primary_archive_matches": [
+      {
+        "archive": "Ring of Elysium-2022/SFC/TableBin.sfc",
+        "ordinal": 2955,
+        "key": 17224730823421754044,
+        "block_offset": 29048734,
+        "sha256": "82f8e86f4af7fe0131cc5c222e6b8fe9f11b30a4bf5415910ace0b8c104a1bfd"
+      }
+    ]
+  }
+}

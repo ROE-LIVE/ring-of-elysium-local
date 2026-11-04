@@ -9,7 +9,7 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "38236e35dd9099beec4950b8de6add15e204a0ce8343dc5aa84e2cf3fcb30600"
+    "sha256": "4dfcfd10838ec9b1a4d43252266af8ffe3731f52bb014a266dcab59e7efb8d79"
   },
   {
     "path": "CONTRIBUTING.md",
@@ -21,7 +21,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "73e5082521b839792aa0b6565ffc589e8c63599488aa064f8bd806c902c68f9c"
+    "sha256": "4a20093fa5d8021d3a3fb57541b4f01b64a0d39df9f149f36274e540e78cdade"
   },
   {
     "path": "RIGHTS.md",
@@ -37,7 +37,7 @@
   },
   {
     "path": "VALIDATION.md",
-    "sha256": "15ed19065e660196d06f6b7d046171dff1295719deac46b2b34c49805ea4e361"
+    "sha256": "c8654b9ba3b1af1380afc322cd3541c2e2feaa7d1c7aa21b4e562890c0e75a5b"
   },
   {
     "path": "WINDOWS-TESTS-W17.md",
@@ -232,6 +232,14 @@
     "sha256": "02926fc5106ce4a7543a0a46d6b45e4b2fa1702347bc7a80191fbdfe423e8041"
   },
   {
+    "path": "docs/PUBLIC-TASKS-20261104.csv",
+    "sha256": "707597f8f1f7919f91c1c709753494ff5a8cb762c402d5d8338c3598066071b9"
+  },
+  {
+    "path": "docs/PUBLIC-UPDATE-20261104.md",
+    "sha256": "05167f9f4bbc89873155f6d1d347f4d96622c39873eb9c070faad777de169fba"
+  },
+  {
     "path": "docs/RELOAD-CAPACITY-20261016.md",
     "sha256": "d18d10c058e15ed62bcf03964e91cbf7f3dbd2d8b3262edb9c58c385df1718bf"
   },
@@ -250,6 +258,10 @@
   {
     "path": "docs/SESSION-RESULT-20261018.md",
     "sha256": "2844142e64952b256736595b5a9e264036c5c3da626524945b65016d9aa13b76"
+  },
+  {
+    "path": "docs/SIGNALS-SUPPLEMENT-20261104.csv",
+    "sha256": "53d88391c82c3034eccba514251e4d9ec07b71bc56c97a5dc159cc9b55304840"
   },
   {
     "path": "docs/SOURCE-COLLISION-20261016.md",
@@ -336,6 +348,14 @@
     "sha256": "5f60e954ed7a10dab674fb6555b8d66c26fee720b2999e5ff79e41bdf7b3f869"
   },
   {
+    "path": "private/candidate-001.key",
+    "sha256": "3dd70685b4063f8b14a0e33f2160cbf853234ea97e88b8063592fadc08217394"
+  },
+  {
+    "path": "private/lobby-ck.bin",
+    "sha256": "368838d1ac4e4b69cfc7819f0a678a022f42ff839248c27bd14d7502676dca1d"
+  },
+  {
     "path": "requirements.txt",
     "sha256": "97e5b9692df4855793cb66a51f88ab594a538e2d16c2cbb18f58b86e7d36df41"
   },
@@ -346,6 +366,166 @@
   {
     "path": "run-roe-2022.cmd",
     "sha256": "3d50fdad6d9ab045c3d5e3a840a289fdffdec3d78eb9ec3b6b2d416eb424e6e3"
+  },
+  {
+    "path": "sdk/2022/README.md",
+    "sha256": "a62f0e4c9fae4bfd1ae465e2c923b387bb10f1de43ec7dba8fcb781d257e7e59"
+  },
+  {
+    "path": "sdk/2022/UPSTREAM.json",
+    "sha256": "5f09c1efc925efc422e6d46c49530bf302ecd5c60fdddae6d7682a9afb035f4d"
+  },
+  {
+    "path": "sdk/2022/config/cosmetics-supplement-evidence.json",
+    "sha256": "11b345d80d563541239ae45f43c7244b7c2292af65f6159048693793223866ee"
+  },
+  {
+    "path": "sdk/2022/config/cosmetics.json",
+    "sha256": "c61691f6694119b55e93774ada53049045da541cb2c3b47c40a3cfee4780b889"
+  },
+  {
+    "path": "sdk/2022/requirements.txt",
+    "sha256": "3ede1fecaf8cc84135e038364b2a682bae3b114bc7cbbb9175e9c5b84944db00"
+  },
+  {
+    "path": "sdk/2022/run_tests.py",
+    "sha256": "47361a2127c97a970090362d60f8163983c989b3ebe76067bab336b842ee92a6"
+  },
+  {
+    "path": "sdk/2022/server/directory/inventory_codec_2022.py",
+    "sha256": "121bb4bee9980993185defba3fcff58f0a90f25f1eebda34ccc48d5768cd32ed"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_actions_2022.py",
+    "sha256": "748d6513370087594406fcf462f24f42acc3976f7b59098cd1654699f6d12728"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_equipment_2022.py",
+    "sha256": "1604e7fb1568371112c75958ecca9ca233620c4ffd848ab0c55421cdcc2a1178"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_motion_2022.py",
+    "sha256": "bb39f0a709b9175142fb1f2e1b5572afc672c74a039c6344e182e201d211b608"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_profile_2022.py",
+    "sha256": "7113950c30775d07fe387bd275495862b78f4ab5ccde01770349c905ecfdaf59"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_serialized_motion_2022.py",
+    "sha256": "77434f1463e20a0bfb5f9e34bdbd47b9a1888b1d0419e0d4f7c2996050eca7bc"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_special_motion_2022.py",
+    "sha256": "66de5434eb92b3509daab131cc6399ceba0c2d62d39af0278aced08e76aecf9c"
+  },
+  {
+    "path": "sdk/2022/server/directory/peer_spectator_2022.py",
+    "sha256": "162278f587529cd7bb708239a9a0c89e1a1976064771594ca247606d74c59986"
+  },
+  {
+    "path": "sdk/2022/server/directory/room_cosmetics_2022.py",
+    "sha256": "ca0dd2dd34104ebab7affc84456b7fff26e5f20543c0dfc46e11e0f861899a07"
+  },
+  {
+    "path": "sdk/2022/server/directory/transport_diagnostics_2022.py",
+    "sha256": "3419b9ae6c096688427d5f5f9feb557501df23d512c6dd961538b55576e9d060"
+  },
+  {
+    "path": "sdk/2022/tests/test_base_character_2022.py",
+    "sha256": "5e27402b846c3ea9bf3fc71b5ba7f42f2a460f40f554a04ab04b8a8b449b5938"
+  },
+  {
+    "path": "sdk/2022/tests/test_lobby_rewards_2022.py",
+    "sha256": "798dfaa0dcaad4026afad3b4d8c34645322841f64701e673b39b853d95fbc40d"
+  },
+  {
+    "path": "sdk/2022/tests/test_local_cosmetics_2022.py",
+    "sha256": "d580c912b2f28d959c322c0aeb78132e65b4a66c3844a363a6ab58234a898454"
+  },
+  {
+    "path": "sdk/2022/tests/test_peer_motion_2022.py",
+    "sha256": "f1cffeec85af9d9d2923dc320223cf1a0df5e0403ee9ad3cd7cd5e738c1110d4"
+  },
+  {
+    "path": "sdk/2022/tests/test_peer_special_motion_2022.py",
+    "sha256": "3ffbf8033ada5d4bed87ae45450fd6245b33b947dd42e566310377730a58af80"
+  },
+  {
+    "path": "sdk/2022/tests/test_peer_spectator_2022.py",
+    "sha256": "c6bf7d89279df2643f6fb22a29dcf3d8e7ee4540210e1f150de51204ea11891a"
+  },
+  {
+    "path": "sdk/2022/tests/test_roe_protocol_2022.py",
+    "sha256": "e89984031adad2c7b4defb0da04884e7f39cac49b9f8bfc8bcf1aa48ba6e4e6d"
+  },
+  {
+    "path": "sdk/2022/tests/test_roe_room_2023.py",
+    "sha256": "fc9f16735b45e0223194585319a1644bfd4055daa8ab7f5a81c2f59594817e27"
+  },
+  {
+    "path": "sdk/2022/tools/analyze_room_messages_2023.py",
+    "sha256": "a4bba43a8bb7428fd0fcac7da6438070cede02a9e7f05031b25a344dbc730ffd"
+  },
+  {
+    "path": "sdk/2022/tools/base_character_2022.py",
+    "sha256": "022d6aabc3596dfeeffb26c2bc2c628c6174cf4a36dd2fe15277d8263aeca171"
+  },
+  {
+    "path": "sdk/2022/tools/lan_tunnel_2022.py",
+    "sha256": "2806f313a6d5e74f2cb065ee261f792b45298e4706dc223a0400eb27df22f347"
+  },
+  {
+    "path": "sdk/2022/tools/lobby_actor_uid_2022.py",
+    "sha256": "19491d300194a541730ae87c07ee894245fa318a99adf0c455d1751589cd3fbd"
+  },
+  {
+    "path": "sdk/2022/tools/lobby_rewards_2022.py",
+    "sha256": "7be6935d00c3d9505c9c4ac6b7bb1880230c03b620bc016248eaa31eb6ebe2f5"
+  },
+  {
+    "path": "sdk/2022/tools/local_account_2022.py",
+    "sha256": "0f28195413312c3d70610b36bf30743a45e6a95fc404ad7b012a24c87acabc50"
+  },
+  {
+    "path": "sdk/2022/tools/local_clothing_2022.py",
+    "sha256": "fc2e0936bcbc50ac4325984927f55b154c87bec3986383638ff90d80fb068fba"
+  },
+  {
+    "path": "sdk/2022/tools/local_cosmetics_2022.py",
+    "sha256": "55df5970f21fed01c8add31449abf36497639aca9f6df9fb2f32ee4bcbe84684"
+  },
+  {
+    "path": "sdk/2022/tools/login_world_profile_2022.py",
+    "sha256": "b368821eaf621ea6d1790909b3cc6d653ef09afc3e937f170695ea9a75d92584"
+  },
+  {
+    "path": "sdk/2022/tools/network_fault_2022.py",
+    "sha256": "c618b663c5ee0288e97ce7eb31fed5cb0a3048b7ce1b3148e2809c60051dbd32"
+  },
+  {
+    "path": "sdk/2022/tools/roe_protocol_2022.py",
+    "sha256": "6206753161c9cf2a783e1e9d17ca2609d1c7790ab70705226e3e5011246381f6"
+  },
+  {
+    "path": "sdk/2022/tools/roe_room_2023.py",
+    "sha256": "3de3fda7d78b3595511d827ca9ce89e04820428c33d235fd7fb291dc52233f1a"
+  },
+  {
+    "path": "sdk/2022/tools/roe_scene_2023.py",
+    "sha256": "73ef44b5168ff052337cdbaab0f59ac7fad074d3f7010508c750e404c799a9f5"
+  },
+  {
+    "path": "sdk/2022/tools/roe_team_2022.py",
+    "sha256": "9588f5bdbdf4120eaeaa7412e2f951305837c425d94cde4cf7ad4e412e09b96f"
+  },
+  {
+    "path": "sdk/2022/tools/roe_tgcp_2023.py",
+    "sha256": "ffa2764faf3100cb4754d48f3492abca850f85c86a875d750885a45ec7ec2e93"
+  },
+  {
+    "path": "sdk/2022/tools/tcp_relay_2022.py",
+    "sha256": "826157ce89ec1ced708e3068ce8c2f2727ba93da089ce10bd105ffaa6fbe4692"
   },
   {
     "path": "search/Ring-of-Elysium-Lobby-Emulator/LICENSE",
